@@ -40,21 +40,30 @@ Docs: https://docs.expo.dev/eas/index.md
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
 
-## Project: FocusBlocker (state as of 2026-11-10)
+## Project: FocusBlocker (state as of 2026-11-10, v1.1.0)
 
 Android-only self-control app, English UI, Expo SDK 58 / RN 0.88.1 / React 19.3.
 
 - `App.js` — the entire UI. Talks to the native module through `modules/focus-guard/index.js`
   (never import `requireNativeModule` in a screen; the wrapper no-ops in Expo Go).
 - `modules/focus-guard/` — local Expo module, autolinked, no package.json:
-  - `FocusAccessibilityService.kt` — the keyword engine. Event-text fast path, then a throttled
-    (350 ms per package) BFS of `rootInActiveWindow` (depth 40 / 600 nodes). On a hit: 900 ms
-    cooldown, counter++, Toast, BACK ×3 (400 ms apart) then HOME.
-  - `FocusGuardModule.kt` — JS API: `getConfig` (JSON string), `setKeywords`, `setEnabled`,
-    `isAccessibilityEnabled`, `openAccessibilitySettings`, `isDeviceAdminActive`,
-    `requestDeviceAdmin`, `lockScreen`, `resetBlockCount`.
+  - `FocusAccessibilityService.kt` — the guard. TWO rules, both from SharedPreferences:
+    (1) keyword = only text in input fields (`isEditable` / EditText / AutoCompleteTextView),
+    checked first on `event.source` then in a throttled (350 ms/package) BFS of
+    `rootInActiveWindow` (depth 40 / 600 nodes); (2) domain = URL read from an address-bar node
+    (viewId hints url_bar/omnibox/address_bar/location_bar) or, for known browser packages, any
+    explicit `://` URL; host suffix match against the domain list. On a hit: 900 ms cooldown,
+    counter++, Toast, ONE immediate `GLOBAL_ACTION_BACK`, then a recheck every 800 ms that presses
+    BACK again (max 3) and finally HOME if the page/field is still blocked.
+    Page body text is deliberately NOT matched (owner request, 2026-11-10).
+  - `FocusGuardModule.kt` — JS API: `getConfig` (JSON string: keywords, domains, enabled,
+    blockCount, lastBlockPackage/Reason/At, accessibilityEnabled, deviceAdminActive),
+    `setKeywords`, `setDomains`, `setEnabled`, `isAccessibilityEnabled`,
+    `openAccessibilitySettings`, `isDeviceAdminActive`, `requestDeviceAdmin`, `lockScreen`,
+    `resetBlockCount`.
   - `FocusGuardStore.kt` — SharedPreferences (`focus_blocker_prefs`) so the service works with
-    the RN runtime dead.
+    the RN runtime dead. Domains are normalized to bare hosts (scheme/www./path/port stripped,
+    must contain a dot).
   - `FocusDeviceAdminReceiver.kt` + `res/xml/device_admin.xml` (`<force-lock />`) —
     an ACTIVE admin is what blocks uninstall; the policy only grants `lockNow()`.
   - `android/src/main/AndroidManifest.xml` — service + receiver, both `exported="true"`,
@@ -66,8 +75,12 @@ Android-only self-control app, English UI, Expo SDK 58 / RN 0.88.1 / React 19.3.
   `npm run prebuild:android`, `npx expo-doctor` (20/20).
   Termux cannot compile Kotlin — a green bundle is the local ceiling; Gradle compiles on EAS.
 - `android/` and `dist/` are generated; deleted after verification. Do not hand-edit them.
-- Build: `eas build -p android --profile preview` (`eas.json` preview = `buildType: apk`).
-  Never ship the default `.aab` — it cannot be sideloaded.
+- Build: **GitHub Actions** `.github/workflows/android-release.yml` — push to `main` produces
+  `FocusBlocker-release-apk`; a `v*` tag also publishes a GitHub Release. It runs
+  `npm ci` → `expo prebuild --platform android --clean --no-install` → `./gradlew
+  assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a` on Node 22 / JDK 21, and the
+  Expo template signs release with the debug keystore (installable).
+  EAS alternative: `eas build -p android --profile preview`. Never ship the default `.aab`.
 - Not yet installed on a device: first-run steps are in README.md (accessibility toggle,
   Android 13+ "Restricted setting" workaround, device admin, removal steps).
 
@@ -90,3 +103,6 @@ Android-only self-control app, English UI, Expo SDK 58 / RN 0.88.1 / React 19.3.
   Cannot read properties of undefined (reading 'arm64')` — harmless, Metro serves normally.
 - JS/UI changes hot-reload in the dev build; native changes (Kotlin, manifest, new module) need a
   new dev build. `app.json`'s `scheme` is set to `focusblocker` for dev-client deep links.
+- Git: remote `https://github.com/elyasyy23-lgtm/FocusBlocker.git`, default branch `main`
+  (local work started on `master` and was pushed to `main`). PAT for `elyasyy23-lgtm` lives in
+  `~/.git-credentials`.

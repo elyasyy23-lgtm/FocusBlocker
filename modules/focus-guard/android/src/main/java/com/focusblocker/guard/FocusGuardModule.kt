@@ -28,9 +28,11 @@ class FocusGuardModule : Module() {
       val ctx = requireContext()
       val config = JSONObject()
       config.put("keywords", JSONArray(FocusGuardStore.keywords(ctx)))
+      config.put("domains", JSONArray(FocusGuardStore.domains(ctx)))
       config.put("enabled", FocusGuardStore.isEnabled(ctx))
       config.put("blockCount", FocusGuardStore.blockCount(ctx))
       config.put("lastBlockPackage", FocusGuardStore.lastBlockPackage(ctx) ?: JSONObject.NULL)
+      config.put("lastBlockReason", FocusGuardStore.lastBlockReason(ctx) ?: JSONObject.NULL)
       config.put("lastBlockAt", FocusGuardStore.lastBlockAt(ctx).toDouble())
       config.put("accessibilityEnabled", isAccessibilityEnabled(ctx))
       config.put("deviceAdminActive", isDeviceAdminActive(ctx))
@@ -40,6 +42,13 @@ class FocusGuardModule : Module() {
     AsyncFunction("setKeywords") { keywords: List<String> ->
       val ctx = requireContext()
       FocusGuardStore.setKeywords(ctx, keywords)
+      FocusAccessibilityService.reload()
+      true
+    }
+
+    AsyncFunction("setDomains") { domains: List<String> ->
+      val ctx = requireContext()
+      FocusGuardStore.setDomains(ctx, domains)
       FocusAccessibilityService.reload()
       true
     }

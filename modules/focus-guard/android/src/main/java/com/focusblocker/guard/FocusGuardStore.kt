@@ -13,10 +13,16 @@ import org.json.JSONArray
 internal object FocusGuardStore {
   private const val PREFS_NAME = "focus_blocker_prefs"
   private const val KEY_KEYWORDS = "keywords"
+  private const val KEY_DOMAINS = "blocked_domains"
   private const val KEY_ENABLED = "enabled"
   private const val KEY_BLOCK_COUNT = "block_count"
   private const val KEY_LAST_BLOCK_PACKAGE = "last_block_package"
   private const val KEY_LAST_BLOCK_AT = "last_block_at"
+  private const val KEY_LAST_BLOCK_REASON = "last_block_reason"
+
+  private val SCHEME = Regex("^[a-z][a-z0-9+.-]*://")
+  private val PATH_TAIL = Regex("[/?#].*$")
+  private val PORT_TAIL = Regex(":\\d+$")
 
   private fun prefs(context: Context): SharedPreferences =
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -47,6 +53,50 @@ internal object FocusGuardStore {
     prefs(context).edit().putString(KEY_KEYWORDS, array.toString()).apply()
   }
 
+  /**
+   * Domains are stored as bare hosts: "https://www.facebook.com/feed" becomes
+   * "facebook.com", so the service only has to compare host suffixes.
+   */
+  fun domains(context: Context): List<String> {
+    val raw = prefs(context).getString(KEY_DOMAINS, "[]") ?: "[]"
+    val array = try {
+      JSONArray(raw)
+    } catch (error: Exception) {
+      JSONArray()
+    }
+    val result = LinkedHashSet<String>()
+    for (index in 0 until array.length()) {
+      val value = normalizeDomain(array.optString(index, ""))
+      if (value.isNotEmpty()) result.add(value)
+    }
+    return result.toList()
+  }
+
+  fun setDomains(context: Context, domains: List<String>) {
+    val unique = LinkedHashSet<String>()
+    domains.forEach { domain ->
+      val value = normalizeDomain(domain)
+      if (value.isNotEmpty()) unique.add(value)
+    }
+    val array = JSONArray()
+    unique.forEach { array.put(it) }
+    prefs(context).edit().putString(KEY_DOMAINS, array.toString()).apply()
+  }
+
+  fun normalizeDomain(raw: String): String {
+    var value = raw.trim().lowercase()
+    if (value.isEmpty()) return ""
+    value = value.replace(SCHEME, "")
+    value = value.replace(PATH_TAIL, "")
+    value = value.replace(PORT_TAIL, "")
+    value = value.trimEnd('.')
+    while (value.startsWith("www.")) value = value.removePrefix("www.")
+    // A bare domain needs at least one dot ("facebook.com"), otherwise typing
+    // "localhost" would match everything and the browser would always close.
+    if (!value.contains('.')) return ""
+    return value
+  }
+
   fun isEnabled(context: Context): Boolean = prefs(context).getBoolean(KEY_ENABLED, true)
 
   fun setEnabled(context: Context, enabled: Boolean) {
@@ -60,11 +110,15 @@ internal object FocusGuardStore {
 
   fun lastBlockAt(context: Context): Long = prefs(context).getLong(KEY_LAST_BLOCK_AT, 0L)
 
-  fun recordBlock(context: Context, packageName: String) {
+  fun lastBlockReason(context: Context): String? =
+    prefs(context).getString(KEY_LAST_BLOCK_REASON, null)
+
+  fun recordBlock(context: Context, packageName: String, reason: String) {
     val preferences = prefs(context)
     preferences.edit()
       .putInt(KEY_BLOCK_COUNT, preferences.getInt(KEY_BLOCK_COUNT, 0) + 1)
       .putString(KEY_LAST_BLOCK_PACKAGE, packageName)
+      .putString(KEY_LAST_BLOCK_REASON, reason)
       .putLong(KEY_LAST_BLOCK_AT, System.currentTimeMillis())
       .apply()
   }
@@ -73,6 +127,7 @@ internal object FocusGuardStore {
     prefs(context).edit()
       .putInt(KEY_BLOCK_COUNT, 0)
       .remove(KEY_LAST_BLOCK_PACKAGE)
+      .remove(KEY_LAST_BLOCK_REASON)
       .remove(KEY_LAST_BLOCK_AT)
       .apply()
   }

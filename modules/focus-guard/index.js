@@ -18,9 +18,11 @@ export const isAvailable = native !== null;
 
 export const EMPTY_CONFIG = {
   keywords: [],
+  domains: [],
   enabled: true,
   blockCount: 0,
   lastBlockPackage: null,
+  lastBlockReason: null,
   lastBlockAt: 0,
   accessibilityEnabled: false,
   deviceAdminActive: false,
@@ -29,7 +31,12 @@ export const EMPTY_CONFIG = {
 function parseConfig(raw) {
   try {
     const parsed = JSON.parse(raw);
-    return { ...EMPTY_CONFIG, ...parsed, keywords: parsed.keywords || [] };
+    return {
+      ...EMPTY_CONFIG,
+      ...parsed,
+      keywords: parsed.keywords || [],
+      domains: parsed.domains || [],
+    };
   } catch (error) {
     return { ...EMPTY_CONFIG };
   }
@@ -44,6 +51,11 @@ export async function getConfig() {
 export async function saveKeywords(keywords) {
   if (!native) throw new Error('Native module missing — build a dev/release APK first.');
   return native.setKeywords(keywords);
+}
+
+export async function saveDomains(domains) {
+  if (!native) throw new Error('Native module missing — build a dev/release APK first.');
+  return native.setDomains(domains);
 }
 
 export async function setEnabled(enabled) {

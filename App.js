@@ -72,21 +72,38 @@ function ActionButton({ label, onPress, variant = 'primary', disabled = false, b
   );
 }
 
+function normalizeDomain(raw) {
+  return String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//, '')
+    .replace(/[/?#].*$/, '')
+    .replace(/:\d+$/, '')
+    .replace(/^www\./, '')
+    .replace(/\.+$/, '');
+}
+
 export default function App() {
   const [config, setConfig] = useState(FocusGuard.EMPTY_CONFIG);
   const [keywordsText, setKeywordsText] = useState('');
+  const [domainsText, setDomainsText] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingDomains, setSavingDomains] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [message, setMessage] = useState(null);
-  const dirtyRef = useRef(false);
+  const keywordsDirtyRef = useRef(false);
+  const domainsDirtyRef = useRef(false);
 
   const refresh = useCallback(async () => {
     try {
       const next = await FocusGuard.getConfig();
       setConfig(next);
-      if (!dirtyRef.current) {
+      if (!keywordsDirtyRef.current) {
         setKeywordsText(next.keywords.join(', '));
+      }
+      if (!domainsDirtyRef.current) {
+        setDomainsText(next.domains.join(', '));
       }
     } catch (error) {
       setMessage(error.message || 'Could not read the native configuration.');
@@ -113,7 +130,7 @@ export default function App() {
     setMessage(null);
     try {
       await FocusGuard.saveKeywords(keywords);
-      dirtyRef.current = false;
+      keywordsDirtyRef.current = false;
       await refresh();
       setMessage(
         keywords.length === 0
@@ -124,6 +141,30 @@ export default function App() {
       setMessage(error.message || 'Saving the block list failed.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveDomains = async () => {
+    const domains = domainsText
+      .split(/[,\n]/)
+      .map((domain) => normalizeDomain(domain))
+      .filter((domain) => domain.length > 0);
+
+    setSavingDomains(true);
+    setMessage(null);
+    try {
+      await FocusGuard.saveDomains(domains);
+      domainsDirtyRef.current = false;
+      await refresh();
+      setMessage(
+        domains.length === 0
+          ? 'Domain list cleared — no website is blocked.'
+          : `Saved ${domains.length} domain${domains.length === 1 ? '' : 's'}.`
+      );
+    } catch (error) {
+      setMessage(error.message || 'Saving the domain list failed.');
+    } finally {
+      setSavingDomains(false);
     }
   };
 
@@ -143,7 +184,7 @@ export default function App() {
   const openAccessibility = async () => {
     try {
       await FocusGuard.openAccessibilitySettings();
-      setMessage('Find “FocusBlocker keyword guard” in the list and switch it on.');
+      setMessage('Find “FocusBlocker guard (keywords + domains)” in the list and switch it on.');
     } catch (error) {
       setMessage(error.message || 'Could not open Accessibility settings.');
     }
@@ -186,7 +227,17 @@ export default function App() {
     )
   );
 
-  const blockingReady = config.accessibilityEnabled && config.keywords.length > 0 && config.enabled;
+  const domainsPreview = Array.from(
+    new Set(
+      domainsText
+        .split(/[,\n]/)
+        .map((domain) => normalizeDomain(domain))
+        .filter(Boolean)
+    )
+  );
+
+  const blockingReady =
+    config.accessibilityEnabled && config.enabled && (config.keywords.length > 0 || config.domains.length > 0);
 
   return (
     <View style={styles.root}>
@@ -197,8 +248,8 @@ export default function App() {
         showsVerticalScrollIndicator={false}>
         <Text style={styles.brand}>FocusBlocker</Text>
         <Text style={styles.tagline}>
-          A keyword guard for your own phone. When a blocked word appears on screen, the app you are
-          in is closed immediately.
+          A guard for your own phone. It watches what you type into search bars and which website
+          is open in your browser — a blocked keyword or domain closes it immediately.
         </Text>
 
         {!FocusGuard.isAvailable ? (
@@ -222,14 +273,14 @@ export default function App() {
               </Text>
               <Text style={styles.heroHint}>
                 {config.enabled
-                  ? `${config.keywords.length} keyword${config.keywords.length === 1 ? '' : 's'} watched`
+                  ? `${config.keywords.length} keyword${config.keywords.length === 1 ? '' : 's'} + ${config.domains.length} domain${config.domains.length === 1 ? '' : 's'} watched`
                   : 'Blocker paused'}
                 {' · '}
                 {config.blockCount} block{config.blockCount === 1 ? '' : 's'} so far
               </Text>
               <View style={styles.switchRow}>
                 <View style={styles.switchLabel}>
-                  <Text style={styles.switchTitle}>Keyword blocking</Text>
+                  <Text style={styles.switchTitle}>Protection</Text>
                   <Text style={styles.switchHint}>
                     {config.accessibilityEnabled
                       ? 'Accessibility service is running'
@@ -247,12 +298,12 @@ export default function App() {
             </View>
 
             <Section
-              title="1. Block list"
-              subtitle="Separate keywords with a comma. Matching is case-insensitive and matches inside longer text too.">
+              title="1. Blocked keywords"
+              subtitle="Only text inside search/input fields is checked (Google search bar, browser address bar, any text box). Separate keywords with a comma — matching is case-insensitive and also matches inside longer text.">
               <TextInput
                 value={keywordsText}
                 onChangeText={(value) => {
-                  dirtyRef.current = true;
+                  keywordsDirtyRef.current = true;
                   setKeywordsText(value);
                 }}
                 placeholder="sex, porn, casino"
@@ -282,7 +333,43 @@ export default function App() {
             </Section>
 
             <Section
-              title="2. Accessibility service"
+              title="2. Blocked domains"
+              subtitle="The guard reads the address bar of Chrome and other browsers. http://, https://, www. and paths are removed automatically — just type the domain.">
+              <TextInput
+                value={domainsText}
+                onChangeText={(value) => {
+                  domainsDirtyRef.current = true;
+                  setDomainsText(value);
+                }}
+                placeholder="facebook.com, instagram.com"
+                placeholderTextColor="#5A6779"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                multiline
+                style={styles.input}
+              />
+              <View style={styles.chipRow}>
+                {domainsPreview.length === 0 ? (
+                  <Text style={styles.emptyHint}>No domains yet — the browser stays open.</Text>
+                ) : (
+                  domainsPreview.map((domain) => (
+                    <View key={domain} style={[styles.chip, styles.chipDanger]}>
+                      <Text style={[styles.chipText, styles.chipTextDanger]}>{domain}</Text>
+                    </View>
+                  ))
+                )}
+              </View>
+              <ActionButton
+                label="Save domain list"
+                onPress={saveDomains}
+                busy={savingDomains}
+                disabled={!FocusGuard.isAvailable}
+              />
+            </Section>
+
+            <Section
+              title="3. Accessibility service"
               subtitle="This is what lets the app read the screen and press Back. Android shows a warning — that warning is normal for any accessibility app.">
               <View style={styles.statusRow}>
                 <View style={styles.statusTextWrap}>
@@ -305,7 +392,7 @@ export default function App() {
             </Section>
 
             <Section
-              title="3. Device admin (anti-uninstall)"
+              title="4. Device admin (anti-uninstall)"
               subtitle="While device admin is active, Android refuses to uninstall FocusBlocker. Deactivate it in Settings → Security → Device admin apps if you ever want the app gone.">
               <View style={styles.statusRow}>
                 <View style={styles.statusTextWrap}>
@@ -340,20 +427,27 @@ export default function App() {
                   <Text style={styles.statLabel}>Keywords</Text>
                 </View>
                 <View style={styles.statBox}>
-                  <Text style={styles.statValue} numberOfLines={1}>
-                    {config.lastBlockPackage ? config.lastBlockPackage.split('.').pop() : '—'}
-                  </Text>
-                  <Text style={styles.statLabel}>Last blocked</Text>
+                  <Text style={styles.statValue}>{config.domains.length}</Text>
+                  <Text style={styles.statLabel}>Domains</Text>
                 </View>
               </View>
+              <Text style={styles.lastBlockLine}>
+                Last block:{' '}
+                {config.lastBlockPackage
+                  ? `${config.lastBlockPackage.split('.').pop()}${
+                      config.lastBlockReason ? ` (${config.lastBlockReason})` : ''
+                    }`
+                  : 'nothing yet'}
+              </Text>
               <ActionButton label="Reset counter" variant="secondary" onPress={clearCounter} />
             </Section>
 
             {message ? <Text style={styles.message}>{message}</Text> : null}
 
             <Text style={styles.footer}>
-              Works fully offline. Android may stop a service after a reboot — open the app once and
-              check the service status.
+              Works fully offline. Only text you type into input fields and the browser address bar is
+              checked — page body text is not read. Android may stop the service after a reboot: open
+              the app once and check the status.
             </Text>
           </>
         )}
@@ -509,6 +603,17 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontSize: 12,
     fontWeight: '600',
+  },
+  chipDanger: {
+    backgroundColor: '#33222A',
+  },
+  chipTextDanger: {
+    color: COLORS.danger,
+  },
+  lastBlockLine: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginBottom: 12,
   },
   emptyHint: {
     color: COLORS.muted,

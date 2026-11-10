@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <string name="focus_guard_service_label">FocusBlocker keyword guard</string>
-  <string name="accessibility_service_description">Watches the text shown on screen and leaves the current app as soon as one of your blocked keywords appears.</string>
+  <string name="focus_guard_service_label">FocusBlocker guard (keywords + domains)</string>
+  <string name="accessibility_service_description">Watches what you type into search fields and the address of the page open in your browser. When a blocked keyword or domain appears, the keyboard/search is closed immediately.</string>
   <string name="device_admin_label">FocusBlocker device admin</string>
   <string name="device_admin_description">Keeps FocusBlocker installed while it is protecting you. Deactivate it in Android settings if you want to uninstall.</string>
 </resources>

@@ -1,11 +1,16 @@
 # FocusBlocker
 
-A personal self-control app for Android with two features:
+A personal self-control app for Android with three features:
 
-1. **Keyword blocker** — an Accessibility Service reads the text on screen. When one of your
-   blocked keywords appears, the app presses Back (up to three times) and finally Home, so you
-   are thrown out of whatever you were reading.
-2. **Device admin (anti-uninstall)** — while the app is an active device administrator, Android
+1. **Targeted keyword blocker** — the Accessibility Service does *not* read the whole screen.
+   It checks the text inside input fields only (`EditText` / `AutoCompleteTextView`, i.e. the
+   Google search bar, a browser address bar, any text box). A blocked keyword closes the
+   keyboard/search immediately with `GLOBAL_ACTION_BACK`.
+2. **Domain blocker** — inside Chrome (and other browsers, including Chrome Custom Tabs) the
+   service reads the URL from the address-bar node. If the page host matches the blocked-domain
+   list (including subdomains), it presses Back immediately; if the site is still on screen, it
+   keeps backing out and finally goes Home.
+3. **Device admin (anti-uninstall)** — while the app is an active device administrator, Android
    refuses to uninstall it. The same admin also exposes a "panic lock" that locks the screen
    immediately (`<force-lock />` policy).
 
@@ -28,9 +33,9 @@ modules/focus-guard/                     local Expo module (autolinked, no npm p
   android/src/main/res/values/strings.xml
   android/src/main/java/com/focusblocker/guard/
     FocusGuardModule.kt                  native functions used by App.js
-    FocusAccessibilityService.kt         the keyword engine (event text + tree scan + escape)
+    FocusAccessibilityService.kt         the guard: input-field keywords + browser domain check
     FocusDeviceAdminReceiver.kt          device admin receiver
-    FocusGuardStore.kt                   SharedPreferences storage (keywords, counter)
+    FocusGuardStore.kt                   SharedPreferences storage (keywords, domains, counter)
 app.json                                 package name, icons, version
 eas.json                                 preview profile = APK
 ```
@@ -41,7 +46,7 @@ eas.json                                 preview profile = APK
 for scripted automation while your app is on screen. A self-control guard has to fire while the
 user is inside *another* app with the React Native runtime backgrounded or killed. Android
 throttles and later kills a background JS timer, so the check lives in the service itself
-(`FocusAccessibilityService.onAccessibilityEvent`) and reads the keyword list from native
+(`FocusAccessibilityService.onAccessibilityEvent`) and reads the keyword/domain lists from native
 storage. The result: blocking keeps working when the UI is not running.
 
 The trade-off is that this module is hand-written and Android-only (same as expo-pilot).
@@ -73,13 +78,16 @@ npx expo run:android --variant release
 
 1. Install and open FocusBlocker.
 2. Type your keywords, comma separated (`sex, porn, casino`), tap **Save block list**.
-3. Tap **Open Accessibility settings** → *Installed apps* → **FocusBlocker keyword guard** → On.
+3. Type the domains you want closed, one per line or comma separated (`facebook.com,
+   instagram.com`), tap **Save domain list**. `https://`, `www.` and paths are stripped for you.
+4. Tap **Open Accessibility settings** → *Installed apps* → **FocusBlocker guard (keywords +
+   domains)** → On.
    - On Android 13+ a sideloaded app may show a greyed-out toggle with
      *"Restricted setting"*. Fix: Settings → Apps → FocusBlocker → ⋮ → **Allow restricted
      settings**, then enable the service again.
-4. Tap **Activate device admin** → confirm the system dialog.
-5. Open any app containing a blocked word — the screen should close and the block counter
-   increases.
+5. Tap **Activate device admin** → confirm the system dialog.
+6. Type a blocked keyword into a search bar — the keyboard/search closes and the counter
+   increases. Open a blocked domain in Chrome — the page closes and the counter increases.
 
 ## Removing the app
 
@@ -88,10 +96,31 @@ Settings → Security → Device admin apps → **FocusBlocker device admin** �
 uninstall normally. If you lock Android Settings with a third-party app locker, deactivate the
 admin first — otherwise the app is stuck on the phone.
 
+## Automatic APK builds (GitHub Actions)
+
+`.github/workflows/android-release.yml` builds a signed, installable release APK on every push
+to `main`, and publishes it as a GitHub Release when a `v*` tag is pushed:
+
+```bash
+git add -A
+git commit -m "feat: targeted keyword + domain blocking"
+git push origin main          # → APK artifact in the Actions run
+git tag v1.1.0
+git push origin v1.1.0        # → APK attached to the GitHub Release
+```
+
+Download it from the Actions run (Artifacts → `FocusBlocker-release-apk`) or from
+**Releases**. The CI template signs the release APK with the debug keystore, so it installs
+directly — replace it with a real keystore before publishing to a store.
+
 ## Known limits (read before trusting it)
 
-- Matching is substring based and only sees text exposed through accessibility. Images, videos,
-  and games/Flutter/Unity screens that draw text on a canvas are invisible to it.
+- Keyword matching is substring based and only runs on input-field text (search bars, address
+  bars, text boxes). Page body text is deliberately ignored, and images/videos/games that draw
+  text on a canvas are invisible to accessibility.
+- Domain matching needs a browser whose address bar exposes its URL through accessibility
+  (Chrome, Firefox, Edge, Brave, Samsung Internet, Opera, DuckDuckGo, Vivaldi, Kiwi, Yandex).
+  Pages opened inside a non-browser app's own WebView without a URL bar cannot be checked.
 - Some apps load content lazily; the guard reacts on the next accessibility event (usually
   within a few hundred milliseconds).
 - Deep scans are throttled (~350 ms per app) to protect battery; very fast scrolls can slip past
