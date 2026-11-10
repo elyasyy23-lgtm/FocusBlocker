@@ -56,6 +56,12 @@ Android-only self-control app, English UI, Expo SDK 58 / RN 0.88.1 / React 19.3.
     counter++, Toast, ONE immediate `GLOBAL_ACTION_BACK`, then a recheck every 800 ms that presses
     BACK again (max 3) and finally HOME if the page/field is still blocked.
     Page body text is deliberately NOT matched (owner request, 2026-11-10).
+    Own-app exclusion (v1.1.1): `isOwnPackage()` checks the EVENT package, the
+    edited NODE's package, the tree ROOT package and the service's own
+    `packageName` against `APP_PACKAGE_NAME = "com.focusblocker.app"`; the root
+    check is the load-bearing one — keyboard/launcher/System UI events arrive
+    while OUR window is the active root, and the setup screen's TextInputs
+    literally contain the block list. `triggerBlock()` refuses own packages too.
   - `FocusGuardModule.kt` — JS API: `getConfig` (JSON string: keywords, domains, enabled,
     blockCount, lastBlockPackage/Reason/At, accessibilityEnabled, deviceAdminActive),
     `setKeywords`, `setDomains`, `setEnabled`, `isAccessibilityEnabled`,

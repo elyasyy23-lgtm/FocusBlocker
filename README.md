@@ -5,7 +5,8 @@ A personal self-control app for Android with three features:
 1. **Targeted keyword blocker** — the Accessibility Service does *not* read the whole screen.
    It checks the text inside input fields only (`EditText` / `AutoCompleteTextView`, i.e. the
    Google search bar, a browser address bar, any text box). A blocked keyword closes the
-   keyboard/search immediately with `GLOBAL_ACTION_BACK`.
+   keyboard/search immediately with `GLOBAL_ACTION_BACK`. FocusBlocker never inspects its own
+   window, so typing your block lists in the setup screen is always safe.
 2. **Domain blocker** — inside Chrome (and other browsers, including Chrome Custom Tabs) the
    service reads the URL from the address-bar node. If the page host matches the blocked-domain
    list (including subdomains), it presses Back immediately; if the site is still on screen, it
@@ -122,7 +123,8 @@ directly — replace it with a real keystore before publishing to a store.
   (Chrome, Firefox, Edge, Brave, Samsung Internet, Opera, DuckDuckGo, Vivaldi, Kiwi, Yandex).
   Pages opened inside a non-browser app's own WebView without a URL bar cannot be checked.
 - Some apps load content lazily; the guard reacts on the next accessibility event (usually
-  within a few hundred milliseconds).
+  within a few hundred milliseconds). The guard ignores its own package entirely — events from
+  the keyboard or launcher are only acted on when the foreground window belongs to another app.
 - Deep scans are throttled (~350 ms per app) to protect battery; very fast scrolls can slip past
   a single frame but will be caught on the next event.
 - Device admin stops *normal* uninstall. It is not a security product: `adb uninstall`, a factory

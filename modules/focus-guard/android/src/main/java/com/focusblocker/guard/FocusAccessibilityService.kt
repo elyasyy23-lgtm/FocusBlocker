@@ -39,6 +39,14 @@ class FocusAccessibilityService : AccessibilityService() {
     private const val REASON_KEYWORD = "keyword"
     private const val REASON_DOMAIN = "domain"
 
+    /**
+     * Our own application id (app.json -> expo.android.package). Kept as a
+     * constant *and* compared with Context.packageName, so the setup screen is
+     * ignored even if the event/root reports the package in a different casing
+     * or the id changes between a dev build and a release build.
+     */
+    private const val APP_PACKAGE_NAME = "com.focusblocker.app"
+
     private val WHITESPACE = Regex("\\s+")
 
     /** Host inside any text the address bar exposes ("https://www.facebook.com/"). */
@@ -149,9 +157,12 @@ class FocusAccessibilityService : AccessibilityService() {
 
   override fun onAccessibilityEvent(event: AccessibilityEvent) {
     if (!enabled || (keywords.isEmpty() && domains.isEmpty())) return
-    val packageName = event.packageName?.toString() ?: return
-    // Never block our own setup screen.
-    if (packageName == this.packageName) return
+
+    val eventPackage = event.packageName?.toString() ?: return
+    // Rule 1: ignore our own app completely — the keyword/domain TextInputs on
+    // the setup screen contain the block lists, so inspecting them would block
+    // FocusBlocker exactly while the user edits the lists.
+    if (isOwnPackage(eventPackage)) return
     if (!isRelevantEvent(event.eventType)) return
 
     val now = System.currentTimeMillis()
@@ -163,8 +174,11 @@ class FocusAccessibilityService : AccessibilityService() {
       val source = safeSource(event)
       if (source != null) {
         try {
-          if (isTextField(source) && matchesKeyword(source.text)) {
-            triggerBlock(packageName, REASON_KEYWORD, "input field")
+          if (!isOwnPackage(source.packageName?.toString()) &&
+            isTextField(source) &&
+            matchesKeyword(source.text)
+          ) {
+            triggerBlock(eventPackage, REASON_KEYWORD, "input field")
             return
           }
         } finally {
@@ -173,21 +187,50 @@ class FocusAccessibilityService : AccessibilityService() {
       }
     }
 
+    // The window that is actually on screen decides what is inspected. Events
+    // from the keyboard, the launcher or System UI can arrive while OUR window
+    // is the active one — checking the root package is what makes "ignore our
+    // own app" airtight.
+    val root = activeRoot() ?: return
+    val windowPackage = try {
+      root.packageName?.toString()
+    } catch (error: Throwable) {
+      null
+    } ?: eventPackage
+    if (isOwnPackage(windowPackage)) {
+      recycleQuietly(root)
+      return
+    }
+
     // 2. Tree walk for everything the event does not carry: input fields that did
     //    not emit the event, and the browser address bar. Throttled per app.
-    if (packageName == lastScanPackage && now - lastScanAt < SCAN_INTERVAL_MS) return
-    lastScanPackage = packageName
+    if (windowPackage == lastScanPackage && now - lastScanAt < SCAN_INTERVAL_MS) {
+      recycleQuietly(root)
+      return
+    }
+    lastScanPackage = windowPackage
     lastScanAt = now
 
-    val root = activeRoot() ?: return
     try {
-      val hit = inspectTree(root, packageName)
-      if (hit != null) triggerBlock(packageName, hit.reason, hit.detail)
+      val hit = inspectTree(root, windowPackage)
+      if (hit != null) triggerBlock(windowPackage, hit.reason, hit.detail)
     } catch (error: Throwable) {
       Log.w(TAG, "scan failed: ${error.message}")
     } finally {
       recycleQuietly(root)
     }
+  }
+
+  /**
+   * True when [candidate] is this application (the setup screen). Both the
+   * runtime package name and the build-time application id are compared, plus
+   * the accessibility component's own package, so no variant slips through.
+   */
+  private fun isOwnPackage(candidate: String?): Boolean {
+    if (candidate.isNullOrEmpty()) return false
+    if (candidate == APP_PACKAGE_NAME) return true
+    if (candidate == packageName) return true
+    return candidate == "com.focusblocker.guard"
   }
 
   private fun isRelevantEvent(eventType: Int): Boolean = when (eventType) {
@@ -305,6 +348,8 @@ class FocusAccessibilityService : AccessibilityService() {
   }
 
   private fun triggerBlock(packageName: String, reason: String, detail: String) {
+    // Absolute safety net: never press BACK on our own setup screen.
+    if (isOwnPackage(packageName)) return
     val now = System.currentTimeMillis()
     if (now - lastBlockAt < BLOCK_COOLDOWN_MS) return
     lastBlockAt = now
@@ -332,7 +377,9 @@ class FocusAccessibilityService : AccessibilityService() {
   private fun scheduleRecheck(packageName: String, attempt: Int) {
     handler.postDelayed({
       if (!enabled) return@postDelayed
-      if (currentPackage() != packageName) return@postDelayed
+      val foreground = currentPackage() ?: return@postDelayed
+      if (isOwnPackage(foreground)) return@postDelayed
+      if (foreground != packageName) return@postDelayed
       val root = activeRoot() ?: return@postDelayed
       val stillBlocked = try {
         inspectTree(root, packageName) != null
