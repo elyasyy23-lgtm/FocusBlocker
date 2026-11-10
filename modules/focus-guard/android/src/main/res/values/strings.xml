@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="focus_guard_service_label">FocusBlocker keyword guard</string>
+  <string name="accessibility_service_description">Watches the text shown on screen and leaves the current app as soon as one of your blocked keywords appears.</string>
+  <string name="device_admin_label">FocusBlocker device admin</string>
+  <string name="device_admin_description">Keeps FocusBlocker installed while it is protecting you. Deactivate it in Android settings if you want to uninstall.</string>
+</resources>

@@ -1,0 +1,36 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <application>
+
+    <!-- Keyword guard: reads screen content and leaves the app when a keyword appears. -->
+    <service
+      android:name="com.focusblocker.guard.FocusAccessibilityService"
+      android:exported="true"
+      android:label="@string/focus_guard_service_label"
+      android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+      <intent-filter>
+        <action android:name="android.accessibilityservice.AccessibilityService" />
+      </intent-filter>
+      <meta-data
+        android:name="android.accessibilityservice"
+        android:resource="@xml/accessibility_service_config" />
+    </service>
+
+    <!-- Device admin: while active, Android refuses to uninstall this app. -->
+    <receiver
+      android:name="com.focusblocker.guard.FocusDeviceAdminReceiver"
+      android:exported="true"
+      android:label="@string/device_admin_label"
+      android:description="@string/device_admin_description"
+      android:permission="android.permission.BIND_DEVICE_ADMIN">
+      <meta-data
+        android:name="android.app.device_admin"
+        android:resource="@xml/device_admin" />
+      <intent-filter>
+        <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+      </intent-filter>
+    </receiver>
+
+  </application>
+
+</manifest>
