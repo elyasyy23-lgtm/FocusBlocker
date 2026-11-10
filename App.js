@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
+  PermissionsAndroid,
+  Platform,
   Pressable,
   ScrollView,
   StatusBar,
@@ -47,7 +49,7 @@ function StatusPill({ active, labels }) {
   );
 }
 
-function ActionButton({ label, onPress, variant = 'primary', disabled = false, busy = false }) {
+function ActionButton({ label, onPress, variant = 'primary', disabled = false, busy = false, saved = false }) {
   const isSecondary = variant === 'secondary';
   return (
     <Pressable
@@ -57,14 +59,22 @@ function ActionButton({ label, onPress, variant = 'primary', disabled = false, b
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        isSecondary ? styles.buttonSecondary : styles.buttonPrimary,
+        isSecondary ? styles.buttonSecondary : saved ? styles.buttonSaved : styles.buttonPrimary,
         (disabled || busy) && styles.buttonDisabled,
         pressed && styles.buttonPressed,
       ]}>
       {busy ? (
         <ActivityIndicator color={isSecondary ? COLORS.text : '#04130A'} size="small" />
       ) : (
-        <Text style={[styles.buttonText, isSecondary ? styles.buttonTextSecondary : styles.buttonTextPrimary]}>
+        <Text
+          style={[
+            styles.buttonText,
+            isSecondary
+              ? styles.buttonTextSecondary
+              : saved
+              ? styles.buttonTextSaved
+              : styles.buttonTextPrimary,
+          ]}>
           {label}
         </Text>
       )}
@@ -119,6 +129,14 @@ export default function App() {
     });
     return () => subscription.remove();
   }, [refresh]);
+
+  useEffect(() => {
+    // Android 13+: without the notification permission the persistent guard
+    // notification stays hidden (the guard itself still runs fine).
+    if (Platform.OS === 'android' && Platform.Version >= 33 && FocusGuard.isAvailable) {
+      PermissionsAndroid.request('android.permission.POST_NOTIFICATIONS').catch(() => {});
+    }
+  }, []);
 
   const saveKeywords = async () => {
     const keywords = keywordsText
@@ -236,6 +254,11 @@ export default function App() {
     )
   );
 
+  // A save button stays white while the editor text is exactly what is stored,
+  // and turns green again the moment the text changes.
+  const keywordsSaved = !loading && keywordsText === config.keywords.join(', ');
+  const domainsSaved = !loading && domainsText === config.domains.join(', ');
+
   const blockingReady =
     config.accessibilityEnabled && config.enabled && (config.keywords.length > 0 || config.domains.length > 0);
 
@@ -248,8 +271,8 @@ export default function App() {
         showsVerticalScrollIndicator={false}>
         <Text style={styles.brand}>FocusBlocker</Text>
         <Text style={styles.tagline}>
-          A guard for your own phone. It watches what you type into search bars and which website
-          is open in your browser — a blocked keyword or domain closes it immediately.
+          A guard for your own phone. It watches text as it changes on screen — a blocked
+          keyword or domain in a search bar, address bar or chat closes the app immediately.
         </Text>
 
         {!FocusGuard.isAvailable ? (
@@ -299,7 +322,7 @@ export default function App() {
 
             <Section
               title="1. Blocked keywords"
-              subtitle="Only text inside search/input fields is checked (Google search bar, browser address bar, any text box). Separate keywords with a comma — matching is case-insensitive and also matches inside longer text.">
+              subtitle="Any text that changes on screen is checked — search bars, the browser address bar and chat messages (Telegram, Rubika). Separate keywords with a comma — matching is case-insensitive and also matches inside longer text.">
               <TextInput
                 value={keywordsText}
                 onChangeText={(value) => {
@@ -328,6 +351,7 @@ export default function App() {
                 label="Save block list"
                 onPress={saveKeywords}
                 busy={saving}
+                saved={keywordsSaved}
                 disabled={!FocusGuard.isAvailable}
               />
             </Section>
@@ -364,6 +388,7 @@ export default function App() {
                 label="Save domain list"
                 onPress={saveDomains}
                 busy={savingDomains}
+                saved={domainsSaved}
                 disabled={!FocusGuard.isAvailable}
               />
             </Section>
@@ -445,9 +470,10 @@ export default function App() {
             {message ? <Text style={styles.message}>{message}</Text> : null}
 
             <Text style={styles.footer}>
-              Works fully offline. Only text you type into input fields and the browser address bar is
-              checked — page body text is not read. Android may stop the service after a reboot: open
-              the app once and check the status.
+              Works fully offline. Any text that changes on screen is checked — search bars,
+              address bars and chat messages. While the guard is running it keeps a small
+              persistent notification: if that notification disappears, the guard was stopped —
+              open the app or re-enable it in Accessibility settings.
             </Text>
           </>
         )}
@@ -685,6 +711,9 @@ const styles = StyleSheet.create({
   buttonPrimary: {
     backgroundColor: COLORS.accent,
   },
+  buttonSaved: {
+    backgroundColor: '#FFFFFF',
+  },
   buttonSecondary: {
     backgroundColor: COLORS.surfaceAlt,
     borderWidth: 1,
@@ -702,6 +731,9 @@ const styles = StyleSheet.create({
   },
   buttonTextPrimary: {
     color: '#04130A',
+  },
+  buttonTextSaved: {
+    color: '#14532D',
   },
   buttonTextSecondary: {
     color: COLORS.text,

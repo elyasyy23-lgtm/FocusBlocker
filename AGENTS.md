@@ -40,46 +40,68 @@ Docs: https://docs.expo.dev/eas/index.md
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
 
-## Project: FocusBlocker (state as of 2026-11-10, v1.1.0)
+## Project: FocusBlocker (state as of 2026-11-10, v1.1.2)
 
 Android-only self-control app, English UI, Expo SDK 58 / RN 0.88.1 / React 19.3.
 
 - `App.js` — the entire UI. Talks to the native module through `modules/focus-guard/index.js`
   (never import `requireNativeModule` in a screen; the wrapper no-ops in Expo Go).
+  Save buttons turn WHITE while the editor text equals the stored list (`keywordsSaved` /
+  `domainsSaved` derived from `config.*.join(', ')` — stateless, survives restart) and go
+  green again on any text change. Requests `POST_NOTIFICATIONS` once on mount (Android 13+).
 - `modules/focus-guard/` — local Expo module, autolinked, no package.json:
   - `FocusAccessibilityService.kt` — the guard. TWO rules, both from SharedPreferences:
-    (1) keyword = only text in input fields (`isEditable` / EditText / AutoCompleteTextView),
-    checked first on `event.source` then in a throttled (350 ms/package) BFS of
-    `rootInActiveWindow` (depth 40 / 600 nodes); (2) domain = URL read from an address-bar node
-    (viewId hints url_bar/omnibox/address_bar/location_bar) or, for known browser packages, any
-    explicit `://` URL; host suffix match against the domain list. On a hit: 900 ms cooldown,
-    counter++, Toast, ONE immediate `GLOBAL_ACTION_BACK`, then a recheck every 800 ms that presses
-    BACK again (max 3) and finally HOME if the page/field is still blocked.
-    Page body text is deliberately NOT matched (owner request, 2026-11-10).
-    Own-app exclusion (v1.1.1): `isOwnPackage()` checks the EVENT package, the
-    edited NODE's package, the tree ROOT package and the service's own
-    `packageName` against `APP_PACKAGE_NAME = "com.focusblocker.app"`; the root
-    check is the load-bearing one — keyboard/launcher/System UI events arrive
-    while OUR window is the active root, and the setup screen's TextInputs
-    literally contain the block list. `triggerBlock()` refuses own packages too.
+    (1) keyword = text that CHANGES on screen: checked first on `event.source`
+    (input fields for every event type; ANY view for `TYPE_VIEW_TEXT_CHANGED` since v1.1.2 —
+    that is what catches the Google search widget, Chrome omnibox and Telegram/Rubika
+    bubbles; `event.text` fallback when source is null), then in a throttled (350
+    ms/package) input-field/address-bar BFS of `rootInActiveWindow` (depth 40 / 600 nodes);
+    (2) domain = URL read from an address-bar node (viewId hints
+    url_bar/omnibox/address_bar/location_bar) or, for known browser packages, any explicit
+    `://` URL; host suffix match against the domain list. On a hit: 900 ms cooldown,
+    counter++, Toast, ONE immediate `GLOBAL_ACTION_BACK`, then a recheck every 800 ms that
+    presses BACK again (max 3) and finally HOME if the page/field is still blocked.
+    v1.1.2 keep-alive: `startForegroundGuard()` runs in `onServiceConnected` (channel +
+    ongoing `IMPORTANCE_LOW` notification, `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` on API
+    34+, plain 2-arg `startForeground` below) and `stopForeground` in `stopInternal` —
+    the app process is what Android killed ~30 min after backgrounding (the v1.1.1
+    "sudden stop" root cause); the notification doubles as a live alive/dead diagnostic.
+    Own-app exclusion: `isOwnPackage()` checks the EVENT package, the edited NODE's
+    package, the tree ROOT package and the service's own `packageName` against
+    `APP_PACKAGE_NAME = "com.focusblocker.app"`; `triggerBlock()` refuses own packages;
+    every keyword hit is additionally gated by `ownWindowActive()` (walks `windows`,
+    root-window fallback) because the IME (Gboard suggestions) fires text events with the
+    KEYBOARD's package while our setup screen is the active window — without that gate the
+    v1.1.2 global matcher would re-introduce the v1.1.0 self-block bug through the
+    keyboard. `isOwnPackage` itself was verified correct during the v1.1.2 investigation —
+    it skips ONLY our app, it was never the cause of the stop.
   - `FocusGuardModule.kt` — JS API: `getConfig` (JSON string: keywords, domains, enabled,
     blockCount, lastBlockPackage/Reason/At, accessibilityEnabled, deviceAdminActive),
     `setKeywords`, `setDomains`, `setEnabled`, `isAccessibilityEnabled`,
     `openAccessibilitySettings`, `isDeviceAdminActive`, `requestDeviceAdmin`, `lockScreen`,
-    `resetBlockCount`.
+    `resetBlockCount`. Every setter calls `FocusAccessibilityService.reload()`.
   - `FocusGuardStore.kt` — SharedPreferences (`focus_blocker_prefs`) so the service works with
     the RN runtime dead. Domains are normalized to bare hosts (scheme/www./path/port stripped,
     must contain a dot).
   - `FocusDeviceAdminReceiver.kt` + `res/xml/device_admin.xml` (`<force-lock />`) —
     an ACTIVE admin is what blocks uninstall; the policy only grants `lockNow()`.
-  - `android/src/main/AndroidManifest.xml` — service + receiver, both `exported="true"`,
-    full class names, merged into the app by Gradle.
-- Decision (2026-11-10): `expo-pilot` is NOT used as the engine — its listeners run in JS and die
+  - `android/src/main/AndroidManifest.xml` — service (now with
+    `android:foregroundServiceType="specialUse"` + `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`
+    property) + receiver, both `exported="true"`, full class names, merged into the app by
+    Gradle. Declares `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`,
+    `POST_NOTIFICATIONS`.
+- Decisions (2026-11-10): `expo-pilot` is NOT used as the engine — its listeners run in JS and die
   with the backgrounded RN runtime. `react-native-device-admin` does not exist on npm (404).
+  v1.1.0's "page body text deliberately ignored" was SUPERSEDED in v1.1.2 by owner request:
+  keywords match any on-screen text CHANGE (chat apps included); the throttled tree walk
+  still matches only input fields + address bars, so static page body text stays ignored.
+  Known edge accepted: a text-change hit from a non-active split-screen app still presses
+  BACK once.
 - Verification (`npm run verify` = `expo export --platform android --no-bytecode`): 614 modules,
   plus `npx expo-modules-autolinking resolve -p android --json | grep focus-guard`,
   `npm run prebuild:android`, `npx expo-doctor` (20/20).
-  Termux cannot compile Kotlin — a green bundle is the local ceiling; Gradle compiles on EAS.
+  Termux cannot compile Kotlin — a green bundle is the local ceiling; Gradle compiles in
+  GitHub Actions CI.
 - `android/` and `dist/` are generated; deleted after verification. Do not hand-edit them.
 - Build: **GitHub Actions** `.github/workflows/android-release.yml` — push to `main` produces
   `FocusBlocker-release-apk`; a `v*` tag also publishes a GitHub Release. It runs
@@ -97,10 +119,11 @@ Android-only self-control app, English UI, Expo SDK 58 / RN 0.88.1 / React 19.3.
   service/device admin entries never exist in Android Settings. Expo Go only proves the UI layout.
 - A **development build** is required: `expo-dev-client` is installed (`~58.0.18`) and the
   `development` profile in `eas.json` already sets `developmentClient: true` + `buildType: apk`.
-- EAS is logged in on this machine as `elyasyass`; project not yet linked (no `extra.eas.projectId`
-  in app.json) → run `npx eas-cli@latest init` once.
-- EAS uploads **committed** git state; uncommitted edits are not in the build unless the worktree
-  is committed first (or `EAS_NO_VCS=1` is set).
+- EAS is logged in on this machine as `elyasyass`; the project IS linked
+  (`extra.eas.projectId` in app.json: 3ed68ab7-3693-4ba0-81d1-57aae9912a70).
+  EAS uploads **committed** git state; uncommitted edits are not in the build unless the worktree
+  is committed first (or `EAS_NO_VCS=1` is set). Primary build path is GitHub Actions (below);
+  EAS is the fallback.
 - Dev server: `npx expo start --dev-client --localhost` (Metro runs on the phone; the dev build
   reaches it at `http://127.0.0.1:8081`). Dev bundle verified: 742 modules, 4.1 MB, contains
   `FocusGuard`. `--tunnel` only needed when Metro runs on a different machine (this phone has

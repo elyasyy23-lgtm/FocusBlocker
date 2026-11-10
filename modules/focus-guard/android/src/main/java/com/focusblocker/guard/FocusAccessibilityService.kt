@@ -1,7 +1,14 @@
 package com.focusblocker.guard
 
 import android.accessibilityservice.AccessibilityService
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -16,14 +23,24 @@ import android.widget.Toast
  *
  * Two jobs, both driven by SharedPreferences so React Native never has to be alive:
  *
- * 1. Keyword guard — only text inside input fields (EditText / AutoCompleteTextView,
- *    e.g. the Google or Chrome search bar) is compared with the block list. A hit
- *    presses BACK immediately, which closes the keyboard and drops the search.
+ * 1. Keyword guard — text that CHANGES on screen is compared with the block
+ *    list: input fields (EditText / AutoCompleteTextView, e.g. the Google or
+ *    Chrome search bar) and, since v1.1.2, any other view whose text just
+ *    changed (TYPE_VIEW_TEXT_CHANGED), which is what catches the Google search
+ *    widget and chat messages in Telegram/Rubika. A hit presses BACK
+ *    immediately, which closes the keyboard and drops the search/chat.
  * 2. Domain guard — inside a browser (or any window that exposes an address bar,
  *    which also covers Chrome Custom Tabs) the URL is read from the address-bar
  *    node and compared with the blocked-domain list. A hit presses BACK
  *    immediately; if the site is still on screen after that, BACK again and then
  *    HOME so the browser really closes.
+ *
+ * Since v1.1.2 the service also promotes itself into the FOREGROUND state with
+ * a persistent notification the moment Android binds it. Without that, Android
+ * treats the app process as a killable background process roughly half an hour
+ * after the user leaves it — which is what silently stopped the guard before.
+ * The notification doubles as a diagnostic: it is on screen exactly while the
+ * guard is alive.
  */
 class FocusAccessibilityService : AccessibilityService() {
 
@@ -38,6 +55,9 @@ class FocusAccessibilityService : AccessibilityService() {
 
     private const val REASON_KEYWORD = "keyword"
     private const val REASON_DOMAIN = "domain"
+
+    private const val NOTIFICATION_ID = 42
+    private const val NOTIFICATION_CHANNEL = "focus_guard_status"
 
     /**
      * Our own application id (app.json -> expo.android.package). Kept as a
@@ -126,6 +146,7 @@ class FocusAccessibilityService : AccessibilityService() {
     runningService = this
     isRunning = true
     refreshConfig()
+    startForegroundGuard()
     Log.i(TAG, "service connected: ${keywords.size} keyword(s), ${domains.size} domain(s)")
   }
 
@@ -147,12 +168,70 @@ class FocusAccessibilityService : AccessibilityService() {
     isRunning = false
     runningService = null
     handler.removeCallbacksAndMessages(null)
+    try {
+      stopForeground(Service.STOP_FOREGROUND_REMOVE)
+    } catch (error: Throwable) {
+      // The service was not in the foreground — ignore.
+    }
   }
 
   private fun refreshConfig() {
     keywords = FocusGuardStore.keywords(this)
     domains = FocusGuardStore.domains(this)
     enabled = FocusGuardStore.isEnabled(this)
+  }
+
+  /**
+   * v1.1.2: promotes the bound accessibility service into the foreground state
+   * with a persistent notification. An accessibility service is bound by the
+   * system, but it still lives in the app process — and a plain background
+   * process is what Android kills ~30 minutes after the user leaves the app,
+   * taking the guard down silently. If this call ever fails on some OEM build
+   * the guard keeps working, it just loses the notification.
+   */
+  private fun startForegroundGuard() {
+    try {
+      val manager = getSystemService(NotificationManager::class.java)
+      if (Build.VERSION.SDK_INT >= 26) {
+        val channel = NotificationChannel(
+          NOTIFICATION_CHANNEL,
+          "Guard status",
+          NotificationManager.IMPORTANCE_LOW
+        )
+        channel.description = "Shown while the FocusBlocker guard is running."
+        channel.setShowBadge(false)
+        manager?.createNotificationChannel(channel)
+      }
+      val launchIntent = packageManager?.getLaunchIntentForPackage(packageName)
+      val contentIntent = launchIntent?.let {
+        PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_IMMUTABLE)
+      }
+      val builder = if (Build.VERSION.SDK_INT >= 26) {
+        Notification.Builder(this, NOTIFICATION_CHANNEL)
+      } else {
+        @Suppress("DEPRECATION") Notification.Builder(this)
+      }
+      val notification = builder
+        .setContentTitle("FocusBlocker is active")
+        .setContentText("Keyword and domain guard is watching this screen.")
+        .setSmallIcon(android.R.drawable.ic_lock_lock)
+        .setOngoing(true)
+        .setOnlyAlertOnce(true)
+        .setContentIntent(contentIntent)
+        .build()
+      if (Build.VERSION.SDK_INT >= 34) {
+        startForeground(
+          NOTIFICATION_ID,
+          notification,
+          ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+        )
+      } else {
+        startForeground(NOTIFICATION_ID, notification)
+      }
+      Log.i(TAG, "foreground guard started")
+    } catch (error: Throwable) {
+      Log.w(TAG, "foreground guard failed: ${error.message}")
+    }
   }
 
   override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -168,21 +247,39 @@ class FocusAccessibilityService : AccessibilityService() {
     val now = System.currentTimeMillis()
     if (now - lastBlockAt < BLOCK_COOLDOWN_MS) return
 
-    // 1. Fastest targeted path: the node that just changed is a text field, so
-    //    only that field is checked (this is what fires while the user types).
+    // 1. Fastest targeted path: the node that just changed. Since v1.1.2 a
+    //    TYPE_VIEW_TEXT_CHANGED is matched in ANY view — that is what catches
+    //    the Google search widget, the Chrome omnibox and Telegram/Rubika
+    //    message bubbles. Every other event type keeps the v1.1.1 behavior and
+    //    matches only input fields.
     if (keywords.isNotEmpty()) {
+      val isTextChange = event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
       val source = safeSource(event)
       if (source != null) {
         try {
-          if (!isOwnPackage(source.packageName?.toString()) &&
-            isTextField(source) &&
-            matchesKeyword(source.text)
-          ) {
-            triggerBlock(eventPackage, REASON_KEYWORD, "input field")
-            return
+          if (!isOwnPackage(source.packageName?.toString()) && matchesKeyword(source.text)) {
+            val isField = isTextField(source)
+            if (isField || isTextChange) {
+              // The IME (Gboard suggestions) fires text events while OUR setup
+              // screen is the active window — never block inside our own app.
+              if (!ownWindowActive()) {
+                triggerBlock(
+                  eventPackage,
+                  REASON_KEYWORD,
+                  if (isField) "input field" else "text change"
+                )
+                return
+              }
+            }
           }
         } finally {
           recycleQuietly(source)
+        }
+      } else if (isTextChange && matchesKeyword(eventText(event))) {
+        // No source node on this event: the event still carries the changed text.
+        if (!ownWindowActive()) {
+          triggerBlock(eventPackage, REASON_KEYWORD, "text change")
+          return
         }
       }
     }
@@ -397,6 +494,49 @@ class FocusAccessibilityService : AccessibilityService() {
         scheduleRecheck(packageName, attempt + 1)
       }
     }, RECHECK_DELAY_MS)
+  }
+
+  /**
+   * True when OUR window is the active one on screen — the airtight version of
+   * "ignore our own app". The IME (Gboard suggestion strip) fires text-changed
+   * events whose package is the keyboard's, not ours, exactly while the user
+   * edits the block lists in FocusBlocker; matching those would block our own
+   * setup screen. So every keyword hit is checked against the live window list
+   * before anything is pressed. [windows] is authoritative; the root of the
+   * active window is only the fallback.
+   */
+  private fun ownWindowActive(): Boolean {
+    try {
+      for (window in windows) {
+        if (!window.isActive) continue
+        val root = try {
+          window.root
+        } catch (error: Throwable) {
+          null
+        } ?: continue
+        val windowPackage = try {
+          root.packageName?.toString()
+        } finally {
+          recycleQuietly(root)
+        }
+        if (isOwnPackage(windowPackage)) return true
+      }
+    } catch (error: Throwable) {
+      // Fall through to the root-window check below.
+    }
+    val root = activeRoot() ?: return false
+    return try {
+      isOwnPackage(root.packageName?.toString())
+    } finally {
+      recycleQuietly(root)
+    }
+  }
+
+  /** Joined text carried by the event itself, used when [AccessibilityEvent.getSource] is null. */
+  private fun eventText(event: AccessibilityEvent): String? {
+    val parts = event.text ?: return null
+    if (parts.isEmpty()) return null
+    return parts.joinToString(" ")
   }
 
   private fun safeSource(event: AccessibilityEvent): AccessibilityNodeInfo? = try {
