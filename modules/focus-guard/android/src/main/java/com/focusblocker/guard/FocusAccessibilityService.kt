@@ -94,7 +94,7 @@ class FocusAccessibilityService : AccessibilityService() {
     if (!isRelevantEvent(event.eventType)) return
 
     // Fast path: the event already carries the text that changed.
-    if (matchesAny(event.text) || matchesAny(event.contentDescription)) {
+    if (matchesAny(event.text) || matchesText(event.contentDescription)) {
       block(packageName, "event text")
       return
     }
