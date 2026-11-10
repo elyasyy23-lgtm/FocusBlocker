@@ -224,7 +224,12 @@ class FocusAccessibilityService : AccessibilityService() {
       val viewId = node.viewIdResourceName ?: ""
       if (isUrlBar(viewId)) {
         hasUrlBar = true
-        node.text?.let { urlTexts.add(it.toString()) }
+        node.text?.let {
+          // An address bar is also an input field: a blocked keyword typed into
+          // the omnibox must be caught by the keyword rule too.
+          urlTexts.add(it.toString())
+          inputTexts.add(it)
+        }
         node.contentDescription?.let { urlTexts.add(it.toString()) }
       } else if (isTextField(node)) {
         node.text?.let { inputTexts.add(it) }
