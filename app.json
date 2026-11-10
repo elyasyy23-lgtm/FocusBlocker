@@ -24,6 +24,12 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "scheme": "focusblocker"
+    "scheme": "focusblocker",
+    "extra": {
+      "eas": {
+        "projectId": "3ed68ab7-3693-4ba0-81d1-57aae9912a70"
+      }
+    },
+    "owner": "elyasyass"
   }
 }
