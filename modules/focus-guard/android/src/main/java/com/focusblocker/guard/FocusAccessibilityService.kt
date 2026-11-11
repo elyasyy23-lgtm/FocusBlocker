@@ -35,12 +35,14 @@ import android.widget.Toast
  *    immediately; if the site is still on screen after that, BACK again and then
  *    HOME so the browser really closes.
  *
- * Since v1.1.2 the service also promotes itself into the FOREGROUND state with
- * a persistent notification the moment Android binds it. Without that, Android
- * treats the app process as a killable background process roughly half an hour
- * after the user leaves it — which is what silently stopped the guard before.
- * The notification doubles as a diagnostic: it is on screen exactly while the
- * guard is alive.
+ * Since v1.1.4 the keep-alive is a separate START_STICKY watchdog service
+ * (GuardWatchdogService) that owns the persistent notification: this service is
+ * only ever started by the system, so nothing brought it back after a kill.
+ * The watchdog can be restarted by Android itself, by a 15-minute alarm, by a
+ * persisted job or by the boot receiver — and starting it brings this process
+ * back up, which is what makes the system rebind the guard. The old behaviour
+ * (this service promoting itself to the foreground) stays as a fallback for the
+ * case where the watchdog start is refused.
  */
 class FocusAccessibilityService : AccessibilityService() {
 
@@ -56,8 +58,15 @@ class FocusAccessibilityService : AccessibilityService() {
     private const val REASON_KEYWORD = "keyword"
     private const val REASON_DOMAIN = "domain"
 
-    private const val NOTIFICATION_ID = 42
+    private const val NOTIFICATION_ID = 44
     private const val NOTIFICATION_CHANNEL = "focus_guard_status"
+
+    /**
+     * How long the watchdog gets to post its notification before this service
+     * falls back to promoting itself (the v1.1.2 behaviour). startForegroundService
+     * is asynchronous, so the check has to wait one tick.
+     */
+    private const val WATCHDOG_ATTACH_DELAY_MS = 1200L
 
     /**
      * Our own application id (app.json -> expo.android.package). Kept as a
@@ -159,7 +168,12 @@ class FocusAccessibilityService : AccessibilityService() {
       this, "service_connected",
       text = "guard bound by the system: ${keywords.size} keyword(s), ${domains.size} domain(s)"
     )
-    startForegroundGuard()
+    // v1.1.4: arm every resurrection path the moment the guard is up — the
+    // alarm, the persisted job and the sticky watchdog. If this process gets
+    // killed later, one of them brings it back.
+    GuardScheduler.scheduleAll(this)
+    GuardWatchdogService.start(this, "accessibility_connected")
+    handler.postDelayed({ ensureForeground() }, WATCHDOG_ATTACH_DELAY_MS)
     Log.i(TAG, "service connected: ${keywords.size} keyword(s), ${domains.size} domain(s)")
   }
 
@@ -209,12 +223,27 @@ class FocusAccessibilityService : AccessibilityService() {
   }
 
   /**
-   * v1.1.2: promotes the bound accessibility service into the foreground state
-   * with a persistent notification. An accessibility service is bound by the
-   * system, but it still lives in the app process — and a plain background
-   * process is what Android kills ~30 minutes after the user leaves the app,
-   * taking the guard down silently. If this call ever fails on some OEM build
-   * the guard keeps working, it just loses the notification.
+   * v1.1.4: makes sure SOME foreground service holds this process. The watchdog
+   * is preferred because it is the one Android restarts by itself; this service
+   * is only a fallback for OEM builds that refuse a background
+   * startForegroundService. Either way the process is never left as a plain
+   * killable background process — which is what silently stopped the guard.
+   */
+  private fun ensureForeground() {
+    if (GuardWatchdogService.isForeground) return
+    if (isForegroundActive) return
+    FocusGuardStore.logEvent(
+      this, "fgs_fallback",
+      text = "watchdog not foreground — accessibility service holds it instead"
+    )
+    startForegroundGuard()
+  }
+
+  /**
+   * v1.1.2 fallback path: promotes the bound accessibility service into the
+   * foreground state with its own notification. Kept for OEMs where the
+   * watchdog cannot start from the background. If this call fails too the guard
+   * keeps working, it just loses the notification.
    */
   private fun startForegroundGuard() {
     try {
@@ -256,7 +285,10 @@ class FocusAccessibilityService : AccessibilityService() {
         startForeground(NOTIFICATION_ID, notification)
       }
       isForegroundActive = true
-      FocusGuardStore.logEvent(this, "fgs_started", text = "foreground state + persistent notification active")
+      FocusGuardStore.logEvent(
+        this, "fgs_started",
+        text = "foreground state + persistent notification active (accessibility fallback)"
+      )
       Log.i(TAG, "foreground guard started")
     } catch (error: Throwable) {
       // If startForeground() is refused (e.g. ForegroundServiceStartNotAllowedException)

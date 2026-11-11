@@ -137,9 +137,22 @@ class FocusGuardModule : Module() {
       val health = JSONObject()
       health.put("accessibilityEnabled", isAccessibilityEnabled(ctx))
       health.put("serviceRunning", FocusAccessibilityService.isRunning)
-      health.put("foregroundActive", FocusAccessibilityService.isForegroundActive)
+      health.put(
+        "foregroundActive",
+        FocusAccessibilityService.isForegroundActive || GuardWatchdogService.isForeground
+      )
+      health.put("watchdogRunning", GuardWatchdogService.isRunning)
+      health.put("watchdogForeground", GuardWatchdogService.isForeground)
+      val heartbeat = FocusGuardStore.lastHeartbeat(ctx)
+      health.put(
+        "heartbeatAgeMs",
+        if (heartbeat <= 0L) -1.0 else (System.currentTimeMillis() - heartbeat).toDouble()
+      )
       health.put("batteryOptimizationIgnored", isBatteryOptimizationIgnored(ctx))
       health.put("sdkInt", Build.VERSION.SDK_INT)
+      health.put("manufacturer", Build.MANUFACTURER ?: "")
+      health.put("brand", Build.BRAND ?: "")
+      health.put("autostartAvailable", firstAutostartComponent(ctx) != null)
       health.toString()
     }
 
@@ -158,6 +171,105 @@ class FocusGuardModule : Module() {
       activity.startActivity(intent)
       true
     }
+
+    // -------------------------------------------------------------------
+    // Keep-alive (v1.1.4)
+    // -------------------------------------------------------------------
+
+    /**
+     * Arms every resurrection path right now: the START_STICKY watchdog, the
+     * 15-minute alarm and the persisted job. Called when the app opens, so a
+     * force-stop user recovery ("open the app once") re-arms everything too.
+     */
+    AsyncFunction("ensureKeepAlive") {
+      val ctx = requireContext()
+      GuardScheduler.scheduleAll(ctx)
+      GuardWatchdogService.start(ctx, "app_opened")
+      true
+    }
+
+    /**
+     * Opens the OEM's own "keep this app running" screen. On MIUI/HyperOS
+     * (Redmi, POCO, Xiaomi) that is Autostart — without it the powerkeeper
+     * kills the app within hours no matter what a foreground service does, and
+     * there is no API to switch it on. Every known vendor component is tried in
+     * order and the app-details page is the fallback.
+     */
+    AsyncFunction("openAutostartSettings") {
+      val ctx = requireContext()
+      val activity = appContext.currentActivity
+        ?: throw IllegalStateException("Open FocusBlocker in the foreground first")
+      val result = JSONObject()
+      // Try-and-see instead of resolve-then-launch: vendor security apps are
+      // sometimes hidden from resolveActivity() even with <queries> in the
+      // manifest, but an EXPLICIT intent to a component that exists still
+      // launches. First one that does not throw wins, so the list order matters.
+      var opened = "app_details"
+      for ((pkg, cls) in AUTOSTART_COMPONENTS) {
+        try {
+          val intent = Intent()
+          intent.component = ComponentName(pkg, cls)
+          intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+          activity.startActivity(intent)
+          opened = "autostart"
+          break
+        } catch (error: Throwable) {
+          // Not this ROM / not this build — try the next known screen.
+        }
+      }
+      if (opened == "app_details") {
+        val intent = Intent(
+          Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+          Uri.parse("package:${ctx.packageName}")
+        )
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        activity.startActivity(intent)
+      }
+      result.put("opened", opened)
+      result.put("manufacturer", Build.MANUFACTURER ?: "")
+      FocusGuardStore.logEvent(ctx, "autostart_opened", text = opened)
+      result.toString()
+    }
+  }
+
+  /**
+   * Vendor "autostart / startup manager" screens, most specific first. All of
+   * them are internal Activities with no public contract, so each one is
+   * resolved before use and the whole list is best-effort by design.
+   */
+  private val AUTOSTART_COMPONENTS = listOf(
+    // MIUI / HyperOS (Redmi, POCO, Xiaomi)
+    "com.miui.securitycenter" to "com.miui.permcenter.autostart.AutoStartManagementActivity",
+    "com.miui.securitycenter" to "com.miui.permcenter.autostart.AutoStartDetailManagementActivity",
+    // Huawei / Honor
+    "com.huawei.systemmanager" to "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity",
+    "com.huawei.systemmanager" to "com.huawei.systemmanager.optimize.process.ProtectActivity",
+    // OPPO / Realme / OnePlus (ColorOS)
+    "com.coloros.safecenter" to "com.coloros.safecenter.permission.startup.StartupAppListActivity",
+    "com.coloros.safecenter" to "com.coloros.safecenter.startupapp.StartupAppListActivity",
+    "com.oppo.safe" to "com.oppo.safe.permission.startup.StartupAppListActivity",
+    // vivo / iQOO
+    "com.vivo.permissionmanager" to "com.vivo.permissionmanager.activity.BgStartUpManagerActivity",
+    "com.iqoo.secure" to "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity",
+    // Samsung
+    "com.samsung.android.lool" to "com.samsung.android.sm.ui.battery.BatteryActivity",
+    // ASUS
+    "com.asus.mobilemanager" to "com.asus.mobilemanager.autostart.AutoStartActivity"
+  )
+
+  /** First installed autostart activity, or null when this ROM has none. */
+  private fun firstAutostartComponent(ctx: Context): ComponentName? {
+    val manager = ctx.packageManager
+    for ((pkg, cls) in AUTOSTART_COMPONENTS) {
+      val component = ComponentName(pkg, cls)
+      val resolvable = try {
+        manager.resolveActivity(Intent().setComponent(component), 0) != null
+      } catch (error: Throwable) {
+        false
+      }
+      if (resolvable) return component
+    }
+    return null
   }
 
   private fun adminComponent(ctx: Context): ComponentName =

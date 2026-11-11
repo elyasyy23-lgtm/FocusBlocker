@@ -87,8 +87,42 @@ npx expo run:android --variant release
      *"Restricted setting"*. Fix: Settings → Apps → FocusBlocker → ⋮ → **Allow restricted
      settings**, then enable the service again.
 5. Tap **Activate device admin** → confirm the system dialog.
-6. Type a blocked keyword into a search bar — the keyboard/search closes and the counter
+6. In **5. Keep-alive** tap **Start keep-alive now**, then **Open Autostart settings** and allow
+   FocusBlocker to autostart. On Redmi/POCO/Xiaomi also set *Battery saver → No restrictions*
+   and pull the app down in Recents to lock it — see [Keep-alive](#keep-alive-v114).
+7. Type a blocked keyword into a search bar — the keyboard/search closes and the counter
    increases. Open a blocked domain in Chrome — the page closes and the counter increases.
+
+## Keep-alive (v1.1.4)
+
+The guard used to die quietly after a day on MIUI/HyperOS. It now has four independent
+restarters, all registered with the system (so they work while the app process is dead):
+
+1. **Watchdog service** (`GuardWatchdogService`) — a normal `START_STICKY` foreground service
+   that owns the persistent notification. Android restarts it by itself after a kill, and
+   starting it brings the app process back up, which is what lets the system rebind the
+   accessibility service.
+2. **15-minute alarm** (`AlarmManager`, inexact + a Doze-proof `setAndAllowWhileIdle` arm) →
+   `GuardWakeupReceiver` → watchdog.
+3. **15-minute persisted job** (`JobScheduler`) → same receiver path; persisted jobs survive
+   reboots without any of our code running.
+4. **Boot / app-update receiver** (`BOOT_COMPLETED`, `QUICKBOOT_POWERON`, `MY_PACKAGE_REPLACED`).
+
+The watchdog writes a heartbeat every 30 s, checks once a minute whether the accessibility
+guard is bound again, and after three minutes without it posts a visible
+**"FocusBlocker guard is off"** notification instead of dying silently. Every wake-up that
+revives a dead process is written to the Debug Log (`watchdog_wakeup`).
+
+**One-time setup that no code can do for you** (there is no API for it):
+
+- **Autostart ON** — the *Open Autostart settings* button opens the right screen on MIUI/HyperOS,
+  Huawei, OPPO/Realme, vivo, Samsung and ASUS builds.
+- **Battery saver → No restrictions** for FocusBlocker.
+- **Lock the app in Recents** (MIUI) — pull the card down, tap the lock icon.
+
+Without Autostart, MIUI's powerkeeper can still kill the app; the alarm/job/boot paths will
+bring it back, but every kill costs up to 15 minutes of protection.
+
 
 ## Removing the app
 
@@ -130,8 +164,12 @@ directly — replace it with a real keystore before publishing to a store.
 - Device admin stops *normal* uninstall. It is not a security product: `adb uninstall`, a factory
   reset, or a user who knows Settings → Device admin apps can still remove it. That is Android's
   rule, not a bug in the app.
-- After a reboot, accessibility services normally restart by themselves; open the app once if the
-  status shows Disabled.
+- After a reboot the boot receiver restarts the keep-alive chain; if the UI still shows
+  *Accessibility: DISABLED* the toggle was switched off and only you can turn it back on.
+- Keep-alive is not magic: OEM power managers (MIUI, ColorOS, EMUI, Funtouch) can force-stop an
+  app, and a force-stop is the one state Android will not let any app escape. With Autostart +
+  *No restrictions* + the Recents lock it does not happen; the watchdog then only ever handles
+  ordinary low-memory kills.
 
 ## Verification without a device (what CI/this repo checks)
 

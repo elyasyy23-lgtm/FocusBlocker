@@ -40,7 +40,7 @@ Docs: https://docs.expo.dev/eas/index.md
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
 
-## Project: FocusBlocker (state as of 2026-11-11, v1.1.3)
+## Project: FocusBlocker (state as of 2026-11-11, v1.1.4)
 
 Android-only self-control app, English UI, Expo SDK 58 / RN 0.88.1 / React 19.3.
 v1.1.2 died again ~a day after install (never verified on-device); v1.1.3 adds an
@@ -92,9 +92,50 @@ in-app DEBUG LOG so the next death shows its cause.
     an ACTIVE admin is what blocks uninstall; the policy only grants `lockNow()`.
   - `android/src/main/AndroidManifest.xml` — service (now with
     `android:foregroundServiceType="specialUse"` + `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`
-    property) + receiver, both `exported="true"`, full class names, merged into the app by
-    Gradle. Declares `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`,
-    `POST_NOTIFICATIONS`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`.
+    property) + device-admin receiver + `GuardWatchdogService` (same specialUse property),
+    `GuardWakeupReceiver` and `GuardJobService` (`BIND_JOB_SERVICE`, exported=false) — merged
+    into the app by Gradle. Declares `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`,
+    `POST_NOTIFICATIONS`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `RECEIVE_BOOT_COMPLETED`.
+  - v1.1.4 keep-alive (owner-reported: FGS DOWN, guard unbound, log just stops = hard SIGKILL;
+    device is **Redmi 2201117SG / HyperOS V816 / Android 13**, i.e. MIUI powerkeeper). The v1.1.2
+    design was inverted — an AccessibilityService only ever starts from the system, so nothing
+    restarted it after a kill. Now:
+    - `GuardWatchdogService.kt` — a NORMAL `START_STICKY` service (layer 1) that owns the single
+      persistent notification (`focus_guard_status`, id 42), writes a heartbeat every 30 s
+      (`watchdog_heartbeat` in prefs), re-arms alarm+job in `onStartCommand`, logs
+      watchdog_started / watchdog_task_removed / watchdog_destroyed / fgs_started / fgs_failed.
+      Every 60 s it checks `FocusAccessibilityService.isRunning`: after 2 min → `guard_missing`,
+      after 3 min → a HIGH-importance "FocusBlocker guard is off" notification (channel
+      `focus_guard_alert`, id 43) that clears itself on `guard_recovered`. `start()` tries
+      startForegroundService → startService (a receiver woken by an alarm is on the temp
+      allowlist), and a startForeground() failure after a startForegroundService request calls
+      stopSelf() to dodge the 5 s system crash.
+    - `GuardScheduler.kt` — layer 2: inexact repeating `AlarmManager` every 15 min PLUS a
+      one-shot `setAndAllowWhileIdle` arm re-armed on every tick (Doze-proof; neither needs
+      SCHEDULE_EXACT_ALARM); layer 3: persisted 15-min `JobScheduler` job. Both re-armed
+      from boot / package-replace / watchdog start / job run / app open, because reboots and
+      force-stops wipe them. `maybeLogWakeup()` writes watchdog_wakeup / job_tick ONLY when the
+      heartbeat is ≥5 min stale — routine ticks must never flush the 100-entry log.
+    - `GuardWakeupReceiver.kt` — layer 4: manifest receiver for `com.focusblocker.guard.WAKEUP`
+      (alarm), `BOOT_COMPLETED`, `QUICKBOOT_POWERON`, `MY_PACKAGE_REPLACED`, `exported="false"`.
+    - `GuardJobService.kt` — the JobService behind layer 3.
+    - `FocusAccessibilityService` no longer goes foreground first: `onServiceConnected` arms
+      everything, starts the watchdog, and 1.2 s later `ensureForeground()` falls back to the old
+      self-`startForeground()` (own id 44, logged as `fgs_fallback`) only if the watchdog is not
+      foreground — so a refused background start degrades to exactly the working v1.1.2 behavior.
+      `stopForeground(STOP_FOREGROUND_REMOVE)` only ever touches its own id.
+    - Module: `ensureKeepAlive` (arms all three, called on every app launch — also the recovery
+      path after a force-stop) and `openAutostartSettings` (vendor autostart Activity chain:
+      MIUI/HyperOS, Huawei, ColorOS/Realme, vivo, Samsung, ASUS → fallback app-details page;
+      returns `{opened:'autostart'|'app_details'}`). `getServiceHealth` now also returns
+      watchdogRunning, watchdogForeground, heartbeatAgeMs (-1 = never), manufacturer, brand,
+      autostartAvailable, and `foregroundActive` is the OR of watchdog + accessibility fallback.
+    - App.js: new section "5. Keep-alive" (watchdog Up/Down pill + heartbeat age, "Start keep-alive
+      now", "Open Autostart settings (Xiaomi)", the one-time MIUI steps) and the old Debug Log
+      section renumbered to 6 with the watchdog added to its health line. Debug Log UI + native
+      logging untouched by owner request.
+    - There is NO API for Autostart/battery-saver — those stay user actions (deep link + text).
+      Still no wake-lock (keeps CPU awake, does not stop process kills).
   - v1.1.3 debug log: `FocusGuardStore` keeps the last 100 events as JSON in the SAME
     SharedPreferences (`debug_log`, synchronized read-modify-write, corrupted JSON
     self-heals, text capped 160 chars) — survives process kills, which is the failure
@@ -116,9 +157,12 @@ in-app DEBUG LOG so the next death shows its cause.
   still matches only input fields + address bars, so static page body text stays ignored.
   Known edge accepted: a text-change hit from a non-active split-screen app still presses
   BACK once.
-- Verification (`npm run verify` = `expo export --platform android --no-bytecode`): 614 modules,
-  plus `npx expo-modules-autolinking resolve -p android --json | grep focus-guard`,
-  `npm run prebuild:android`, `npx expo-doctor` (20/20).
+- Verification (`npm run verify` = `expo export --platform android --no-bytecode`): ~600-615
+  modules (Metro counts vary), plus
+  `npx expo-modules-autolinking resolve -p android --json | grep focus-guard`,
+  `npm run prebuild:android`, manifest XML parse (python ElementTree — no xmllint on Termux).
+  `npx expo-doctor` is currently BROKEN in this environment (its npx bundle misses `@expo/env`
+  under Node 26 and @expo/env symlinking does not fix it) — that is tooling, not the project.
   Termux cannot compile Kotlin — a green bundle is the local ceiling; Gradle compiles in
   GitHub Actions CI.
 - `android/` and `dist/` are generated; deleted after verification. Do not hand-edit them.

@@ -1,58 +1,81 @@
-# TASK — FocusBlocker v1.1.3 (debug log + keep-alive diagnostics)
+# TASK — FocusBlocker v1.1.4 (keep-alive that survives the kill)
 
-GOAL: the guard died again ~a day after install and we were blind — add an
-in-app debug log so the next death shows its cause, harden keep-alive
-(battery-optimization exemption), ship v1.1.3.
+GOAL: the guard died again in v1.1.3. Owner's own debug log proved it: Accessibility still
+ENABLED, guard NOT bound, Foreground service DOWN, and the log simply STOPS at 09:24:45 with no
+service_unbound/service_destroyed → a hard SIGKILL of the whole app process (device =
+Redmi 2201117SG, HyperOS V816, Android 13 → MIUI powerkeeper). The v1.1.2/v1.1.3 design was
+inverted: an AccessibilityService is only ever started by the system, so nothing brought it
+back. Owner asked for the best keep-alive (AlarmManager / WorkManager / BOOT receiver) and
+explicitly: do NOT remove the Debug Log UI or the native logging.
 
-- [x] v1.1.2 SHIPPED: commit 3b1b155 + tag v1.1.2; CI build 42864735125 SUCCESS;
-      Release live: https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v1.1.2/FocusBlocker-release.apk
-      → owner reports it stopped working again after ~a day (v1.1.2 was never
-      verified on-device; FGS failure would have been silent).
-- [x] FocusGuardStore: debug-log ring buffer — last 100 events as JSON in the
-      same SharedPreferences, synchronized writes, survives process kills,
-      text capped at 160 chars, corrupted JSON self-heals to empty.
-- [x] FocusAccessibilityService logs: service_connected/unbound/destroyed/
-      interrupted, fgs_started / fgs_failed (startForeground refusal now
-      VISIBLE — the prime suspect for the overnight death), keyword_detected
-      (pkg + matched text), domain_detected, block_triggered,
-      block_recheck_back/home/clear, scan_failed.
-- [x] Keep-alive: new isForegroundActive flag + getServiceHealth() bridge
-      (accessibility enabled, service bound, FGS active, battery state, SDK);
-      requestIgnoreBatteryOptimizations() opens the system "Unrestricted"
-      dialog (REQUEST_IGNORE_BATTERY_OPTIMIZATIONS permission in module
-      manifest — merges in CI like the FGS permissions). NO wake-lock added:
-      a wake-lock keeps the CPU awake but does not stop Android killing the
-      process — the failure mode is process death, not sleeping CPU.
-- [x] FocusGuardModule: getDebugLogs / clearDebugLogs / getServiceHealth /
-      requestIgnoreBatteryOptimizations.
-- [x] index.js: getDebugLogs (newest first), clearDebugLogs, getServiceHealth,
-      requestIgnoreBatteryOptimizations + EMPTY_HEALTH.
-- [x] App.js: "5. Debug Log" section (live health line: service / foreground
-      notification / battery state) + Show Logs modal (health banner, battery
-      fix button, FlatList of 100 events with time + colored type + pkg + text,
-      Refresh / Clear / Close). Health refetches on every app foreground.
-- [x] app.json: 1.1.3 / versionCode 5.
-- [x] Verify: npm run verify green (614 modules; bundle contains Show Logs /
-      getDebugLogs / requestIgnoreBatteryOptimizations), autolinking resolves
-      focus-guard, prebuild clean (+ android/ deleted after), module manifest
-      XML parses, app.json JSON valid. expo-doctor 19/20 — the 1 failed check
-      (config schema) fetched HTML over mobile data = network, not project.
-- [ ] User: commit/push + tag v1.1.3 → CI builds APK, Release on the tag.
-- [ ] After install: open Debug Log → Show Logs and read what happened —
-      fgs_failed = startForeground refused (needs different FGS approach);
-      service_unbound overnight = OEM/user toggled accessibility off;
-      log simply stops = hard SIGKILL with no restart → battery exemption +
-      OEM "unrestricted" setting is the fix to verify.
+## v1.1.4 keep-alive (four independent restarters, all system-registered)
 
-NOW: code complete + verified locally. Waiting on git push + tag v1.1.3
-(Kotlin compiles in CI; Termux cannot compile Kotlin).
+- [x] `GuardWatchdogService.kt` — layer 1: normal `START_STICKY` foreground service, owns the
+      single persistent notification (channel `focus_guard_status`, id 42), heartbeat every 30 s
+      (`watchdog_heartbeat`), re-arms alarm+job on every `onStartCommand`, `onTaskRemoved` keeps
+      the guard up when the app is swiped from Recents. Every 60 s checks
+      `FocusAccessibilityService.isRunning`: 2 min → log `guard_missing`, 3 min → HIGH-importance
+      "FocusBlocker guard is off" notification (channel `focus_guard_alert`, id 43), cleared by
+      `guard_recovered`. `start()` ladder: startForegroundService → startService (receiver temp
+      allowlist) → log `watchdog_failed`; a failed startForeground() after a foreground request
+      calls `stopSelf()` (avoids the 5 s system crash).
+- [x] `GuardScheduler.kt` — layer 2 inexact repeating `AlarmManager` every 15 min + a one-shot
+      `setAndAllowWhileIdle` arm re-armed on every tick (fires during Doze; no exact-alarm
+      permission needed) + layer 3 persisted 15-min `JobScheduler` job; both re-armed from boot,
+      package-replace, watchdog start, job run and app open. `maybeLogWakeup()` logs only when the
+      heartbeat is ≥5 min stale (routine ticks must not flush the 100-entry buffer).
+- [x] `GuardWakeupReceiver.kt` — layer 4: `WAKEUP` (alarm), `BOOT_COMPLETED`, `QUICKBOOT_POWERON`,
+      `MY_PACKAGE_REPLACED`, `exported="false"`; re-arms first, then starts the watchdog.
+- [x] `GuardJobService.kt` — the JobService behind layer 3.
+- [x] `FocusAccessibilityService`: `onServiceConnected` arms everything + starts the watchdog,
+      then `ensureForeground()` (1.2 s later) falls back to the v1.1.2 self-`startForeground()`
+      (own id 44, `fgs_fallback`) only if the watchdog is not foreground.
+- [x] `FocusGuardStore`: `setHeartbeat` / `lastHeartbeat` on top of the untouched debug log.
+- [x] Manifest: watchdog service (`specialUse` + subtype property), wakeup receiver, job service
+      (`BIND_JOB_SERVICE`), `RECEIVE_BOOT_COMPLETED`.
+- [x] Module: `ensureKeepAlive`, `openAutostartSettings` (MIUI/HyperOS, Huawei, ColorOS/Realme,
+      vivo, Samsung, ASUS chain → app-details fallback), `getServiceHealth` extended
+      (watchdogRunning, watchdogForeground, heartbeatAgeMs, manufacturer, brand,
+      autostartAvailable; foregroundActive = watchdog OR accessibility fallback).
+- [x] `index.js`: `ensureKeepAlive`, `openAutostartSettings`, extended `EMPTY_HEALTH`.
+- [x] App.js: new "5. Keep-alive" section (watchdog pill + heartbeat age, Start keep-alive now,
+      Open Autostart settings (Xiaomi), one-time MIUI steps), Debug Log renumbered to "6" and its
+      UI/logging left intact, watchdog added to both health lines, footer updated,
+      `ensureKeepAlive()` on every launch.
+- [x] app.json 1.1.4 / versionCode 6; README Keep-alive section + first-run step 6 + limits.
+- [x] Verify: `npm run verify` green (~600-615 modules; bundle contains "Start keep-alive now",
+      "Open Autostart settings", ensureKeepAlive), autolinking resolves focus-guard,
+      `npm run prebuild:android` OK (android/ deleted after), both manifests parse.
+      `npx expo-doctor` is broken in this environment (its npx bundle misses @expo/env under
+      Node 26) — tooling, not the project.
+- [ ] Owner: commit + push main + tag v1.1.4 → CI assembles the APK, Release on the tag.
+- [ ] On-device proof to ask for after install:
+      (a) Keep-alive section shows Watchdog **Up** + heartbeat < 90 s;
+      (b) leave the phone locked ~1 h → notification still there, heartbeat fresh;
+      (c) if it ever dies: the log shows `watchdog_wakeup … without heartbeat (process was
+      killed)` — that line is the proof the chain works (before v1.1.4 the log just stopped);
+      (d) no friendly fire: typing a keyword in FocusBlocker's own setup screen is never blocked.
 
-Decisions (2026-11-11, owner request "debug log feature"):
-- Log lives in SharedPreferences, not a file: same process, tiny volume
-  (≤100 entries), and it already survives process death.
-- keyword_detected is logged only AFTER the ownWindowActive gate — otherwise
-  every keystroke on our own setup screen (which contains the keyword itself)
-  would flood the 100-entry buffer.
-- Detection (keyword/domain) and block_triggered are separate entries: a
-  detection swallowed by the 900 ms cooldown still shows in the log.
-- Battery-optimization exemption button instead of a wake-lock (see above).
+NOW: code + local verification complete. Waiting on the owner's push/tag of v1.1.4
+(Kotlin compiles only in CI; Termux has no Android SDK — only cmdline-tools/platform-tools).
+
+## Decisions (2026-11-11, v1.1.4)
+
+- No WorkManager: it pulls androidx.work into a module that has no androidx deps, and
+  framework-only `JobScheduler.setPeriodic(15 min).setPersisted(true)` gives the same guarantee.
+- The single persistent notification belongs to the watchdog, not the accessibility service —
+  whoever survives must own it. The accessibility service keeps its own notification id (44) so
+  its `stopForeground(STOP_FOREGROUND_REMOVE)` can never remove the watchdog's.
+- `START_STICKY` + alarm + persisted job + boot receiver = four doors; each one is guarded by
+  try/catch and logs its own failure, so no single failure is silent.
+- MIUI Autostart / battery-saver cannot be set by code (no API). Deep link + explicit steps +
+  the 3-minute "guard is off" notification are the honest answer; the UI never pretends
+  otherwise.
+- Still no wake-lock: it keeps the CPU awake, it does not stop process kills (v1.1.3 decision).
+
+## Earlier state (kept for context)
+
+- v1.1.2 `3b1b155` (FGS + global text detection), v1.1.3 `93c31a5` (in-app debug log,
+  battery-optimization dialog, `getServiceHealth`). Both shipped with a GitHub Release.
+- Build: GitHub Actions `.github/workflows/android-release.yml` (push → artifact APK;
+  `v*` tag → GitHub Release), debug-keystore signed, arm64-v8a + armeabi-v7a.

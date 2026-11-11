@@ -87,8 +87,14 @@ export const EMPTY_HEALTH = {
   accessibilityEnabled: false,
   serviceRunning: false,
   foregroundActive: false,
+  watchdogRunning: false,
+  watchdogForeground: false,
+  heartbeatAgeMs: -1,
   batteryOptimizationIgnored: false,
   sdkInt: 0,
+  manufacturer: '',
+  brand: '',
+  autostartAvailable: false,
 };
 
 function parseJson(raw, fallback) {
@@ -107,6 +113,32 @@ export async function getServiceHealth() {
 export async function requestIgnoreBatteryOptimizations() {
   if (!native) throw new Error('Native module missing — build a dev/release APK first.');
   return native.requestIgnoreBatteryOptimizations();
+}
+
+/**
+ * Arms all three keep-alive paths (sticky watchdog + 15-minute alarm +
+ * persisted job). Safe to call any time; it is what the app does on launch.
+ */
+export async function ensureKeepAlive() {
+  if (!native) return false;
+  try {
+    return await native.ensureKeepAlive();
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Opens the OEM "autostart / startup manager" screen (MIUI Autostart on
+ * Redmi/POCO/Xiaomi) and returns `{ opened: 'autostart' | 'app_details' }`.
+ */
+export async function openAutostartSettings() {
+  if (!native) throw new Error('Native module missing — build a dev/release APK first.');
+  try {
+    return { opened: 'app_details', ...JSON.parse(await native.openAutostartSettings()) };
+  } catch (error) {
+    return { opened: 'app_details' };
+  }
 }
 
 /** Returns the last 100 guard events, NEWEST first (native stores oldest first). */

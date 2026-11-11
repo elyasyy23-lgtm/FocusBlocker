@@ -102,6 +102,20 @@ const LOG_TYPE_COLORS = {
   service_interrupted: '#FBBF24',
   fgs_started: '#4ADE80',
   fgs_failed: '#F87171',
+  fgs_fallback: '#FBBF24',
+  watchdog_started: '#4ADE80',
+  watchdog_wakeup: '#7DD3FC',
+  watchdog_task_removed: '#7DD3FC',
+  watchdog_destroyed: '#F87171',
+  watchdog_failed: '#F87171',
+  guard_missing: '#F87171',
+  guard_recovered: '#4ADE80',
+  guard_alert: '#FBBF24',
+  guard_alert_failed: '#F87171',
+  alarm_failed: '#FBBF24',
+  job_failed: '#FBBF24',
+  job_tick: '#7DD3FC',
+  autostart_opened: '#8C9AAB',
   keyword_detected: '#FBBF24',
   domain_detected: '#FBBF24',
   block_triggered: '#F87171',
@@ -129,6 +143,14 @@ function shortPackage(pkg) {
   return parts.slice(-2).join('.');
 }
 
+/** "42s ago" / "never" — how long the keep-alive watchdog has been silent. */
+function formatHeartbeat(ageMs) {
+  if (ageMs === null || ageMs === undefined || ageMs < 0) return 'never';
+  const seconds = Math.round(ageMs / 1000);
+  if (seconds < 90) return `${seconds}s ago`;
+  return `${Math.round(seconds / 60)}min ago`;
+}
+
 export default function App() {
   const [config, setConfig] = useState(FocusGuard.EMPTY_CONFIG);
   const [keywordsText, setKeywordsText] = useState('');
@@ -143,6 +165,7 @@ export default function App() {
   const [logs, setLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [clearingLogs, setClearingLogs] = useState(false);
+  const [keepAliveBusy, setKeepAliveBusy] = useState(false);
   const keywordsDirtyRef = useRef(false);
   const domainsDirtyRef = useRef(false);
 
@@ -181,6 +204,14 @@ export default function App() {
     // notification stays hidden (the guard itself still runs fine).
     if (Platform.OS === 'android' && Platform.Version >= 33 && FocusGuard.isAvailable) {
       PermissionsAndroid.request('android.permission.POST_NOTIFICATIONS').catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    // v1.1.4: every launch re-arms all three keep-alive paths. This is also the
+    // recovery path after a force-stop, which wipes alarms and jobs.
+    if (Platform.OS === 'android' && FocusGuard.isAvailable) {
+      FocusGuard.ensureKeepAlive().catch(() => {});
     }
   }, []);
 
@@ -325,6 +356,34 @@ export default function App() {
       setTimeout(loadLogs, 1500);
     } catch (error) {
       setMessage(error.message || 'Could not open the battery dialog.');
+    }
+  };
+
+  const startKeepAlive = async () => {
+    setKeepAliveBusy(true);
+    try {
+      await FocusGuard.ensureKeepAlive();
+      await refresh();
+      setMessage(
+        'Keep-alive armed: watchdog started, 15-minute alarm and persisted job scheduled.'
+      );
+    } catch (error) {
+      setMessage(error.message || 'Could not start the keep-alive.');
+    } finally {
+      setKeepAliveBusy(false);
+    }
+  };
+
+  const openAutostart = async () => {
+    try {
+      const result = await FocusGuard.openAutostartSettings();
+      setMessage(
+        result.opened === 'autostart'
+          ? 'Switch Autostart ON for FocusBlocker on this screen, then come back.'
+          : 'Find “Autostart” (or “Battery usage / Allow background activity”) on this screen and allow FocusBlocker.'
+      );
+    } catch (error) {
+      setMessage(error.message || 'Could not open the autostart screen.');
     }
   };
 
@@ -560,8 +619,51 @@ export default function App() {
             </Section>
 
             <Section
-              title="5. Debug Log"
-              subtitle="Everything the background guard does — service starts and stops, foreground-service state, keyword/domain hits and blocks — recorded on this device, never uploaded. Survives crashes and restarts.">
+              title="5. Keep-alive"
+              subtitle="Android — and MIUI/HyperOS especially — kills background apps. Three independent restarters bring the guard back by themselves: a restartable foreground watchdog, a 15-minute alarm and a 15-minute job, plus a boot receiver.">
+              <View style={styles.statusRow}>
+                <View style={styles.statusTextWrap}>
+                  <Text style={styles.statusTitle}>Watchdog service</Text>
+                  <Text style={styles.statusHint}>
+                    {health
+                      ? `heartbeat ${formatHeartbeat(health.heartbeatAgeMs)}${
+                          health.manufacturer ? ` · ${health.manufacturer}` : ''
+                        }`
+                      : 'checking…'}
+                  </Text>
+                </View>
+                <StatusPill
+                  active={Boolean(health && health.watchdogRunning)}
+                  labels={['Up', 'Down']}
+                />
+              </View>
+              <ActionButton
+                label="Start keep-alive now"
+                variant="secondary"
+                onPress={startKeepAlive}
+                busy={keepAliveBusy}
+                disabled={!FocusGuard.isAvailable}
+              />
+              <ActionButton
+                label={
+                  health && health.manufacturer
+                    ? `Open Autostart settings (${health.manufacturer})`
+                    : 'Open Autostart settings'
+                }
+                variant="secondary"
+                onPress={openAutostart}
+                disabled={!FocusGuard.isAvailable}
+              />
+              <Text style={styles.keepAliveHint}>
+                One-time setup on Redmi / POCO / Xiaomi: 1) Autostart → FocusBlocker ON, 2) Battery
+                saver → No restrictions, 3) in Recents, pull FocusBlocker down to lock it. Without
+                Autostart even a foreground service gets killed within hours.
+              </Text>
+            </Section>
+
+            <Section
+              title="6. Debug Log"
+              subtitle="Everything the background guard does — service starts and stops, foreground-service state, watchdog wake-ups, keyword/domain hits and blocks — recorded on this device, never uploaded. Survives crashes and restarts.">
               {health ? (
                 <Text
                   style={[
@@ -571,7 +673,9 @@ export default function App() {
                       : styles.healthWarn,
                   ]}>
                   Service {health.serviceRunning ? 'running' : 'NOT running'} ·{' '}
-                  {health.foregroundActive ? 'foreground notification active' : 'NO foreground notification'} ·{' '}
+                  {health.foregroundActive ? 'foreground notification active' : 'NO foreground notification'}{' '}
+                  · watchdog {health.watchdogRunning ? 'up' : 'DOWN'} (
+                  {formatHeartbeat(health.heartbeatAgeMs)}) ·{' '}
                   {health.batteryOptimizationIgnored
                     ? 'battery unrestricted'
                     : 'battery RESTRICTED — Android may kill the guard'}
@@ -590,8 +694,10 @@ export default function App() {
             <Text style={styles.footer}>
               Works fully offline. Any text that changes on screen is checked — search bars,
               address bars and chat messages. While the guard is running it keeps a small
-              persistent notification: if that notification disappears, the guard was stopped —
-              open the app or re-enable it in Accessibility settings.
+              persistent notification: if that notification disappears, the guard was stopped.
+              The watchdog, the 15-minute alarm, the 15-minute job and the boot receiver restart it
+              on their own — and if the guard stays down for more than three minutes you get an
+              alert instead of silently losing protection.
             </Text>
           </>
         )}
@@ -619,7 +725,9 @@ export default function App() {
               <Text style={styles.logHealthText}>
                 Accessibility: {health.accessibilityEnabled ? 'enabled' : 'DISABLED'} · Guard bound:{' '}
                 {health.serviceRunning ? 'yes' : 'no'} · Foreground service:{' '}
-                {health.foregroundActive ? 'running' : 'DOWN'} · Battery optimization:{' '}
+                {health.foregroundActive ? 'running' : 'DOWN'} · Watchdog:{' '}
+                {health.watchdogRunning ? 'up' : 'DOWN'} (
+                {formatHeartbeat(health.heartbeatAgeMs)}) · Battery optimization:{' '}
                 {health.batteryOptimizationIgnored ? 'off (safe)' : 'on (kill risk)'}
               </Text>
               {!health.batteryOptimizationIgnored ? (
@@ -970,6 +1078,12 @@ const styles = StyleSheet.create({
   },
   healthWarn: {
     color: COLORS.warning,
+  },
+  keepAliveHint: {
+    color: COLORS.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
   },
   logModalRoot: {
     flex: 1,

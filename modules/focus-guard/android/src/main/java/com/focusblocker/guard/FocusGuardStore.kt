@@ -21,6 +21,7 @@ internal object FocusGuardStore {
   private const val KEY_LAST_BLOCK_AT = "last_block_at"
   private const val KEY_LAST_BLOCK_REASON = "last_block_reason"
   private const val KEY_DEBUG_LOG = "debug_log"
+  private const val KEY_HEARTBEAT = "watchdog_heartbeat"
   private const val DEBUG_LOG_LIMIT = 100
   private const val DEBUG_TEXT_LIMIT = 160
 
@@ -138,6 +139,20 @@ internal object FocusGuardStore {
       .remove(KEY_LAST_BLOCK_AT)
       .apply()
   }
+
+  // ---------------------------------------------------------------------
+  // Watchdog heartbeat (v1.1.4): written by GuardWatchdogService every 30 s.
+  // The value survives a process kill (SharedPreferences), so the app can read
+  // "how long has the keep-alive been silent" and the wake-up paths can prove
+  // whether they actually resurrected a dead process.
+  // ---------------------------------------------------------------------
+
+  fun setHeartbeat(context: Context, at: Long) {
+    prefs(context).edit().putLong(KEY_HEARTBEAT, at).apply()
+  }
+
+  /** Last watchdog heartbeat, or 0 when the watchdog never ran on this install. */
+  fun lastHeartbeat(context: Context): Long = prefs(context).getLong(KEY_HEARTBEAT, 0L)
 
   // ---------------------------------------------------------------------
   // Debug log (v1.1.3): the last DEBUG_LOG_LIMIT guard events, kept in
