@@ -56,8 +56,11 @@ explicitly: do NOT remove the Debug Log UI or the native logging.
       killed)` — that line is the proof the chain works (before v1.1.4 the log just stopped);
       (d) no friendly fire: typing a keyword in FocusBlocker's own setup screen is never blocked.
 
-NOW: code + local verification complete. Waiting on the owner's push/tag of v1.1.4
-(Kotlin compiles only in CI; Termux has no Android SDK — only cmdline-tools/platform-tools).
+NOW: SHIPPED. Commit 02fd95c → main + tag v1.1.4 (2026-11-11). Tag CI run 43014568217 SUCCESS,
+Release live: https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v1.1.4/FocusBlocker-release.apk
+(30.9 MB). Next: owner installs it and verifies Keep-alive (Watchdog Up, heartbeat <90 s), survival
+after ~1 h locked, the `watchdog_wakeup … without heartbeat` log line after a real kill, and the
+three MIUI toggles (Autostart ON, No restrictions, Recents lock).
 
 ## Decisions (2026-11-11, v1.1.4)
 
