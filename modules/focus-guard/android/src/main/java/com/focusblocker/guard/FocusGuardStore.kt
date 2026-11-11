@@ -3,6 +3,7 @@ package com.focusblocker.guard
 import android.content.Context
 import android.content.SharedPreferences
 import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * Small SharedPreferences wrapper shared by the JS module, the accessibility
@@ -19,6 +20,12 @@ internal object FocusGuardStore {
   private const val KEY_LAST_BLOCK_PACKAGE = "last_block_package"
   private const val KEY_LAST_BLOCK_AT = "last_block_at"
   private const val KEY_LAST_BLOCK_REASON = "last_block_reason"
+  private const val KEY_DEBUG_LOG = "debug_log"
+  private const val DEBUG_LOG_LIMIT = 100
+  private const val DEBUG_TEXT_LIMIT = 160
+
+  /** Serializes every debug-log read/modify/write across service + RN threads. */
+  private val debugLogLock = Any()
 
   private val SCHEME = Regex("^[a-z][a-z0-9+.-]*://")
   private val PATH_TAIL = Regex("[/?#].*$")
@@ -130,5 +137,57 @@ internal object FocusGuardStore {
       .remove(KEY_LAST_BLOCK_REASON)
       .remove(KEY_LAST_BLOCK_AT)
       .apply()
+  }
+
+  // ---------------------------------------------------------------------
+  // Debug log (v1.1.3): the last DEBUG_LOG_LIMIT guard events, kept in
+  // the same SharedPreferences file so they SURVIVE the process being
+  // killed and restarted — which is exactly the failure under
+  // investigation. Written by the accessibility service (main thread),
+  // read by React Native; the lock serializes read-modify-write cycles.
+  // ---------------------------------------------------------------------
+
+  /**
+   * Appends one event to the ring buffer and drops the oldest entries
+   * beyond [DEBUG_LOG_LIMIT]. [text] is truncated hard so one long chat
+   * message cannot bloat the prefs file.
+   */
+  fun logEvent(context: Context, type: String, packageName: String? = null, text: String? = null) {
+    val entry = JSONObject()
+    entry.put("t", System.currentTimeMillis())
+    entry.put("type", type)
+    entry.put("pkg", packageName ?: JSONObject.NULL)
+    entry.put("text", (text ?: "").take(DEBUG_TEXT_LIMIT))
+    synchronized(debugLogLock) {
+      val array = readLogLocked(context)
+      array.put(entry)
+      // Keep only the newest entries; the JSON is stored oldest-first so the
+      // JS viewer can simply reverse it for "newest on top".
+      while (array.length() > DEBUG_LOG_LIMIT) {
+        array.remove(0)
+      }
+      prefs(context).edit().putString(KEY_DEBUG_LOG, array.toString()).apply()
+    }
+  }
+
+  /** Raw debug log as a JSON array string (oldest first), never null. */
+  fun debugLog(context: Context): String = synchronized(debugLogLock) {
+    readLogLocked(context).toString()
+  }
+
+  fun clearDebugLog(context: Context) {
+    synchronized(debugLogLock) {
+      prefs(context).edit().putString(KEY_DEBUG_LOG, JSONArray().toString()).apply()
+    }
+  }
+
+  private fun readLogLocked(context: Context): JSONArray {
+    val raw = prefs(context).getString(KEY_DEBUG_LOG, "[]") ?: "[]"
+    return try {
+      JSONArray(raw)
+    } catch (error: Exception) {
+      // Corrupted by an interrupted write — start over rather than crash the guard.
+      JSONArray()
+    }
   }
 }

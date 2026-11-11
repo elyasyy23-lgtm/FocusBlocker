@@ -40,9 +40,11 @@ Docs: https://docs.expo.dev/eas/index.md
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
 
-## Project: FocusBlocker (state as of 2026-11-10, v1.1.2)
+## Project: FocusBlocker (state as of 2026-11-11, v1.1.3)
 
 Android-only self-control app, English UI, Expo SDK 58 / RN 0.88.1 / React 19.3.
+v1.1.2 died again ~a day after install (never verified on-device); v1.1.3 adds an
+in-app DEBUG LOG so the next death shows its cause.
 
 - `App.js` — the entire UI. Talks to the native module through `modules/focus-guard/index.js`
   (never import `requireNativeModule` in a screen; the wrapper no-ops in Expo Go).
@@ -79,7 +81,10 @@ Android-only self-control app, English UI, Expo SDK 58 / RN 0.88.1 / React 19.3.
     blockCount, lastBlockPackage/Reason/At, accessibilityEnabled, deviceAdminActive),
     `setKeywords`, `setDomains`, `setEnabled`, `isAccessibilityEnabled`,
     `openAccessibilitySettings`, `isDeviceAdminActive`, `requestDeviceAdmin`, `lockScreen`,
-    `resetBlockCount`. Every setter calls `FocusAccessibilityService.reload()`.
+    `resetBlockCount`, `getDebugLogs` (JSON array oldest-first), `clearDebugLogs`,
+    `getServiceHealth` (accessibilityEnabled, serviceRunning, foregroundActive,
+    batteryOptimizationIgnored, sdkInt), `requestIgnoreBatteryOptimizations` (system
+    "Unrestricted" dialog). Every setter calls `FocusAccessibilityService.reload()`.
   - `FocusGuardStore.kt` — SharedPreferences (`focus_blocker_prefs`) so the service works with
     the RN runtime dead. Domains are normalized to bare hosts (scheme/www./path/port stripped,
     must contain a dot).
@@ -89,7 +94,21 @@ Android-only self-control app, English UI, Expo SDK 58 / RN 0.88.1 / React 19.3.
     `android:foregroundServiceType="specialUse"` + `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`
     property) + receiver, both `exported="true"`, full class names, merged into the app by
     Gradle. Declares `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`,
-    `POST_NOTIFICATIONS`.
+    `POST_NOTIFICATIONS`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`.
+  - v1.1.3 debug log: `FocusGuardStore` keeps the last 100 events as JSON in the SAME
+    SharedPreferences (`debug_log`, synchronized read-modify-write, corrupted JSON
+    self-heals, text capped 160 chars) — survives process kills, which is the failure
+    under investigation. The service logs service_connected/unbound/destroyed/interrupted,
+    fgs_started / **fgs_failed** (a refused `startForeground()` was silent before — prime
+    suspect for the overnight death), keyword_detected (pkg + matched text — only AFTER
+    the `ownWindowActive` gate, else our own setup screen floods the buffer),
+    domain_detected, block_triggered, block_recheck_back/home/clear, scan_failed.
+    `isForegroundActive` companion flag (same private-setter pattern as `isRunning`)
+    feeds `getServiceHealth`. NO wake-lock: it keeps the CPU awake but does not stop
+    process kills — the fix path is the battery-optimization exemption dialog.
+    App.js "5. Debug Log" section: live health line (service/FGS/battery) + Show Logs
+    modal (FlatList, newest first, colored types, Refresh/Clear/Close, battery-fix
+    button). Health refetches on every app foreground.
 - Decisions (2026-11-10): `expo-pilot` is NOT used as the engine — its listeners run in JS and die
   with the backgrounded RN runtime. `react-native-device-admin` does not exist on npm (404).
   v1.1.0's "page body text deliberately ignored" was SUPERSEDED in v1.1.2 by owner request:

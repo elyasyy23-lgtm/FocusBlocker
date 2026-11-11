@@ -121,6 +121,15 @@ class FocusAccessibilityService : AccessibilityService() {
     var isRunning: Boolean = false
       private set
 
+    /**
+     * True while the foreground-service notification is actually up. Set the
+     * moment startForeground() succeeds and cleared on teardown, so the JS
+     * health check can tell "service bound" from "foreground state also held".
+     */
+    @Volatile
+    var isForegroundActive: Boolean = false
+      private set
+
     @Volatile
     private var runningService: FocusAccessibilityService? = null
 
@@ -130,8 +139,8 @@ class FocusAccessibilityService : AccessibilityService() {
     }
   }
 
-  /** One matched rule: what matched (reason) and the value that triggered it. */
-  private class Hit(val reason: String, val detail: String)
+  /** One matched rule: what matched (reason), the value that triggered it and the on-screen text. */
+  private class Hit(val reason: String, val detail: String, val text: String)
 
   private val handler = Handler(Looper.getMainLooper())
   private var keywords: List<String> = emptyList()
@@ -146,26 +155,44 @@ class FocusAccessibilityService : AccessibilityService() {
     runningService = this
     isRunning = true
     refreshConfig()
+    FocusGuardStore.logEvent(
+      this, "service_connected",
+      text = "guard bound by the system: ${keywords.size} keyword(s), ${domains.size} domain(s)"
+    )
     startForegroundGuard()
     Log.i(TAG, "service connected: ${keywords.size} keyword(s), ${domains.size} domain(s)")
   }
 
   override fun onUnbind(intent: Intent?): Boolean {
+    // The system (or the user) unbound us — this is what happens when the
+    // accessibility toggle is switched OFF. Recorded because "stopped
+    // working" may mean exactly this happened overnight.
+    FocusGuardStore.logEvent(
+      this, "service_unbound",
+      text = "system/user unbound the service (accessibility toggle turned off?)"
+    )
     stopInternal()
     return super.onUnbind(intent)
   }
 
   override fun onDestroy() {
+    FocusGuardStore.logEvent(
+      this, "service_destroyed",
+      text = "service object destroyed (process about to die or toggle off)"
+    )
     stopInternal()
     super.onDestroy()
   }
 
   override fun onInterrupt() {
-    // Nothing to interrupt: every event is handled synchronously.
+    // Nothing to interrupt: every event is handled synchronously. Logged
+    // anyway because it is rare and interesting when it does happen.
+    FocusGuardStore.logEvent(this, "service_interrupted", text = "system requested interrupt")
   }
 
   private fun stopInternal() {
     isRunning = false
+    isForegroundActive = false
     runningService = null
     handler.removeCallbacksAndMessages(null)
     try {
@@ -228,8 +255,17 @@ class FocusAccessibilityService : AccessibilityService() {
       } else {
         startForeground(NOTIFICATION_ID, notification)
       }
+      isForegroundActive = true
+      FocusGuardStore.logEvent(this, "fgs_started", text = "foreground state + persistent notification active")
       Log.i(TAG, "foreground guard started")
     } catch (error: Throwable) {
+      // If startForeground() is refused (e.g. ForegroundServiceStartNotAllowedException)
+      // the guard keeps working but the process stays killable background —
+      // which is the exact scenario the debug log now has to reveal.
+      FocusGuardStore.logEvent(
+        this, "fgs_failed",
+        text = "startForeground() refused: ${error.javaClass.simpleName}: ${error.message}"
+      )
       Log.w(TAG, "foreground guard failed: ${error.message}")
     }
   }
@@ -257,12 +293,17 @@ class FocusAccessibilityService : AccessibilityService() {
       val source = safeSource(event)
       if (source != null) {
         try {
-          if (!isOwnPackage(source.packageName?.toString()) && matchesKeyword(source.text)) {
+          val sourceText = source.text?.toString()
+          if (!isOwnPackage(source.packageName?.toString()) && matchesKeyword(sourceText)) {
             val isField = isTextField(source)
             if (isField || isTextChange) {
               // The IME (Gboard suggestions) fires text events while OUR setup
               // screen is the active window — never block inside our own app.
               if (!ownWindowActive()) {
+                FocusGuardStore.logEvent(
+                  this, "keyword_detected", eventPackage,
+                  "“${sourceText ?: ""}” via ${if (isField) "input field" else "text change"}"
+                )
                 triggerBlock(
                   eventPackage,
                   REASON_KEYWORD,
@@ -278,6 +319,9 @@ class FocusAccessibilityService : AccessibilityService() {
       } else if (isTextChange && matchesKeyword(eventText(event))) {
         // No source node on this event: the event still carries the changed text.
         if (!ownWindowActive()) {
+          FocusGuardStore.logEvent(
+            this, "keyword_detected", eventPackage, "“${eventText(event) ?: ""}” via event text"
+          )
           triggerBlock(eventPackage, REASON_KEYWORD, "text change")
           return
         }
@@ -310,8 +354,23 @@ class FocusAccessibilityService : AccessibilityService() {
 
     try {
       val hit = inspectTree(root, windowPackage)
-      if (hit != null) triggerBlock(windowPackage, hit.reason, hit.detail)
+      if (hit != null) {
+        if (hit.reason == REASON_KEYWORD) {
+          FocusGuardStore.logEvent(
+            this, "keyword_detected", windowPackage, "“${hit.text}” via ${hit.detail}"
+          )
+        } else {
+          FocusGuardStore.logEvent(
+            this, "domain_detected", windowPackage, "blocked host: ${hit.detail}"
+          )
+        }
+        triggerBlock(windowPackage, hit.reason, hit.detail)
+      }
     } catch (error: Throwable) {
+      FocusGuardStore.logEvent(
+        this, "scan_failed", windowPackage,
+        "tree scan failed: ${error.javaClass.simpleName}: ${error.message}"
+      )
       Log.w(TAG, "scan failed: ${error.message}")
     } finally {
       recycleQuietly(root)
@@ -398,12 +457,12 @@ class FocusAccessibilityService : AccessibilityService() {
     // Domains win over keywords: a blocked site is blocked whatever its text is.
     if (domains.isNotEmpty() && (hasUrlBar || isBrowser)) {
       val host = blockedHostIn(urlTexts)
-      if (host != null) return Hit(REASON_DOMAIN, host)
+      if (host != null) return Hit(REASON_DOMAIN, host, host)
     }
 
     if (keywords.isNotEmpty()) {
       for (text in inputTexts) {
-        if (matchesKeyword(text)) return Hit(REASON_KEYWORD, "input field")
+        if (matchesKeyword(text)) return Hit(REASON_KEYWORD, "input field", text.toString())
       }
     }
 
@@ -451,6 +510,9 @@ class FocusAccessibilityService : AccessibilityService() {
     if (now - lastBlockAt < BLOCK_COOLDOWN_MS) return
     lastBlockAt = now
     FocusGuardStore.recordBlock(this, packageName, reason)
+    FocusGuardStore.logEvent(
+      this, "block_triggered", packageName, "action: BACK pressed ($reason: $detail)"
+    )
     Log.i(TAG, "blocked $packageName ($reason: $detail)")
 
     val toast = if (reason == REASON_DOMAIN) {
@@ -476,7 +538,13 @@ class FocusAccessibilityService : AccessibilityService() {
       if (!enabled) return@postDelayed
       val foreground = currentPackage() ?: return@postDelayed
       if (isOwnPackage(foreground)) return@postDelayed
-      if (foreground != packageName) return@postDelayed
+      if (foreground != packageName) {
+        FocusGuardStore.logEvent(
+          this, "block_recheck_clear", packageName,
+          "recheck $attempt: app already left the screen"
+        )
+        return@postDelayed
+      }
       val root = activeRoot() ?: return@postDelayed
       val stillBlocked = try {
         inspectTree(root, packageName) != null
@@ -488,8 +556,16 @@ class FocusAccessibilityService : AccessibilityService() {
       if (!stillBlocked) return@postDelayed
 
       if (attempt >= MAX_RECHECKS) {
+        FocusGuardStore.logEvent(
+          this, "block_recheck_home", packageName,
+          "recheck $attempt: still blocked — pressing HOME"
+        )
         performGlobalAction(GLOBAL_ACTION_HOME)
       } else {
+        FocusGuardStore.logEvent(
+          this, "block_recheck_back", packageName,
+          "recheck $attempt: still blocked — pressing BACK again"
+        )
         performGlobalAction(GLOBAL_ACTION_BACK)
         scheduleRecheck(packageName, attempt + 1)
       }

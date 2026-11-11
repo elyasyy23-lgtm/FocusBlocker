@@ -6,6 +6,10 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <!-- v1.1.3: lets the app show the system dialog that excludes it from
+       battery optimization — the standard fix for OEM battery managers
+       that kill the foreground service after ~a day. -->
+  <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
   <application>
 

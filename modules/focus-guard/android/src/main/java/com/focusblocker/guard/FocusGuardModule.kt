@@ -4,6 +4,9 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -109,6 +112,52 @@ class FocusGuardModule : Module() {
       FocusGuardStore.resetBlockCount(requireContext())
       true
     }
+
+    // -------------------------------------------------------------------
+    // Debug log (v1.1.3): the last 100 events recorded by the accessibility
+    // service, written to SharedPreferences so they survive process kills.
+    // -------------------------------------------------------------------
+
+    AsyncFunction("getDebugLogs") {
+      FocusGuardStore.debugLog(requireContext())
+    }
+
+    AsyncFunction("clearDebugLogs") {
+      FocusGuardStore.clearDebugLog(requireContext())
+      true
+    }
+
+    /**
+     * Live service health: whether the accessibility service is bound, whether
+     * the foreground notification is actually up, and whether Android is still
+     * allowed to battery-optimize (i.e. potentially kill) the process.
+     */
+    AsyncFunction("getServiceHealth") {
+      val ctx = requireContext()
+      val health = JSONObject()
+      health.put("accessibilityEnabled", isAccessibilityEnabled(ctx))
+      health.put("serviceRunning", FocusAccessibilityService.isRunning)
+      health.put("foregroundActive", FocusAccessibilityService.isForegroundActive)
+      health.put("batteryOptimizationIgnored", isBatteryOptimizationIgnored(ctx))
+      health.put("sdkInt", Build.VERSION.SDK_INT)
+      health.toString()
+    }
+
+    /**
+     * Opens the system dialog that excludes FocusBlocker from battery
+     * optimization ("Unrestricted") — the standard fix for OEM battery managers
+     * that kill foreground services after a day.
+     */
+    AsyncFunction("requestIgnoreBatteryOptimizations") {
+      val ctx = requireContext()
+      if (isBatteryOptimizationIgnored(ctx)) return@AsyncFunction true
+      val activity = appContext.currentActivity
+        ?: throw IllegalStateException("Open FocusBlocker in the foreground first")
+      val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+      intent.data = Uri.parse("package:${ctx.packageName}")
+      activity.startActivity(intent)
+      true
+    }
   }
 
   private fun adminComponent(ctx: Context): ComponentName =
@@ -129,5 +178,10 @@ class FocusGuardModule : Module() {
     return flat.split(':')
       .mapNotNull { ComponentName.unflattenFromString(it) }
       .any { it == expected }
+  }
+
+  private fun isBatteryOptimizationIgnored(ctx: Context): Boolean {
+    val manager = ctx.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return false
+    return manager.isIgnoringBatteryOptimizations(ctx.packageName)
   }
 }

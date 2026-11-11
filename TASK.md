@@ -1,37 +1,58 @@
-# TASK — FocusBlocker v1.1.2 (sudden-stop fix + global text detection)
+# TASK — FocusBlocker v1.1.3 (debug log + keep-alive diagnostics)
 
-GOAL: fix "blocking stopped working after ~30 min" (OS kills the guard process) and ship
-v1.1.2 with global keyword detection, an anti-kill foreground service and white save-state
-buttons.
+GOAL: the guard died again ~a day after install and we were blind — add an
+in-app debug log so the next death shows its cause, harden keep-alive
+(battery-optimization exemption), ship v1.1.3.
 
-- [x] Diagnose: service code is sound; root cause = the app process (which hosts the
-      accessibility service) is a killable background process — no foreground service, no
-      persistent notification. isOwnPackage (v1.1.1) verified CORRECT — it only skips
-      com.focusblocker.app, so it is NOT the cause of the stop.
-- [x] FocusAccessibilityService: startForegroundGuard() in onServiceConnected (channel +
-      ongoing notification, FOREGROUND_SERVICE_TYPE_SPECIAL_USE on API 34+), stopForeground
-      in stopInternal/onUnbind.
-- [x] Global keyword matching: TYPE_VIEW_TEXT_CHANGED matched in ANY view (Google widget,
-      Chrome omnibox, Telegram/Rubika bubbles), plus event.text fallback when source is
-      null. Guarded by new ownWindowActive() so the app never blocks itself — including
-      IME/suggestion-strip events fired while our setup screen is active.
-- [x] Module manifest: FOREGROUND_SERVICE, FOREGROUND_SERVICE_SPECIAL_USE,
-      POST_NOTIFICATIONS permissions; foregroundServiceType="specialUse" + subtype
-      property on the service.
-- [x] App.js: request POST_NOTIFICATIONS (Android 13+), save buttons turn white while the
-      editor text equals the stored list and go green again on any text change, honest
-      copy updates (global text watching, notification diagnostic).
-- [x] app.json: version 1.1.2, versionCode 4.
-- [x] Verify: npm run verify (offline bundle gate) + module manifest XML parse.
-- [ ] User: git commit/push + tag v1.1.2 → CI builds APK, Release published on the tag.
+- [x] v1.1.2 SHIPPED: commit 3b1b155 + tag v1.1.2; CI build 42864735125 SUCCESS;
+      Release live: https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v1.1.2/FocusBlocker-release.apk
+      → owner reports it stopped working again after ~a day (v1.1.2 was never
+      verified on-device; FGS failure would have been silent).
+- [x] FocusGuardStore: debug-log ring buffer — last 100 events as JSON in the
+      same SharedPreferences, synchronized writes, survives process kills,
+      text capped at 160 chars, corrupted JSON self-heals to empty.
+- [x] FocusAccessibilityService logs: service_connected/unbound/destroyed/
+      interrupted, fgs_started / fgs_failed (startForeground refusal now
+      VISIBLE — the prime suspect for the overnight death), keyword_detected
+      (pkg + matched text), domain_detected, block_triggered,
+      block_recheck_back/home/clear, scan_failed.
+- [x] Keep-alive: new isForegroundActive flag + getServiceHealth() bridge
+      (accessibility enabled, service bound, FGS active, battery state, SDK);
+      requestIgnoreBatteryOptimizations() opens the system "Unrestricted"
+      dialog (REQUEST_IGNORE_BATTERY_OPTIMIZATIONS permission in module
+      manifest — merges in CI like the FGS permissions). NO wake-lock added:
+      a wake-lock keeps the CPU awake but does not stop Android killing the
+      process — the failure mode is process death, not sleeping CPU.
+- [x] FocusGuardModule: getDebugLogs / clearDebugLogs / getServiceHealth /
+      requestIgnoreBatteryOptimizations.
+- [x] index.js: getDebugLogs (newest first), clearDebugLogs, getServiceHealth,
+      requestIgnoreBatteryOptimizations + EMPTY_HEALTH.
+- [x] App.js: "5. Debug Log" section (live health line: service / foreground
+      notification / battery state) + Show Logs modal (health banner, battery
+      fix button, FlatList of 100 events with time + colored type + pkg + text,
+      Refresh / Clear / Close). Health refetches on every app foreground.
+- [x] app.json: 1.1.3 / versionCode 5.
+- [x] Verify: npm run verify green (614 modules; bundle contains Show Logs /
+      getDebugLogs / requestIgnoreBatteryOptimizations), autolinking resolves
+      focus-guard, prebuild clean (+ android/ deleted after), module manifest
+      XML parses, app.json JSON valid. expo-doctor 19/20 — the 1 failed check
+      (config schema) fetched HTML over mobile data = network, not project.
+- [ ] User: commit/push + tag v1.1.3 → CI builds APK, Release on the tag.
+- [ ] After install: open Debug Log → Show Logs and read what happened —
+      fgs_failed = startForeground refused (needs different FGS approach);
+      service_unbound overnight = OEM/user toggled accessibility off;
+      log simply stops = hard SIGKILL with no restart → battery exemption +
+      OEM "unrestricted" setting is the fix to verify.
 
-NOW: all code changes done and verified — waiting on the user's git push/tag to build
-v1.1.2 (Kotlin compiles in CI; Termux cannot compile Kotlin).
+NOW: code complete + verified locally. Waiting on git push + tag v1.1.3
+(Kotlin compiles in CI; Termux cannot compile Kotlin).
 
-Decisions (2026-11-10, owner):
-- v1.1.0 "page body text deliberately ignored" is SUPERSEDED: keywords now match any
-  on-screen text CHANGE (chat apps included), per explicit owner request.
-- Split-screen edge: a text-change hit from a non-active split-screen app still presses
-  BACK once (same class of behavior as the v1.1.1 tree walk; accepted).
-- The persistent notification doubles as a live diagnostic: notification gone = guard
-  dead, re-enable in Accessibility settings.
+Decisions (2026-11-11, owner request "debug log feature"):
+- Log lives in SharedPreferences, not a file: same process, tiny volume
+  (≤100 entries), and it already survives process death.
+- keyword_detected is logged only AFTER the ownWindowActive gate — otherwise
+  every keystroke on our own setup screen (which contains the keyword itself)
+  would flood the 100-entry buffer.
+- Detection (keyword/domain) and block_triggered are separate entries: a
+  detection swallowed by the 900 ms cooldown still shows in the log.
+- Battery-optimization exemption button instead of a wake-lock (see above).

@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
+  FlatList,
+  Modal,
   PermissionsAndroid,
   Platform,
   Pressable,
@@ -93,6 +95,40 @@ function normalizeDomain(raw) {
     .replace(/\.+$/, '');
 }
 
+const LOG_TYPE_COLORS = {
+  service_connected: '#7DD3FC',
+  service_unbound: '#F87171',
+  service_destroyed: '#F87171',
+  service_interrupted: '#FBBF24',
+  fgs_started: '#4ADE80',
+  fgs_failed: '#F87171',
+  keyword_detected: '#FBBF24',
+  domain_detected: '#FBBF24',
+  block_triggered: '#F87171',
+  block_recheck_back: '#FBBF24',
+  block_recheck_home: '#FBBF24',
+  block_recheck_clear: '#7DD3FC',
+  scan_failed: '#FBBF24',
+};
+
+function logTypeColor(type) {
+  return LOG_TYPE_COLORS[type] || COLORS.muted;
+}
+
+function formatLogTime(t) {
+  if (!t) return '--:--:--';
+  const date = new Date(t);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(
+    date.getMinutes()
+  )}:${pad(date.getSeconds())}`;
+}
+
+function shortPackage(pkg) {
+  const parts = String(pkg || '').split('.');
+  return parts.slice(-2).join('.');
+}
+
 export default function App() {
   const [config, setConfig] = useState(FocusGuard.EMPTY_CONFIG);
   const [keywordsText, setKeywordsText] = useState('');
@@ -102,6 +138,11 @@ export default function App() {
   const [savingDomains, setSavingDomains] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [message, setMessage] = useState(null);
+  const [health, setHealth] = useState(null);
+  const [logsOpen, setLogsOpen] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [clearingLogs, setClearingLogs] = useState(false);
   const keywordsDirtyRef = useRef(false);
   const domainsDirtyRef = useRef(false);
 
@@ -120,6 +161,11 @@ export default function App() {
     } finally {
       setLoading(false);
     }
+    // Health rides along every foreground refresh — the Debug Log section
+    // always shows the live keep-alive state without opening the modal.
+    FocusGuard.getServiceHealth()
+      .then(setHealth)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -233,6 +279,52 @@ export default function App() {
       setMessage('Block counter reset.');
     } catch (error) {
       setMessage(error.message || 'Could not reset the counter.');
+    }
+  };
+
+  const loadLogs = async () => {
+    setLogsLoading(true);
+    try {
+      const [nextLogs, nextHealth] = await Promise.all([
+        FocusGuard.getDebugLogs(),
+        FocusGuard.getServiceHealth(),
+      ]);
+      setLogs(nextLogs);
+      setHealth(nextHealth);
+    } catch (error) {
+      setMessage(error.message || 'Could not read the debug log.');
+      setLogsOpen(false);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const openLogs = async () => {
+    setLogsOpen(true);
+    await loadLogs();
+  };
+
+  const closeLogs = () => setLogsOpen(false);
+
+  const clearLogs = async () => {
+    setClearingLogs(true);
+    try {
+      await FocusGuard.clearDebugLogs();
+      setLogs([]);
+    } catch (error) {
+      setMessage(error.message || 'Could not clear the log.');
+    } finally {
+      setClearingLogs(false);
+    }
+  };
+
+  const fixBattery = async () => {
+    try {
+      await FocusGuard.requestIgnoreBatteryOptimizations();
+      setMessage('Confirm the system dialog so Android stops killing the guard.');
+      setTimeout(loadLogs, 1500);
+    } catch (error) {
+      setMessage(error.message || 'Could not open the battery dialog.');
     }
   };
 
@@ -467,6 +559,32 @@ export default function App() {
               <ActionButton label="Reset counter" variant="secondary" onPress={clearCounter} />
             </Section>
 
+            <Section
+              title="5. Debug Log"
+              subtitle="Everything the background guard does — service starts and stops, foreground-service state, keyword/domain hits and blocks — recorded on this device, never uploaded. Survives crashes and restarts.">
+              {health ? (
+                <Text
+                  style={[
+                    styles.healthLine,
+                    health.serviceRunning && health.foregroundActive
+                      ? styles.healthOk
+                      : styles.healthWarn,
+                  ]}>
+                  Service {health.serviceRunning ? 'running' : 'NOT running'} ·{' '}
+                  {health.foregroundActive ? 'foreground notification active' : 'NO foreground notification'} ·{' '}
+                  {health.batteryOptimizationIgnored
+                    ? 'battery unrestricted'
+                    : 'battery RESTRICTED — Android may kill the guard'}
+                </Text>
+              ) : null}
+              <ActionButton
+                label="Show Logs"
+                variant="secondary"
+                onPress={openLogs}
+                disabled={!FocusGuard.isAvailable}
+              />
+            </Section>
+
             {message ? <Text style={styles.message}>{message}</Text> : null}
 
             <Text style={styles.footer}>
@@ -478,6 +596,80 @@ export default function App() {
           </>
         )}
       </ScrollView>
+
+      <Modal visible={logsOpen} animationType="slide" onRequestClose={closeLogs}>
+        <View style={styles.logModalRoot}>
+          <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+          <View style={styles.logHeader}>
+            <View style={styles.logHeaderTitle}>
+              <Text style={styles.logTitle}>Debug Log</Text>
+              <Text style={styles.logSubtitle}>Last 100 events · newest first</Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close debug log"
+              onPress={closeLogs}
+              style={({ pressed }) => [styles.logClose, pressed && styles.buttonPressed]}>
+              <Text style={styles.logCloseText}>Close</Text>
+            </Pressable>
+          </View>
+
+          {health ? (
+            <View style={styles.logHealth}>
+              <Text style={styles.logHealthText}>
+                Accessibility: {health.accessibilityEnabled ? 'enabled' : 'DISABLED'} · Guard bound:{' '}
+                {health.serviceRunning ? 'yes' : 'no'} · Foreground service:{' '}
+                {health.foregroundActive ? 'running' : 'DOWN'} · Battery optimization:{' '}
+                {health.batteryOptimizationIgnored ? 'off (safe)' : 'on (kill risk)'}
+              </Text>
+              {!health.batteryOptimizationIgnored ? (
+                <ActionButton
+                  label="Exclude from battery optimization"
+                  variant="secondary"
+                  onPress={fixBattery}
+                />
+              ) : null}
+            </View>
+          ) : null}
+
+          {logsLoading ? (
+            <ActivityIndicator color={COLORS.accent} style={styles.logLoader} />
+          ) : (
+            <FlatList
+              data={logs}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.logList}
+              ListEmptyComponent={
+                <Text style={styles.logEmpty}>
+                  No events recorded yet. The log fills as soon as the guard runs — tap Refresh
+                  after using the phone, or Clear to start over.
+                </Text>
+              }
+              renderItem={({ item }) => (
+                <View style={styles.logRow}>
+                  <Text style={styles.logTime}>{formatLogTime(item.t)}</Text>
+                  <Text style={[styles.logType, { color: logTypeColor(item.type) }]}>
+                    {item.type}
+                  </Text>
+                  <View style={styles.logBody}>
+                    {item.pkg ? <Text style={styles.logPkg}>{shortPackage(item.pkg)}</Text> : null}
+                    {item.text ? <Text style={styles.logText}>{item.text}</Text> : null}
+                  </View>
+                </View>
+              )}
+            />
+          )}
+
+          <View style={styles.logFooter}>
+            <View style={styles.logFooterButton}>
+              <ActionButton label="Refresh" variant="secondary" onPress={loadLogs} busy={logsLoading} />
+            </View>
+            <View style={styles.logFooterButton}>
+              <ActionButton label="Clear log" variant="secondary" onPress={clearLogs} busy={clearingLogs} />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -767,6 +959,129 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginTop: 20,
     textAlign: 'center',
+  },
+  healthLine: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  healthOk: {
+    color: COLORS.accent,
+  },
+  healthWarn: {
+    color: COLORS.warning,
+  },
+  logModalRoot: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    paddingTop: (StatusBar.currentHeight || 24) + 10,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  logHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  logHeaderTitle: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  logTitle: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  logSubtitle: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  logClose: {
+    backgroundColor: COLORS.surfaceAlt,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  logCloseText: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  logHealth: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 12,
+    marginBottom: 10,
+  },
+  logHealthText: {
+    color: COLORS.muted,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  logLoader: {
+    marginTop: 32,
+  },
+  logList: {
+    paddingBottom: 8,
+  },
+  logEmpty: {
+    color: COLORS.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+    marginTop: 28,
+  },
+  logRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 10,
+    marginBottom: 8,
+  },
+  logTime: {
+    color: COLORS.muted,
+    fontSize: 11,
+    fontFamily: Platform.select({ android: 'monospace', default: undefined }),
+    width: 92,
+    paddingTop: 2,
+  },
+  logType: {
+    fontSize: 11,
+    fontWeight: '700',
+    width: 108,
+    paddingTop: 2,
+  },
+  logBody: {
+    flex: 1,
+  },
+  logPkg: {
+    color: '#7DD3FC',
+    fontSize: 11,
+    marginBottom: 2,
+  },
+  logText: {
+    color: COLORS.text,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  logFooter: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  logFooterButton: {
+    flex: 1,
   },
   footer: {
     color: '#5A6779',

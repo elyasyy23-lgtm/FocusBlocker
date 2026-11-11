@@ -82,3 +82,52 @@ export async function resetBlockCount() {
   if (!native) throw new Error('Native module missing — build a dev/release APK first.');
   return native.resetBlockCount();
 }
+
+export const EMPTY_HEALTH = {
+  accessibilityEnabled: false,
+  serviceRunning: false,
+  foregroundActive: false,
+  batteryOptimizationIgnored: false,
+  sdkInt: 0,
+};
+
+function parseJson(raw, fallback) {
+  try {
+    return { ...fallback, ...JSON.parse(raw) };
+  } catch (error) {
+    return { ...fallback };
+  }
+}
+
+export async function getServiceHealth() {
+  if (!native) return { ...EMPTY_HEALTH };
+  return parseJson(await native.getServiceHealth(), EMPTY_HEALTH);
+}
+
+export async function requestIgnoreBatteryOptimizations() {
+  if (!native) throw new Error('Native module missing — build a dev/release APK first.');
+  return native.requestIgnoreBatteryOptimizations();
+}
+
+/** Returns the last 100 guard events, NEWEST first (native stores oldest first). */
+export async function getDebugLogs() {
+  if (!native) return [];
+  try {
+    const parsed = JSON.parse(await native.getDebugLogs());
+    if (!Array.isArray(parsed)) return [];
+    return parsed.slice().reverse().map((entry, index) => ({
+      id: `${entry.t}-${index}`,
+      t: entry.t || 0,
+      type: entry.type || 'unknown',
+      pkg: entry.pkg || null,
+      text: entry.text || '',
+    }));
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function clearDebugLogs() {
+  if (!native) throw new Error('Native module missing — build a dev/release APK first.');
+  return native.clearDebugLogs();
+}
