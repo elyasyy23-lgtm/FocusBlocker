@@ -26,6 +26,9 @@ export const EMPTY_CONFIG = {
   lastBlockAt: 0,
   accessibilityEnabled: false,
   deviceAdminActive: false,
+  excludedApps: [],
+  language: 'en',
+  defaultsSeeded: false,
 };
 
 function parseConfig(raw) {
@@ -36,6 +39,7 @@ function parseConfig(raw) {
       ...parsed,
       keywords: parsed.keywords || [],
       domains: parsed.domains || [],
+      excludedApps: parsed.excludedApps || [],
     };
   } catch (error) {
     return { ...EMPTY_CONFIG };
@@ -61,6 +65,70 @@ export async function saveDomains(domains) {
 export async function setEnabled(enabled) {
   if (!native) throw new Error('Native module missing — build a dev/release APK first.');
   return native.setEnabled(enabled);
+}
+
+// ---------------------------------------------------------------------------
+// Excluded apps + language (v1.2.0)
+// ---------------------------------------------------------------------------
+
+/** Every launchable app: `[{ pkg, label }]`, sorted by label. */
+export async function getInstalledApps() {
+  if (!native) return [];
+  try {
+    const parsed = JSON.parse(await native.getInstalledApps());
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((entry) => ({
+        pkg: String(entry.pkg || ''),
+        label: String(entry.label || entry.pkg || ''),
+      }))
+      .filter((entry) => entry.pkg.length > 0);
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function getExcludedApps() {
+  if (!native) return [];
+  try {
+    const parsed = JSON.parse(await native.getExcludedApps());
+    return Array.isArray(parsed) ? parsed.filter((pkg) => typeof pkg === 'string') : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function saveExcludedApps(packages) {
+  if (!native) throw new Error('Native module missing — build a dev/release APK first.');
+  return native.setExcludedApps(packages);
+}
+
+export async function getLanguage() {
+  if (!native) return 'en';
+  try {
+    return (await native.getLanguage()) === 'fa' ? 'fa' : 'en';
+  } catch (error) {
+    return 'en';
+  }
+}
+
+export async function setLanguage(language) {
+  if (!native) return false;
+  try {
+    return await native.setLanguage(language);
+  } catch (error) {
+    return false;
+  }
+}
+
+/** Opens a URL; returns false when no app can handle it (fallback in JS). */
+export async function openUrl(url) {
+  if (!native) return false;
+  try {
+    return await native.openUrl(url);
+  } catch (error) {
+    return false;
+  }
 }
 
 export async function openAccessibilitySettings() {

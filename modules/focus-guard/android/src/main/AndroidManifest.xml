@@ -21,6 +21,13 @@
        back to the app-details page. Vendor autostart screens have no public API;
        these are the known ones. -->
   <queries>
+    <!-- v1.2.0: the Excluded Apps picker lists every app with a launcher icon.
+         Without this intent entry queryIntentActivities() returns only our own
+         package on Android 11+. -->
+    <intent>
+      <action android:name="android.intent.action.MAIN" />
+      <category android:name="android.intent.category.LAUNCHER" />
+    </intent>
     <package android:name="com.miui.securitycenter" />
     <package android:name="com.huawei.systemmanager" />
     <package android:name="com.coloros.safecenter" />

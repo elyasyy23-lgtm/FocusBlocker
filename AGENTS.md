@@ -40,7 +40,7 @@ Docs: https://docs.expo.dev/eas/index.md
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
 
-## Project: FocusBlocker (state as of 2026-11-11, v1.1.4)
+## Project: Tavakkol (state as of 2026-11-12, v1.2.0)
 
 Android-only self-control app, English UI, Expo SDK 58 / RN 0.88.1 / React 19.3.
 v1.1.2 died again ~a day after install (never verified on-device); v1.1.3 adds an
@@ -150,6 +150,42 @@ in-app DEBUG LOG so the next death shows its cause.
     App.js "5. Debug Log" section: live health line (service/FGS/battery) + Show Logs
     modal (FlatList, newest first, colored types, Refresh/Clear/Close, battery-fix
     button). Health refetches on every app foreground.
+- v1.2.0 (owner request — rebrand + settings): display name is **Tavakkol**; package names
+  (`com.focusblocker.app` / `com.focusblocker.guard`) and the remote are UNCHANGED, so it
+  upgrades over a v1.1.x install. New JS layout (the file named in the code below is still
+  the real one):
+  - `App.js` — screen only: i18n via `t()`, `ImageBackground` (`assets/background.jpg`) + a
+    dark overlay, gear icon → Settings, one-time seeding of `DEFAULT_KEYWORDS`
+    (`src/defaults.js` = sex/porn/casino) guarded by `defaultsSeeded`, prayer `GiftNote`,
+    excluded-app handlers.
+  - `src/theme.js` (COLORS, overlay, per-node `direction`/`textAlign` — RTL without an
+    I18nManager restart), `src/i18n.js` (English string IS the key, `createTranslator`,
+    `format('{{name}}')`, full Persian dictionary), `src/defaults.js`, `src/buildInfo.js`
+    (1.2.0 / code 7), `src/components/ui.js` (Section/StatusPill/ActionButton/Chip/GiftNote),
+    `src/screens/SettingsScreen.js` (language en/fa, excluded-apps picker with search —
+    launcher apps only — share, Rubika contact, about).
+  - Language + excluded apps persist in the SAME native prefs (`excluded_apps`,
+    `defaults_seeded`, `language`) so the service and the JS agree.
+- v1.2.0 keyword matching (bug: "gi" fired inside "payam-resan"): the service now compiles a
+  whole-word regex per keyword — `compileKeywordPatterns()` / `buildWordPattern()` /
+  `matchesKeyword()`, boundaries `(?<![\p{L}\p{N}])…(?![\p{L}\p{N}])`,
+  plus `normalizeForMatch()` (Arabic yeh/kaf/heh folded to Persian, ZWNJ variants unified,
+  diacritics stripped) so a Persian phrase with a space or half-space still matches. Keywords
+  containing spaces match as a phrase.
+- v1.2.0 per-app exclusion: `FocusGuardStore` keeps the excluded package list;
+  `FocusAccessibilityService` returns early (`isExcludedPackage`) for events/windows of those
+  packages, so a done/du'a app can be whitelisted. Module adds `getInstalledApps` (queries
+  LAUNCHER activities only, sorted with a Persian-aware Collator, own package filtered),
+  `getExcludedApps`, `setExcludedApps`, `getLanguage`, `setLanguage`, `openUrl`. The module
+  manifest carries a `<queries><intent> MAIN/LAUNCHER` entry — without it Android 11+ returns
+  only our own package.
+- v1.2.0 localization: toast / watchdog notification channels / device-admin explanation are
+  language-aware (native `text(key)` helper in `FocusGuardStore`); `res/values/strings.xml` +
+  `res/values-fa/strings.xml` hold the service label and admin description.
+- v1.2.0 verification additions: `node scripts/check-i18n.js` (fails when a `t('…')` key has no
+  Persian entry — 135 strings, all covered) and `scripts/set-background.js <img>` (jimp-compact
+  crop to 1080x1920 → `assets/background.jpg`; the shipped file is a generated placeholder
+  because `/storage/emulated/0/Download` is not readable from Termux).
 - Decisions (2026-11-10): `expo-pilot` is NOT used as the engine — its listeners run in JS and die
   with the backgrounded RN runtime. `react-native-device-admin` does not exist on npm (404).
   v1.1.0's "page body text deliberately ignored" was SUPERSEDED in v1.1.2 by owner request:

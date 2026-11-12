@@ -15,6 +15,9 @@ internal object FocusGuardStore {
   private const val PREFS_NAME = "focus_blocker_prefs"
   private const val KEY_KEYWORDS = "keywords"
   private const val KEY_DOMAINS = "blocked_domains"
+  private const val KEY_EXCLUDED_APPS = "excluded_apps"
+  private const val KEY_DEFAULTS_SEEDED = "defaults_seeded"
+  private const val KEY_LANGUAGE = "language"
   private const val KEY_ENABLED = "enabled"
   private const val KEY_BLOCK_COUNT = "block_count"
   private const val KEY_LAST_BLOCK_PACKAGE = "last_block_package"
@@ -58,8 +61,72 @@ internal object FocusGuardStore {
     }
     val array = JSONArray()
     unique.forEach { array.put(it) }
-    prefs(context).edit().putString(KEY_KEYWORDS, array.toString()).apply()
+    prefs(context).edit()
+      .putString(KEY_KEYWORDS, array.toString())
+      // Saving the list always counts as "the user has their own list", so the
+      // starter keywords are never written again after a deliberate clear.
+      .putBoolean(KEY_DEFAULTS_SEEDED, true)
+      .apply()
   }
+
+  /** True once the keyword list was written at least once on this install. */
+  fun defaultsSeeded(context: Context): Boolean =
+    prefs(context).getBoolean(KEY_DEFAULTS_SEEDED, false)
+
+  // ---------------------------------------------------------------------
+  // Excluded apps (v1.2.0): package names whose text is NEVER inspected.
+  // Every entry is a full package name, so a chat app can be exempted while
+  // the browser and every search bar stay guarded.
+  // ---------------------------------------------------------------------
+
+  fun excludedApps(context: Context): List<String> {
+    val raw = prefs(context).getString(KEY_EXCLUDED_APPS, "[]") ?: "[]"
+    val array = try {
+      JSONArray(raw)
+    } catch (error: Exception) {
+      JSONArray()
+    }
+    val result = LinkedHashSet<String>()
+    for (index in 0 until array.length()) {
+      val value = array.optString(index, "").trim()
+      if (value.isNotEmpty()) result.add(value)
+    }
+    return result.toList()
+  }
+
+  fun setExcludedApps(context: Context, packages: List<String>) {
+    val unique = LinkedHashSet<String>()
+    packages.forEach { pkg ->
+      val value = pkg.trim()
+      if (value.isNotEmpty()) unique.add(value)
+    }
+    val array = JSONArray()
+    unique.forEach { array.put(it) }
+    prefs(context).edit().putString(KEY_EXCLUDED_APPS, array.toString()).apply()
+  }
+
+  fun isExcluded(context: Context, packageName: String?): Boolean {
+    if (packageName.isNullOrEmpty()) return false
+    return excludedApps(context).any { it == packageName }
+  }
+
+  // ---------------------------------------------------------------------
+  // UI language (v1.2.0): the JS side owns the choice, the service reads it so
+  // the notification and the "blocked" toast follow the same language.
+  // ---------------------------------------------------------------------
+
+  /** "en" or "fa" — Persian unless the user picked otherwise. */
+  fun language(context: Context): String =
+    prefs(context).getString(KEY_LANGUAGE, "en") ?: "en"
+
+  fun setLanguage(context: Context, language: String) {
+    val value = if (language.lowercase().startsWith("fa")) "fa" else "en"
+    prefs(context).edit().putString(KEY_LANGUAGE, value).apply()
+  }
+
+  /** Picks the string for the current UI language. */
+  fun text(context: Context, english: String, persian: String): String =
+    if (language(context) == "fa") persian else english
 
   /**
    * Domains are stored as bare hosts: "https://www.facebook.com/feed" becomes

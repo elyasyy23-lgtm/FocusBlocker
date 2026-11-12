@@ -1,11 +1,12 @@
-# FocusBlocker
+# Tavakkol
 
-A personal self-control app for Android with three features:
+A personal self-control app for Android (formerly FocusBlocker) with six safeguards,
+a full Settings screen, and an English/Persian interface:
 
 1. **Targeted keyword blocker** — the Accessibility Service does *not* read the whole screen.
    It checks the text inside input fields only (`EditText` / `AutoCompleteTextView`, i.e. the
    Google search bar, a browser address bar, any text box). A blocked keyword closes the
-   keyboard/search immediately with `GLOBAL_ACTION_BACK`. FocusBlocker never inspects its own
+   keyboard/search immediately with `GLOBAL_ACTION_BACK`. Tavakkol never inspects its own
    window, so typing your block lists in the setup screen is always safe.
 2. **Domain blocker** — inside Chrome (and other browsers, including Chrome Custom Tabs) the
    service reads the URL from the address-bar node. If the page host matches the blocked-domain
@@ -14,6 +15,13 @@ A personal self-control app for Android with three features:
 3. **Device admin (anti-uninstall)** — while the app is an active device administrator, Android
    refuses to uninstall it. The same admin also exposes a "panic lock" that locks the screen
    immediately (`<force-lock />` policy).
+4. **Excluded apps** — apps you whitelist (a prayer app, a messenger you need) are skipped
+   completely: keyword and domain checks never touch their windows.
+5. **Whole-word Persian matching** — a keyword only fires as a whole word, so `gi` no longer
+   triggers inside `payam-resan`. Arabic/Persian letter variants, the half-space (ZWNJ) and
+   diacritics are normalized before matching, so a phrase with a space matches too.
+6. **Settings** — language (English / Persian, RTL without restarting), excluded-app picker
+   with search, share the app, contact the developer, and the version footer.
 
 Everything runs on the phone, offline. Nothing is uploaded, no analytics, no network calls.
 
@@ -24,7 +32,19 @@ Everything runs on the phone, offline. Nothing is uploaded, no analytics, no net
 ## Project layout
 
 ```
-App.js                                   React Native UI (the whole screen)
+App.js                                   React Native UI (main screen)
+src/
+  theme.js                               colors, overlay, RTL direction helpers
+  i18n.js                                English-keyed dictionary + Persian translation
+  defaults.js                            default keywords, share/contact links
+  buildInfo.js                           version label shown in Settings
+  components/ui.js                       Section / StatusPill / ActionButton / Chip / GiftNote
+  screens/SettingsScreen.js              language, excluded apps, share, contact, about
+scripts/
+  check-i18n.js                          fails if a UI string has no Persian translation
+  make-background.js                     generates the placeholder background
+  set-background.js                      crops your own photo to assets/background.jpg
+assets/background.jpg                    main screen background (placeholder shipped)
 modules/focus-guard/                     local Expo module (autolinked, no npm publish)
   index.js                               JS bridge with Expo Go fail-safe
   android/src/main/AndroidManifest.xml   <service> + <receiver> declarations
@@ -53,6 +73,14 @@ storage. The result: blocking keeps working when the UI is not running.
 The trade-off is that this module is hand-written and Android-only (same as expo-pilot).
 `react-native-device-admin` does not exist on npm (404), so the device admin receiver is part of
 the same local module.
+
+## Checks
+
+```bash
+npm run verify            # Metro bundle (expo export, --no-bytecode)
+node scripts/check-i18n.js # every t('…') key must exist in the Persian dictionary
+node scripts/set-background.js ~/photo.jpg   # optional: your own background
+```
 
 ## Build the APK (EAS, no Android Studio needed)
 

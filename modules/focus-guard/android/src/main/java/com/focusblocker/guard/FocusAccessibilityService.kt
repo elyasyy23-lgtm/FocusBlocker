@@ -78,6 +78,17 @@ class FocusAccessibilityService : AccessibilityService() {
 
     private val WHITESPACE = Regex("\\s+")
 
+    /** Zero-width non-joiner / joiner as they appear inside Persian words. */
+    private const val ZWNJ = '\u200C'
+    private const val ZWJ = '\u200D'
+
+    /**
+     * Character classes that count as "inside a word" for the whole-word rule
+     * (v1.2.0). Letters and digits are word characters; punctuation, spaces and
+     * emoji are boundaries. `\p{L}` covers Persian/Arabic letters too.
+     */
+    private const val WORD_CHAR = "[\\p{L}\\p{N}]"
+
     /** Host inside any text the address bar exposes ("https://www.facebook.com/"). */
     private val HOST_PATTERN = Regex(
       "(?i)\\b((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,24})(?::\\d{2,5})?"
@@ -154,6 +165,15 @@ class FocusAccessibilityService : AccessibilityService() {
   private val handler = Handler(Looper.getMainLooper())
   private var keywords: List<String> = emptyList()
   private var domains: List<String> = emptyList()
+  private var excludedPackages: Set<String> = emptySet()
+
+  /**
+   * v1.2.0: one compiled pattern per keyword (both ZWNJ spellings), built in
+   * [refreshConfig] so no regular expression is compiled on an accessibility
+   * event — that callback must stay in the sub-millisecond range.
+   */
+  private var keywordPatterns: List<Regex> = emptyList()
+
   private var enabled = true
   private var lastBlockAt = 0L
   private var lastScanAt = 0L
@@ -219,7 +239,76 @@ class FocusAccessibilityService : AccessibilityService() {
   private fun refreshConfig() {
     keywords = FocusGuardStore.keywords(this)
     domains = FocusGuardStore.domains(this)
+    excludedPackages = FocusGuardStore.excludedApps(this).toSet()
     enabled = FocusGuardStore.isEnabled(this)
+    keywordPatterns = compileKeywordPatterns(keywords)
+  }
+
+  /**
+   * v1.2.0 whole-word matcher.
+   *
+   * Until v1.1.4 a keyword was matched with `text.contains(keyword)`, so a short
+   * word matched inside a longer one — the owner's example: "گی" firing inside
+   * "پیام‌رسان". Now every keyword becomes a pattern with word boundaries on
+   * both sides, so only a whole word (or an exact multi-word phrase) matches.
+   *
+   * Persian needs two extra steps before the boundary check is meaningful:
+   *  - the Arabic forms of yeh/kaf/heh (ي ك ة) and the Persian ones (ی ک ه) must
+   *    compare equal, because two keyboards type the same word differently;
+   *  - ZWNJ (نیم‌فاصله) is invisible: "پیام‌رسان" and "پیامرسان" are the same
+   *    word for the user. Both are matched (one variant keeps the ZWNJ as a
+   *    space, one glues the parts together) so a phrase typed either way hits.
+   */
+  private fun compileKeywordPatterns(list: List<String>): List<Regex> {
+    if (list.isEmpty()) return emptyList()
+    val patterns = LinkedHashSet<Regex>()
+    for (keyword in list) {
+      // Text and keyword are normalized the same way, in both ZWNJ spellings.
+      for (zwnjAsSpace in booleanArrayOf(false, true)) {
+        val normalized = normalizeForMatch(keyword, zwnjAsSpace)
+        if (normalized.isEmpty()) continue
+        buildWordPattern(normalized)?.let { patterns.add(it) }
+      }
+    }
+    return patterns.toList()
+  }
+
+  /** "سایت شرط بندی" → (?<![\p{L}\p{N}])سایت\s+شرط\s+بندی(?![\p{L}\p{N}]) */
+  private fun buildWordPattern(normalizedPhrase: String): Regex? {
+    val words = normalizedPhrase.split(' ').filter { it.isNotEmpty() }
+    if (words.isEmpty()) return null
+    val body = words.joinToString("\\s+") { java.util.regex.Pattern.quote(it) }
+    return try {
+      Regex("(?<!$WORD_CHAR)$body(?!$WORD_CHAR)")
+    } catch (error: Throwable) {
+      // A keyword that cannot be expressed as a pattern must never crash the
+      // guard — it is simply skipped (and the log says so at connect time).
+      Log.w(TAG, "keyword pattern failed: ${error.message}")
+      null
+    }
+  }
+
+  /**
+   * Folds the spelling differences that make two identical words look different:
+   * Arabic yeh/kaf/heh → Persian, diacritics + tatweel dropped, ZWNJ optionally
+   * turned into a space, lower-cased for Latin keywords, whitespace collapsed.
+   */
+  private fun normalizeForMatch(raw: String, zwnjAsSpace: Boolean): String {
+    val out = StringBuilder(raw.length)
+    for (ch in raw) {
+      when {
+        ch == ZWNJ || ch == ZWJ -> if (zwnjAsSpace) out.append(' ')
+        // Directional marks and Arabic diacritics/tatweel are invisible.
+        ch == '\u200E' || ch == '\u200F' || ch == '\u061C' -> Unit
+        ch.code in 0x064B..0x065F || ch.code == 0x0670 || ch.code == 0x0640 -> Unit
+        ch == 'ي' || ch == 'ى' -> out.append('ی')
+        ch == 'ك' -> out.append('ک')
+        ch == 'ة' || ch == 'ۀ' -> out.append('ه')
+        ch.isWhitespace() -> out.append(' ')
+        else -> out.append(ch.lowercaseChar())
+      }
+    }
+    return out.toString().replace(WHITESPACE, " ").trim()
   }
 
   /**
@@ -251,10 +340,14 @@ class FocusAccessibilityService : AccessibilityService() {
       if (Build.VERSION.SDK_INT >= 26) {
         val channel = NotificationChannel(
           NOTIFICATION_CHANNEL,
-          "Guard status",
+          FocusGuardStore.text(this, "Guard status", "وضعیت محافظ"),
           NotificationManager.IMPORTANCE_LOW
         )
-        channel.description = "Shown while the FocusBlocker guard is running."
+        channel.description = FocusGuardStore.text(
+          this,
+          "Shown while the Tavakkol guard is running.",
+          "تا زمانی که محافظ توکل روشن است نمایش داده می‌شود."
+        )
         channel.setShowBadge(false)
         manager?.createNotificationChannel(channel)
       }
@@ -268,8 +361,16 @@ class FocusAccessibilityService : AccessibilityService() {
         @Suppress("DEPRECATION") Notification.Builder(this)
       }
       val notification = builder
-        .setContentTitle("FocusBlocker is active")
-        .setContentText("Keyword and domain guard is watching this screen.")
+        .setContentTitle(
+          FocusGuardStore.text(this, "Tavakkol is active", "توکل فعال است")
+        )
+        .setContentText(
+          FocusGuardStore.text(
+            this,
+            "Keyword and domain guard is watching this screen.",
+            "محافظ کلمه‌ها و سایت‌ها این صفحه را زیر نظر دارد."
+          )
+        )
         .setSmallIcon(android.R.drawable.ic_lock_lock)
         .setOngoing(true)
         .setOnlyAlertOnce(true)
@@ -310,6 +411,10 @@ class FocusAccessibilityService : AccessibilityService() {
     // the setup screen contain the block lists, so inspecting them would block
     // FocusBlocker exactly while the user edits the lists.
     if (isOwnPackage(eventPackage)) return
+    // Rule 2 (v1.2.0): apps the user excluded in Settings are never inspected —
+    // no keyword hit, no tree walk, no block. The exclusion list lives in
+    // SharedPreferences, so it holds while React Native is dead.
+    if (isExcludedPackage(eventPackage)) return
     if (!isRelevantEvent(event.eventType)) return
 
     val now = System.currentTimeMillis()
@@ -374,6 +479,10 @@ class FocusAccessibilityService : AccessibilityService() {
       recycleQuietly(root)
       return
     }
+    if (isExcludedPackage(windowPackage)) {
+      recycleQuietly(root)
+      return
+    }
 
     // 2. Tree walk for everything the event does not carry: input fields that did
     //    not emit the event, and the browser address bar. Throttled per app.
@@ -421,6 +530,12 @@ class FocusAccessibilityService : AccessibilityService() {
     return candidate == "com.focusblocker.guard"
   }
 
+  /** True when the user added this package to the Excluded Apps list (v1.2.0). */
+  private fun isExcludedPackage(candidate: String?): Boolean {
+    if (candidate.isNullOrEmpty()) return false
+    return excludedPackages.contains(candidate)
+  }
+
   private fun isRelevantEvent(eventType: Int): Boolean = when (eventType) {
     AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
     AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
@@ -437,6 +552,8 @@ class FocusAccessibilityService : AccessibilityService() {
    * Page body text is deliberately ignored.
    */
   private fun inspectTree(root: AccessibilityNodeInfo, packageName: String): Hit? {
+    // An excluded app is invisible to the guard, whatever the tree says.
+    if (isExcludedPackage(packageName)) return null
     val urlTexts = ArrayList<String>()
     val inputTexts = ArrayList<CharSequence>()
     var hasUrlBar = false
@@ -514,11 +631,15 @@ class FocusAccessibilityService : AccessibilityService() {
   }
 
   private fun matchesKeyword(raw: CharSequence?): Boolean {
-    if (raw.isNullOrEmpty()) return false
-    val text = raw.toString().lowercase().replace(WHITESPACE, " ").trim()
-    if (text.isEmpty()) return false
-    for (keyword in keywords) {
-      if (text.contains(keyword)) return true
+    if (raw.isNullOrEmpty() || keywordPatterns.isEmpty()) return false
+    val source = raw.toString()
+    if (source.isEmpty()) return false
+    // Both ZWNJ spellings of the same on-screen text, so a keyword typed with a
+    // نیم‌فاصله still matches text that has none (and the other way round).
+    val glued = normalizeForMatch(source, zwnjAsSpace = false)
+    val spaced = normalizeForMatch(source, zwnjAsSpace = true)
+    for (pattern in keywordPatterns) {
+      if (pattern.containsMatchIn(glued) || pattern.containsMatchIn(spaced)) return true
     }
     return false
   }
@@ -548,9 +669,9 @@ class FocusAccessibilityService : AccessibilityService() {
     Log.i(TAG, "blocked $packageName ($reason: $detail)")
 
     val toast = if (reason == REASON_DOMAIN) {
-      "FocusBlocker: blocked $detail"
+      FocusGuardStore.text(this, "Tavakkol: blocked $detail", "توکل: $detail مسدود شد")
     } else {
-      "FocusBlocker: blocked keyword"
+      FocusGuardStore.text(this, "Tavakkol: blocked keyword", "توکل: کلمهٔ مسدودکننده پیدا شد")
     }
     Toast.makeText(this, toast, Toast.LENGTH_SHORT).show()
 

@@ -39,6 +39,9 @@ class FocusGuardModule : Module() {
       config.put("lastBlockAt", FocusGuardStore.lastBlockAt(ctx).toDouble())
       config.put("accessibilityEnabled", isAccessibilityEnabled(ctx))
       config.put("deviceAdminActive", isDeviceAdminActive(ctx))
+      config.put("excludedApps", JSONArray(FocusGuardStore.excludedApps(ctx)))
+      config.put("language", FocusGuardStore.language(ctx))
+      config.put("defaultsSeeded", FocusGuardStore.defaultsSeeded(ctx))
       config.toString()
     }
 
@@ -63,6 +66,89 @@ class FocusGuardModule : Module() {
       true
     }
 
+    // -------------------------------------------------------------------
+    // Excluded apps + language (v1.2.0)
+    // -------------------------------------------------------------------
+
+    /**
+     * Every launchable app on the phone, as JSON: `[{ pkg, label }]` sorted by
+     * label. Only apps with a launcher entry are listed — that is what a user
+     * recognises, and it keeps the answer at ~100 entries instead of ~400
+     * system packages. Our own package is filtered out (it is always ignored).
+     *
+     * Android 11+ package visibility: the launcher <intent> entry in the module
+     * manifest is what makes this query return anything at all.
+     */
+    AsyncFunction("getInstalledApps") {
+      val ctx = requireContext()
+      val manager = ctx.packageManager
+      val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+      val resolved = try {
+        manager.queryIntentActivities(intent, 0)
+      } catch (error: Throwable) {
+        emptyList()
+      }
+      val seen = HashMap<String, String>()
+      for (info in resolved) {
+        val pkg = info.activityInfo?.packageName ?: continue
+        if (pkg == ctx.packageName) continue
+        if (seen.containsKey(pkg)) continue
+        val label = try {
+          info.loadLabel(manager).toString()
+        } catch (error: Throwable) {
+          pkg
+        }
+        seen[pkg] = label.trim().ifEmpty { pkg }
+      }
+      val collator = java.text.Collator.getInstance()
+      val entries = seen.entries
+        .map { (pkg, label) -> pkg to label }
+        .sortedWith(compareBy(collator) { it.second }.thenBy { it.first })
+      val array = JSONArray()
+      for ((pkg, label) in entries) {
+        array.put(JSONObject().put("pkg", pkg).put("label", label))
+      }
+      array.toString()
+    }
+
+    AsyncFunction("getExcludedApps") {
+      JSONArray(FocusGuardStore.excludedApps(requireContext())).toString()
+    }
+
+    AsyncFunction("setExcludedApps") { packages: List<String> ->
+      val ctx = requireContext()
+      FocusGuardStore.setExcludedApps(ctx, packages)
+      FocusAccessibilityService.reload()
+      true
+    }
+
+    AsyncFunction("getLanguage") {
+      FocusGuardStore.language(requireContext())
+    }
+
+    AsyncFunction("setLanguage") { language: String ->
+      val ctx = requireContext()
+      FocusGuardStore.setLanguage(ctx, language)
+      true
+    }
+
+    /**
+     * Opens any URL from the app (Share / Contact Developer). Custom schemes
+     * like `rubika://` are tried first; without a matching app the call returns
+     * false instead of throwing, so JS can fall back to the https link.
+     */
+    AsyncFunction("openUrl") { url: String ->
+      val ctx = requireContext()
+      try {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        ctx.startActivity(intent)
+        true
+      } catch (error: Throwable) {
+        false
+      }
+    }
+
     AsyncFunction("isAccessibilityEnabled") {
       isAccessibilityEnabled(requireContext())
     }
@@ -82,7 +168,7 @@ class FocusGuardModule : Module() {
       val ctx = requireContext()
       if (!isDeviceAdminActive(ctx)) {
         val activity = appContext.currentActivity
-          ?: throw IllegalStateException("Open FocusBlocker in the foreground first")
+          ?: throw IllegalStateException("Open Tavakkol in the foreground first")
         val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
         intent.putExtra(
           DevicePolicyManager.EXTRA_DEVICE_ADMIN,
@@ -90,8 +176,13 @@ class FocusGuardModule : Module() {
         )
         intent.putExtra(
           DevicePolicyManager.EXTRA_ADD_EXPLANATION,
-          "While this is active, Android will not uninstall FocusBlocker. Deactivate it in " +
-            "Settings > Security > Device admin apps when you really want to remove the app."
+          FocusGuardStore.text(
+            ctx,
+            "While this is active, Android will not uninstall Tavakkol. Deactivate it in " +
+              "Settings > Security > Device admin apps when you really want to remove the app.",
+            "تا وقتی این گزینه فعال است، اندروید اجازهٔ حذف توکل را نمی‌دهد. برای حذف، آن را در " +
+              "تنظیمات > امنیت > برنامه‌های مدیر دستگاه غیرفعال کنید."
+          )
         )
         activity.startActivity(intent)
       }
@@ -165,7 +256,7 @@ class FocusGuardModule : Module() {
       val ctx = requireContext()
       if (isBatteryOptimizationIgnored(ctx)) return@AsyncFunction true
       val activity = appContext.currentActivity
-        ?: throw IllegalStateException("Open FocusBlocker in the foreground first")
+        ?: throw IllegalStateException("Open Tavakkol in the foreground first")
       val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
       intent.data = Uri.parse("package:${ctx.packageName}")
       activity.startActivity(intent)
@@ -198,7 +289,7 @@ class FocusGuardModule : Module() {
     AsyncFunction("openAutostartSettings") {
       val ctx = requireContext()
       val activity = appContext.currentActivity
-        ?: throw IllegalStateException("Open FocusBlocker in the foreground first")
+        ?: throw IllegalStateException("Open Tavakkol in the foreground first")
       val result = JSONObject()
       // Try-and-see instead of resolve-then-launch: vendor security apps are
       // sometimes hidden from resolveActivity() even with <queries> in the

@@ -197,10 +197,14 @@ class GuardWatchdogService : Service() {
     if (Build.VERSION.SDK_INT >= 26) {
       val channel = NotificationChannel(
         CHANNEL_STATUS,
-        "Guard status",
+        FocusGuardStore.text(this, "Guard status", "وضعیت محافظ"),
         NotificationManager.IMPORTANCE_LOW
       )
-      channel.description = "Shown while the FocusBlocker guard is running."
+      channel.description = FocusGuardStore.text(
+        this,
+        "Shown while the Tavakkol guard is running.",
+        "تا زمانی که محافظ توکل روشن است نمایش داده می‌شود."
+      )
       channel.setShowBadge(false)
       manager?.createNotificationChannel(channel)
     }
@@ -214,8 +218,14 @@ class GuardWatchdogService : Service() {
       @Suppress("DEPRECATION") Notification.Builder(this)
     }
     return builder
-      .setContentTitle("FocusBlocker is active")
-      .setContentText("Keyword and domain guard is watching this screen.")
+      .setContentTitle(FocusGuardStore.text(this, "Tavakkol is active", "توکل فعال است"))
+      .setContentText(
+        FocusGuardStore.text(
+          this,
+          "Keyword and domain guard is watching this screen.",
+          "محافظ کلمه‌ها و سایت‌ها این صفحه را زیر نظر دارد."
+        )
+      )
       .setSmallIcon(android.R.drawable.ic_lock_lock)
       .setOngoing(true)
       .setOnlyAlertOnce(true)
@@ -285,10 +295,14 @@ class GuardWatchdogService : Service() {
       if (Build.VERSION.SDK_INT >= 26) {
         val channel = NotificationChannel(
           CHANNEL_ALERT,
-          "Guard is off",
+          FocusGuardStore.text(this, "Guard is off", "محافظ خاموش است"),
           NotificationManager.IMPORTANCE_HIGH
         )
-        channel.description = "Warns you when the FocusBlocker guard stopped running."
+        channel.description = FocusGuardStore.text(
+          this,
+          "Warns you when the Tavakkol guard stopped running.",
+          "اگر محافظ توکل متوقف شود به شما هشدار می‌دهد."
+        )
         manager.createNotificationChannel(channel)
       }
       val launchIntent = packageManager?.getLaunchIntentForPackage(packageName)
@@ -304,8 +318,16 @@ class GuardWatchdogService : Service() {
         @Suppress("DEPRECATION") Notification.Builder(this)
       }
       val notification = builder
-        .setContentTitle("FocusBlocker guard is off")
-        .setContentText("The guard is not running. Tap to open FocusBlocker and switch it back on.")
+        .setContentTitle(
+          FocusGuardStore.text(this, "Tavakkol guard is off", "محافظ توکل خاموش شده است")
+        )
+        .setContentText(
+          FocusGuardStore.text(
+            this,
+            "The guard is not running. Tap to open Tavakkol and switch it back on.",
+            "محافظ اجرا نمی‌شود. برای روشن کردن دوباره روی این پیام بزنید."
+          )
+        )
         .setSmallIcon(android.R.drawable.stat_notify_error)
         .setAutoCancel(true)
         .setContentIntent(contentIntent)

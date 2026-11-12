@@ -15,14 +15,18 @@ import android.util.Log
 class FocusDeviceAdminReceiver : DeviceAdminReceiver() {
   override fun onEnabled(context: Context, intent: Intent) {
     super.onEnabled(context, intent)
-    Log.i("FocusBlocker", "device admin enabled")
+    Log.i("Tavakkol", "device admin enabled")
   }
 
   override fun onDisabled(context: Context, intent: Intent) {
     super.onDisabled(context, intent)
-    Log.i("FocusBlocker", "device admin disabled")
+    Log.i("Tavakkol", "device admin disabled")
   }
 
   override fun onDisableRequested(context: Context, intent: Intent): CharSequence =
-    "FocusBlocker will stop protecting this device, and it can be uninstalled again."
+    FocusGuardStore.text(
+      context,
+      "Tavakkol will stop protecting this device, and it can be uninstalled again.",
+      "توکل دیگر از این دستگاه محافظت نمی‌کند و برنامه دوباره قابل حذف می‌شود."
+    )
 }

@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
   FlatList,
+  ImageBackground,
   Modal,
   PermissionsAndroid,
   Platform,
@@ -16,73 +17,14 @@ import {
   View,
 } from 'react-native';
 import * as FocusGuard from './modules/focus-guard';
+import { createTranslator } from './src/i18n';
+import { COLORS, textAlign } from './src/theme';
+import { ActionButton, Chip, GiftNote, Section, StatusPill } from './src/components/ui';
+import { DEFAULT_KEYWORDS } from './src/defaults';
+import { VERSION_LABEL } from './src/buildInfo';
+import SettingsScreen from './src/screens/SettingsScreen';
 
-const COLORS = {
-  background: '#0B0F14',
-  surface: '#151C24',
-  surfaceAlt: '#1D2733',
-  border: '#28323F',
-  text: '#F2F6FA',
-  muted: '#8C9AAB',
-  accent: '#4ADE80',
-  accentSoft: '#123523',
-  danger: '#F87171',
-  warning: '#FBBF24',
-};
-
-function Section({ title, subtitle, children }) {
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
-      <View style={styles.sectionBody}>{children}</View>
-    </View>
-  );
-}
-
-function StatusPill({ active, labels }) {
-  return (
-    <View style={[styles.pill, active ? styles.pillOn : styles.pillOff]}>
-      <View style={[styles.dot, active ? styles.dotOn : styles.dotOff]} />
-      <Text style={[styles.pillText, active ? styles.pillTextOn : styles.pillTextOff]}>
-        {active ? labels[0] : labels[1]}
-      </Text>
-    </View>
-  );
-}
-
-function ActionButton({ label, onPress, variant = 'primary', disabled = false, busy = false, saved = false }) {
-  const isSecondary = variant === 'secondary';
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      disabled={disabled || busy}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.button,
-        isSecondary ? styles.buttonSecondary : saved ? styles.buttonSaved : styles.buttonPrimary,
-        (disabled || busy) && styles.buttonDisabled,
-        pressed && styles.buttonPressed,
-      ]}>
-      {busy ? (
-        <ActivityIndicator color={isSecondary ? COLORS.text : '#04130A'} size="small" />
-      ) : (
-        <Text
-          style={[
-            styles.buttonText,
-            isSecondary
-              ? styles.buttonTextSecondary
-              : saved
-              ? styles.buttonTextSaved
-              : styles.buttonTextPrimary,
-          ]}>
-          {label}
-        </Text>
-      )}
-    </Pressable>
-  );
-}
+const BACKGROUND = require('./assets/background.jpg');
 
 function normalizeDomain(raw) {
   return String(raw || '')
@@ -129,9 +71,9 @@ function logTypeColor(type) {
   return LOG_TYPE_COLORS[type] || COLORS.muted;
 }
 
-function formatLogTime(t) {
-  if (!t) return '--:--:--';
-  const date = new Date(t);
+function formatLogTime(value) {
+  if (!value) return '--:--:--';
+  const date = new Date(value);
   const pad = (n) => String(n).padStart(2, '0');
   return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(
     date.getMinutes()
@@ -143,12 +85,12 @@ function shortPackage(pkg) {
   return parts.slice(-2).join('.');
 }
 
-/** "42s ago" / "never" — how long the keep-alive watchdog has been silent. */
-function formatHeartbeat(ageMs) {
-  if (ageMs === null || ageMs === undefined || ageMs < 0) return 'never';
+/** "42s ago" / "12min ago" / "never" — how long the watchdog has been silent. */
+function formatHeartbeat(ageMs, t) {
+  if (ageMs === null || ageMs === undefined || ageMs < 0) return t('never');
   const seconds = Math.round(ageMs / 1000);
-  if (seconds < 90) return `${seconds}s ago`;
-  return `${Math.round(seconds / 60)}min ago`;
+  if (seconds < 90) return t('{{seconds}}s ago', { seconds });
+  return t('{{minutes}}min ago', { minutes: Math.round(seconds / 60) });
 }
 
 export default function App() {
@@ -166,13 +108,21 @@ export default function App() {
   const [logsLoading, setLogsLoading] = useState(false);
   const [clearingLogs, setClearingLogs] = useState(false);
   const [keepAliveBusy, setKeepAliveBusy] = useState(false);
+  const [screen, setScreen] = useState('main');
+  const [lang, setLang] = useState('en');
   const keywordsDirtyRef = useRef(false);
   const domainsDirtyRef = useRef(false);
+  const seededRef = useRef(false);
+
+  const t = useMemo(() => createTranslator(lang), [lang]);
+  const align = textAlign(lang);
+  const isRtl = lang === 'fa';
 
   const refresh = useCallback(async () => {
     try {
       const next = await FocusGuard.getConfig();
       setConfig(next);
+      setLang(next.language === 'fa' ? 'fa' : 'en');
       if (!keywordsDirtyRef.current) {
         setKeywordsText(next.keywords.join(', '));
       }
@@ -215,6 +165,27 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    // v1.2.0: a fresh install starts with a useful list instead of an empty
+    // guard. Written to SharedPreferences exactly once — clearing the list
+    // afterwards is respected, because saving any list sets `defaultsSeeded`.
+    if (!FocusGuard.isAvailable || loading || seededRef.current) return;
+    if (config.defaultsSeeded) {
+      seededRef.current = true;
+      return;
+    }
+    seededRef.current = true;
+    (async () => {
+      try {
+        await FocusGuard.saveKeywords(config.keywords.length > 0 ? config.keywords : DEFAULT_KEYWORDS);
+        keywordsDirtyRef.current = false;
+        await refresh();
+      } catch (error) {
+        // Nothing to do: the guard simply stays empty until the user saves.
+      }
+    })();
+  }, [config.defaultsSeeded, config.keywords, loading, refresh]);
+
   const saveKeywords = async () => {
     const keywords = keywordsText
       .split(/[,\n]/)
@@ -229,11 +200,11 @@ export default function App() {
       await refresh();
       setMessage(
         keywords.length === 0
-          ? 'Block list cleared — nothing is blocked right now.'
-          : `Saved ${keywords.length} keyword${keywords.length === 1 ? '' : 's'}.`
+          ? t('Block list cleared — nothing is blocked right now.')
+          : t('Saved {{count}} keyword(s).', { count: keywords.length })
       );
     } catch (error) {
-      setMessage(error.message || 'Saving the block list failed.');
+      setMessage(error.message || t('Saving the block list failed.'));
     } finally {
       setSaving(false);
     }
@@ -253,11 +224,11 @@ export default function App() {
       await refresh();
       setMessage(
         domains.length === 0
-          ? 'Domain list cleared — no website is blocked.'
-          : `Saved ${domains.length} domain${domains.length === 1 ? '' : 's'}.`
+          ? t('Domain list cleared — no website is blocked.')
+          : t('Saved {{count}} domain(s).', { count: domains.length })
       );
     } catch (error) {
-      setMessage(error.message || 'Saving the domain list failed.');
+      setMessage(error.message || t('Saving the domain list failed.'));
     } finally {
       setSavingDomains(false);
     }
@@ -270,7 +241,7 @@ export default function App() {
       await FocusGuard.setEnabled(value);
       await refresh();
     } catch (error) {
-      setMessage(error.message || 'Could not change the blocker state.');
+      setMessage(error.message || t('Could not change the blocker state.'));
     } finally {
       setToggling(false);
     }
@@ -279,19 +250,19 @@ export default function App() {
   const openAccessibility = async () => {
     try {
       await FocusGuard.openAccessibilitySettings();
-      setMessage('Find “FocusBlocker guard (keywords + domains)” in the list and switch it on.');
+      setMessage(t('Find “Tavakkol guard (keywords + domains)” in the list and switch it on.'));
     } catch (error) {
-      setMessage(error.message || 'Could not open Accessibility settings.');
+      setMessage(error.message || t('Could not open Accessibility settings.'));
     }
   };
 
   const enableDeviceAdmin = async () => {
     try {
       await FocusGuard.requestDeviceAdmin();
-      setMessage('Confirm the system dialog to keep FocusBlocker installed.');
+      setMessage(t('Confirm the system dialog to keep Tavakkol installed.'));
       setTimeout(refresh, 1200);
     } catch (error) {
-      setMessage(error.message || 'Could not open the device admin dialog.');
+      setMessage(error.message || t('Could not open the device admin dialog.'));
     }
   };
 
@@ -299,7 +270,7 @@ export default function App() {
     try {
       await FocusGuard.lockScreen();
     } catch (error) {
-      setMessage(error.message || 'Locking the screen failed.');
+      setMessage(error.message || t('Locking the screen failed.'));
     }
   };
 
@@ -307,9 +278,9 @@ export default function App() {
     try {
       await FocusGuard.resetBlockCount();
       await refresh();
-      setMessage('Block counter reset.');
+      setMessage(t('Block counter reset.'));
     } catch (error) {
-      setMessage(error.message || 'Could not reset the counter.');
+      setMessage(error.message || t('Could not reset the counter.'));
     }
   };
 
@@ -323,7 +294,7 @@ export default function App() {
       setLogs(nextLogs);
       setHealth(nextHealth);
     } catch (error) {
-      setMessage(error.message || 'Could not read the debug log.');
+      setMessage(error.message || t('Could not read the debug log.'));
       setLogsOpen(false);
     } finally {
       setLogsLoading(false);
@@ -343,7 +314,7 @@ export default function App() {
       await FocusGuard.clearDebugLogs();
       setLogs([]);
     } catch (error) {
-      setMessage(error.message || 'Could not clear the log.');
+      setMessage(error.message || t('Could not clear the log.'));
     } finally {
       setClearingLogs(false);
     }
@@ -352,10 +323,10 @@ export default function App() {
   const fixBattery = async () => {
     try {
       await FocusGuard.requestIgnoreBatteryOptimizations();
-      setMessage('Confirm the system dialog so Android stops killing the guard.');
+      setMessage(t('Confirm the system dialog so Android stops killing the guard.'));
       setTimeout(loadLogs, 1500);
     } catch (error) {
-      setMessage(error.message || 'Could not open the battery dialog.');
+      setMessage(error.message || t('Could not open the battery dialog.'));
     }
   };
 
@@ -365,10 +336,10 @@ export default function App() {
       await FocusGuard.ensureKeepAlive();
       await refresh();
       setMessage(
-        'Keep-alive armed: watchdog started, 15-minute alarm and persisted job scheduled.'
+        t('Keep-alive armed: watchdog started, 15-minute alarm and persisted job scheduled.')
       );
     } catch (error) {
-      setMessage(error.message || 'Could not start the keep-alive.');
+      setMessage(error.message || t('Could not start the keep-alive.'));
     } finally {
       setKeepAliveBusy(false);
     }
@@ -379,13 +350,46 @@ export default function App() {
       const result = await FocusGuard.openAutostartSettings();
       setMessage(
         result.opened === 'autostart'
-          ? 'Switch Autostart ON for FocusBlocker on this screen, then come back.'
-          : 'Find “Autostart” (or “Battery usage / Allow background activity”) on this screen and allow FocusBlocker.'
+          ? t('Switch Autostart ON for Tavakkol on this screen, then come back.')
+          : t(
+              'Find “Autostart” (or “Battery usage / Allow background activity”) on this screen and allow Tavakkol.'
+            )
       );
     } catch (error) {
-      setMessage(error.message || 'Could not open the autostart screen.');
+      setMessage(error.message || t('Could not open the autostart screen.'));
     }
   };
+
+  // ---------------------------------------------------------------- settings
+  const changeLanguage = useCallback(async (code) => {
+    setLang(code);
+    await FocusGuard.setLanguage(code);
+  }, []);
+
+  const toggleExcluded = useCallback(
+    async (pkg) => {
+      const set = new Set(config.excludedApps);
+      if (set.has(pkg)) set.delete(pkg);
+      else set.add(pkg);
+      const next = Array.from(set).sort();
+      setConfig((previous) => ({ ...previous, excludedApps: next }));
+      try {
+        await FocusGuard.saveExcludedApps(next);
+      } catch (error) {
+        setMessage(error.message || t('Could not save the excluded apps.'));
+      }
+    },
+    [config.excludedApps, t]
+  );
+
+  const clearExcluded = useCallback(async () => {
+    setConfig((previous) => ({ ...previous, excludedApps: [] }));
+    try {
+      await FocusGuard.saveExcludedApps([]);
+    } catch (error) {
+      setMessage(error.message || t('Could not save the excluded apps.'));
+    }
+  }, [t]);
 
   const keywordsPreview = Array.from(
     new Set(
@@ -411,27 +415,69 @@ export default function App() {
   const domainsSaved = !loading && domainsText === config.domains.join(', ');
 
   const blockingReady =
-    config.accessibilityEnabled && config.enabled && (config.keywords.length > 0 || config.domains.length > 0);
+    config.accessibilityEnabled &&
+    config.enabled &&
+    (config.keywords.length > 0 || config.domains.length > 0);
+
+  if (screen === 'settings') {
+    return (
+      <SettingsScreen
+        t={t}
+        lang={lang}
+        onBack={() => setScreen('main')}
+        onChangeLanguage={changeLanguage}
+        excluded={config.excludedApps}
+        onToggleExcluded={toggleExcluded}
+        onClearExcluded={clearExcluded}
+        isAvailable={FocusGuard.isAvailable}
+        onMessage={setMessage}
+        message={message}
+      />
+    );
+  }
 
   return (
-    <View style={styles.root}>
+    <ImageBackground source={BACKGROUND} style={styles.root} resizeMode="cover">
+      <View style={styles.overlay} />
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        <Text style={styles.brand}>FocusBlocker</Text>
-        <Text style={styles.tagline}>
-          A guard for your own phone. It watches text as it changes on screen — a blocked
-          keyword or domain in a search bar, address bar or chat closes the app immediately.
+        <View style={[styles.brandRow, isRtl && styles.brandRowRtl]}>
+          <View style={styles.brandText}>
+            <Text style={[styles.brand, { textAlign: align }]}>{t('Tavakkol')}</Text>
+            <Text style={[styles.brandSub, { textAlign: align }]}>{t('Personal guard')}</Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('Settings')}
+            onPress={() => setScreen('settings')}
+            style={({ pressed }) => [styles.gear, pressed && styles.pressed]}>
+            <Text style={styles.gearIcon}>⚙</Text>
+          </Pressable>
+        </View>
+
+        <Text style={[styles.tagline, { textAlign: align }]}>
+          {t(
+            'A guard for your own phone. It watches text as it changes on screen — a blocked keyword or domain in a search bar, address bar or chat closes the app immediately.'
+          )}
         </Text>
+
+        <GiftNote
+          lang={lang}
+          text={t('This app is completely free. Please remember us in your prayers.')}
+        />
 
         {!FocusGuard.isAvailable ? (
           <View style={styles.warningBox}>
-            <Text style={styles.warningTitle}>Native build required</Text>
-            <Text style={styles.warningText}>
-              Expo Go cannot run accessibility services. Build the APK (eas build -p android
-              --profile preview) and install it — every control below works there.
+            <Text style={[styles.warningTitle, { textAlign: align }]}>
+              {t('Native build required')}
+            </Text>
+            <Text style={[styles.warningText, { textAlign: align }]}>
+              {t(
+                'Expo Go cannot run accessibility services. Build the APK (eas build -p android --profile preview) and install it — every control below works there.'
+              )}
             </Text>
           </View>
         ) : null}
@@ -441,24 +487,32 @@ export default function App() {
         ) : (
           <>
             <View style={styles.heroCard}>
-              <Text style={styles.heroLabel}>Protection</Text>
-              <Text style={[styles.heroState, blockingReady ? styles.heroOn : styles.heroOff]}>
-                {blockingReady ? 'Active' : 'Not active yet'}
+              <Text style={[styles.heroLabel, { textAlign: align }]}>{t('Protection')}</Text>
+              <Text
+                style={[
+                  styles.heroState,
+                  blockingReady ? styles.heroOn : styles.heroOff,
+                  { textAlign: align },
+                ]}>
+                {blockingReady ? t('Active') : t('Not active yet')}
               </Text>
-              <Text style={styles.heroHint}>
+              <Text style={[styles.heroHint, { textAlign: align }]}>
                 {config.enabled
-                  ? `${config.keywords.length} keyword${config.keywords.length === 1 ? '' : 's'} + ${config.domains.length} domain${config.domains.length === 1 ? '' : 's'} watched`
-                  : 'Blocker paused'}
+                  ? t('{{keywords}} keyword(s) + {{domains}} domain(s) watched', {
+                      keywords: config.keywords.length,
+                      domains: config.domains.length,
+                    })
+                  : t('Blocker paused')}
                 {' · '}
-                {config.blockCount} block{config.blockCount === 1 ? '' : 's'} so far
+                {t('{{count}} block(s) so far', { count: config.blockCount })}
               </Text>
               <View style={styles.switchRow}>
                 <View style={styles.switchLabel}>
-                  <Text style={styles.switchTitle}>Protection</Text>
-                  <Text style={styles.switchHint}>
+                  <Text style={[styles.switchTitle, { textAlign: align }]}>{t('Protection')}</Text>
+                  <Text style={[styles.switchHint, { textAlign: align }]}>
                     {config.accessibilityEnabled
-                      ? 'Accessibility service is running'
-                      : 'Service is off — enable it below'}
+                      ? t('Accessibility service is running')
+                      : t('Service is off — enable it below')}
                   </Text>
                 </View>
                 <Switch
@@ -472,8 +526,11 @@ export default function App() {
             </View>
 
             <Section
-              title="1. Blocked keywords"
-              subtitle="Any text that changes on screen is checked — search bars, the browser address bar and chat messages (Telegram, Rubika). Separate keywords with a comma — matching is case-insensitive and also matches inside longer text.">
+              lang={lang}
+              title={t('{{n}}. {{title}}', { n: 1, title: t('Blocked keywords') })}
+              subtitle={t(
+                'Any text that changes on screen is checked — search bars, the browser address bar and chat messages (Telegram, Rubika). Separate keywords with a comma. Matching is whole-word only, so a short word never fires inside a longer one.'
+              )}>
               <TextInput
                 value={keywordsText}
                 onChangeText={(value) => {
@@ -485,21 +542,21 @@ export default function App() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 multiline
-                style={styles.input}
+                style={[styles.input, { textAlign: align }]}
               />
               <View style={styles.chipRow}>
                 {keywordsPreview.length === 0 ? (
-                  <Text style={styles.emptyHint}>No keywords yet — nothing will be blocked.</Text>
+                  <Text style={styles.emptyHint}>
+                    {t('No keywords yet — nothing will be blocked.')}
+                  </Text>
                 ) : (
                   keywordsPreview.map((keyword) => (
-                    <View key={keyword} style={styles.chip}>
-                      <Text style={styles.chipText}>{keyword}</Text>
-                    </View>
+                    <Chip key={keyword} label={keyword} lang={lang} />
                   ))
                 )}
               </View>
               <ActionButton
-                label="Save block list"
+                label={t('Save block list')}
                 onPress={saveKeywords}
                 busy={saving}
                 saved={keywordsSaved}
@@ -508,8 +565,11 @@ export default function App() {
             </Section>
 
             <Section
-              title="2. Blocked domains"
-              subtitle="The guard reads the address bar of Chrome and other browsers. http://, https://, www. and paths are removed automatically — just type the domain.">
+              lang={lang}
+              title={t('{{n}}. {{title}}', { n: 2, title: t('Blocked domains') })}
+              subtitle={t(
+                'The guard reads the address bar of Chrome and other browsers. http://, https://, www. and paths are removed automatically — just type the domain.'
+              )}>
               <TextInput
                 value={domainsText}
                 onChangeText={(value) => {
@@ -522,21 +582,21 @@ export default function App() {
                 autoCorrect={false}
                 keyboardType="url"
                 multiline
-                style={styles.input}
+                style={[styles.input, { textAlign: align }]}
               />
               <View style={styles.chipRow}>
                 {domainsPreview.length === 0 ? (
-                  <Text style={styles.emptyHint}>No domains yet — the browser stays open.</Text>
+                  <Text style={styles.emptyHint}>
+                    {t('No domains yet — the browser stays open.')}
+                  </Text>
                 ) : (
                   domainsPreview.map((domain) => (
-                    <View key={domain} style={[styles.chip, styles.chipDanger]}>
-                      <Text style={[styles.chipText, styles.chipTextDanger]}>{domain}</Text>
-                    </View>
+                    <Chip key={domain} label={domain} danger lang={lang} />
                   ))
                 )}
               </View>
               <ActionButton
-                label="Save domain list"
+                label={t('Save domain list')}
                 onPress={saveDomains}
                 busy={savingDomains}
                 saved={domainsSaved}
@@ -545,22 +605,27 @@ export default function App() {
             </Section>
 
             <Section
-              title="3. Accessibility service"
-              subtitle="This is what lets the app read the screen and press Back. Android shows a warning — that warning is normal for any accessibility app.">
+              lang={lang}
+              title={t('{{n}}. {{title}}', { n: 3, title: t('Accessibility service') })}
+              subtitle={t(
+                'This is what lets the app read the screen and press Back. Android shows a warning — that warning is normal for any accessibility app.'
+              )}>
               <View style={styles.statusRow}>
                 <View style={styles.statusTextWrap}>
-                  <Text style={styles.statusTitle}>Service status</Text>
-                  <Text style={styles.statusHint}>
-                    Settings → Accessibility → Installed apps
+                  <Text style={[styles.statusTitle, { textAlign: align }]}>
+                    {t('Service status')}
+                  </Text>
+                  <Text style={[styles.statusHint, { textAlign: align }]}>
+                    {t('Settings → Accessibility → Installed apps')}
                   </Text>
                 </View>
                 <StatusPill
                   active={config.accessibilityEnabled}
-                  labels={['Enabled', 'Disabled']}
+                  labels={[t('Enabled'), t('Disabled')]}
                 />
               </View>
               <ActionButton
-                label="Open Accessibility settings"
+                label={t('Open Accessibility settings')}
                 variant="secondary"
                 onPress={openAccessibility}
                 disabled={!FocusGuard.isAvailable}
@@ -568,23 +633,34 @@ export default function App() {
             </Section>
 
             <Section
-              title="4. Device admin (anti-uninstall)"
-              subtitle="While device admin is active, Android refuses to uninstall FocusBlocker. Deactivate it in Settings → Security → Device admin apps if you ever want the app gone.">
+              lang={lang}
+              title={t('{{n}}. {{title}}', { n: 4, title: t('Device admin (anti-uninstall)') })}
+              subtitle={t(
+                'While device admin is active, Android refuses to uninstall Tavakkol. Deactivate it in Settings → Security → Device admin apps if you ever want the app gone.'
+              )}>
               <View style={styles.statusRow}>
                 <View style={styles.statusTextWrap}>
-                  <Text style={styles.statusTitle}>Device admin</Text>
-                  <Text style={styles.statusHint}>Uses the force-lock policy</Text>
+                  <Text style={[styles.statusTitle, { textAlign: align }]}>
+                    {t('Device admin')}
+                  </Text>
+                  <Text style={[styles.statusHint, { textAlign: align }]}>
+                    {t('Uses the force-lock policy')}
+                  </Text>
                 </View>
                 <StatusPill
                   active={config.deviceAdminActive}
-                  labels={['Active', 'Inactive']}
+                  labels={[t('Active'), t('Inactive')]}
                 />
               </View>
               {config.deviceAdminActive ? (
-                <ActionButton label="Panic lock screen" variant="secondary" onPress={runPanicLock} />
+                <ActionButton
+                  label={t('Panic lock screen')}
+                  variant="secondary"
+                  onPress={runPanicLock}
+                />
               ) : (
                 <ActionButton
-                  label="Activate device admin"
+                  label={t('Activate device admin')}
                   variant="secondary"
                   onPress={enableDeviceAdmin}
                   disabled={!FocusGuard.isAvailable}
@@ -592,53 +668,66 @@ export default function App() {
               )}
             </Section>
 
-            <Section title="Stats" subtitle="Stored on this device only — nothing is uploaded.">
+            <Section
+              lang={lang}
+              title={t('Stats')}
+              subtitle={t('Stored on this device only — nothing is uploaded.')}>
               <View style={styles.statsRow}>
                 <View style={styles.statBox}>
                   <Text style={styles.statValue}>{config.blockCount}</Text>
-                  <Text style={styles.statLabel}>Blocks</Text>
+                  <Text style={styles.statLabel}>{t('Blocks')}</Text>
                 </View>
                 <View style={styles.statBox}>
                   <Text style={styles.statValue}>{config.keywords.length}</Text>
-                  <Text style={styles.statLabel}>Keywords</Text>
+                  <Text style={styles.statLabel}>{t('Keywords')}</Text>
                 </View>
                 <View style={styles.statBox}>
                   <Text style={styles.statValue}>{config.domains.length}</Text>
-                  <Text style={styles.statLabel}>Domains</Text>
+                  <Text style={styles.statLabel}>{t('Domains')}</Text>
                 </View>
               </View>
-              <Text style={styles.lastBlockLine}>
-                Last block:{' '}
-                {config.lastBlockPackage
-                  ? `${config.lastBlockPackage.split('.').pop()}${
-                      config.lastBlockReason ? ` (${config.lastBlockReason})` : ''
-                    }`
-                  : 'nothing yet'}
+              <Text style={[styles.lastBlockLine, { textAlign: align }]}>
+                {`${t('Last block')}: ${
+                  config.lastBlockPackage
+                    ? `${config.lastBlockPackage.split('.').pop()}${
+                        config.lastBlockReason ? ` (${config.lastBlockReason})` : ''
+                      }`
+                    : t('nothing yet')
+                }`}
               </Text>
-              <ActionButton label="Reset counter" variant="secondary" onPress={clearCounter} />
+              <ActionButton
+                label={t('Reset counter')}
+                variant="secondary"
+                onPress={clearCounter}
+              />
             </Section>
 
             <Section
-              title="5. Keep-alive"
-              subtitle="Android — and MIUI/HyperOS especially — kills background apps. Three independent restarters bring the guard back by themselves: a restartable foreground watchdog, a 15-minute alarm and a 15-minute job, plus a boot receiver.">
+              lang={lang}
+              title={t('{{n}}. {{title}}', { n: 5, title: t('Keep-alive') })}
+              subtitle={t(
+                'Android — and MIUI/HyperOS especially — kills background apps. Three independent restarters bring the guard back by themselves: a restartable foreground watchdog, a 15-minute alarm and a 15-minute job, plus a boot receiver.'
+              )}>
               <View style={styles.statusRow}>
                 <View style={styles.statusTextWrap}>
-                  <Text style={styles.statusTitle}>Watchdog service</Text>
-                  <Text style={styles.statusHint}>
+                  <Text style={[styles.statusTitle, { textAlign: align }]}>
+                    {t('Watchdog service')}
+                  </Text>
+                  <Text style={[styles.statusHint, { textAlign: align }]}>
                     {health
-                      ? `heartbeat ${formatHeartbeat(health.heartbeatAgeMs)}${
+                      ? `${formatHeartbeat(health.heartbeatAgeMs, t)}${
                           health.manufacturer ? ` · ${health.manufacturer}` : ''
                         }`
-                      : 'checking…'}
+                      : t('checking…')}
                   </Text>
                 </View>
                 <StatusPill
                   active={Boolean(health && health.watchdogRunning)}
-                  labels={['Up', 'Down']}
+                  labels={[t('Up'), t('Down')]}
                 />
               </View>
               <ActionButton
-                label="Start keep-alive now"
+                label={t('Start keep-alive now')}
                 variant="secondary"
                 onPress={startKeepAlive}
                 busy={keepAliveBusy}
@@ -647,23 +736,28 @@ export default function App() {
               <ActionButton
                 label={
                   health && health.manufacturer
-                    ? `Open Autostart settings (${health.manufacturer})`
-                    : 'Open Autostart settings'
+                    ? t('Open Autostart settings ({{manufacturer}})', {
+                        manufacturer: health.manufacturer,
+                      })
+                    : t('Open Autostart settings')
                 }
                 variant="secondary"
                 onPress={openAutostart}
                 disabled={!FocusGuard.isAvailable}
               />
-              <Text style={styles.keepAliveHint}>
-                One-time setup on Redmi / POCO / Xiaomi: 1) Autostart → FocusBlocker ON, 2) Battery
-                saver → No restrictions, 3) in Recents, pull FocusBlocker down to lock it. Without
-                Autostart even a foreground service gets killed within hours.
+              <Text style={[styles.keepAliveHint, { textAlign: align }]}>
+                {t(
+                  'One-time setup on Redmi / POCO / Xiaomi: 1) Autostart → Tavakkol ON, 2) Battery saver → No restrictions, 3) in Recents, pull Tavakkol down to lock it. Without Autostart even a foreground service gets killed within hours.'
+                )}
               </Text>
             </Section>
 
             <Section
-              title="6. Debug Log"
-              subtitle="Everything the background guard does — service starts and stops, foreground-service state, watchdog wake-ups, keyword/domain hits and blocks — recorded on this device, never uploaded. Survives crashes and restarts.">
+              lang={lang}
+              title={t('{{n}}. {{title}}', { n: 6, title: t('Debug Log') })}
+              subtitle={t(
+                'Everything the background guard does — service starts and stops, foreground-service state, watchdog wake-ups, keyword/domain hits and blocks — recorded on this device, never uploaded. Survives crashes and restarts.'
+              )}>
               {health ? (
                 <Text
                   style={[
@@ -671,18 +765,26 @@ export default function App() {
                     health.serviceRunning && health.foregroundActive
                       ? styles.healthOk
                       : styles.healthWarn,
+                    { textAlign: align },
                   ]}>
-                  Service {health.serviceRunning ? 'running' : 'NOT running'} ·{' '}
-                  {health.foregroundActive ? 'foreground notification active' : 'NO foreground notification'}{' '}
-                  · watchdog {health.watchdogRunning ? 'up' : 'DOWN'} (
-                  {formatHeartbeat(health.heartbeatAgeMs)}) ·{' '}
-                  {health.batteryOptimizationIgnored
-                    ? 'battery unrestricted'
-                    : 'battery RESTRICTED — Android may kill the guard'}
+                  {`${t('Service {{state}}', {
+                    state: health.serviceRunning ? t('running') : t('NOT running'),
+                  })} · ${
+                    health.foregroundActive
+                      ? t('foreground notification active')
+                      : t('NO foreground notification')
+                  } · ${t('watchdog {{state}} ({{age}})', {
+                    state: health.watchdogRunning ? t('up') : t('DOWN'),
+                    age: formatHeartbeat(health.heartbeatAgeMs, t),
+                  })} · ${
+                    health.batteryOptimizationIgnored
+                      ? t('battery unrestricted')
+                      : t('battery RESTRICTED — Android may kill the guard')
+                  }`}
                 </Text>
               ) : null}
               <ActionButton
-                label="Show Logs"
+                label={t('Show Logs')}
                 variant="secondary"
                 onPress={openLogs}
                 disabled={!FocusGuard.isAvailable}
@@ -691,14 +793,12 @@ export default function App() {
 
             {message ? <Text style={styles.message}>{message}</Text> : null}
 
-            <Text style={styles.footer}>
-              Works fully offline. Any text that changes on screen is checked — search bars,
-              address bars and chat messages. While the guard is running it keeps a small
-              persistent notification: if that notification disappears, the guard was stopped.
-              The watchdog, the 15-minute alarm, the 15-minute job and the boot receiver restart it
-              on their own — and if the guard stays down for more than three minutes you get an
-              alert instead of silently losing protection.
+            <Text style={[styles.footer, { textAlign: align }]}>
+              {t(
+                'Works fully offline. Any text that changes on screen is checked — search bars, address bars and chat messages. While the guard is running it keeps a small persistent notification: if that notification disappears, the guard was stopped. The watchdog, the 15-minute alarm, the 15-minute job and the boot receiver restart it on their own — and if the guard stays down for more than three minutes you get an alert instead of silently losing protection.'
+              )}
             </Text>
+            <Text style={styles.versionText}>{VERSION_LABEL}</Text>
           </>
         )}
       </ScrollView>
@@ -708,31 +808,38 @@ export default function App() {
           <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
           <View style={styles.logHeader}>
             <View style={styles.logHeaderTitle}>
-              <Text style={styles.logTitle}>Debug Log</Text>
-              <Text style={styles.logSubtitle}>Last 100 events · newest first</Text>
+              <Text style={styles.logTitle}>{t('Debug Log')}</Text>
+              <Text style={styles.logSubtitle}>{t('Last 100 events · newest first')}</Text>
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Close debug log"
+              accessibilityLabel={t('Close debug log')}
               onPress={closeLogs}
-              style={({ pressed }) => [styles.logClose, pressed && styles.buttonPressed]}>
-              <Text style={styles.logCloseText}>Close</Text>
+              style={({ pressed }) => [styles.logClose, pressed && styles.pressed]}>
+              <Text style={styles.logCloseText}>{t('Close')}</Text>
             </Pressable>
           </View>
 
           {health ? (
             <View style={styles.logHealth}>
               <Text style={styles.logHealthText}>
-                Accessibility: {health.accessibilityEnabled ? 'enabled' : 'DISABLED'} · Guard bound:{' '}
-                {health.serviceRunning ? 'yes' : 'no'} · Foreground service:{' '}
-                {health.foregroundActive ? 'running' : 'DOWN'} · Watchdog:{' '}
-                {health.watchdogRunning ? 'up' : 'DOWN'} (
-                {formatHeartbeat(health.heartbeatAgeMs)}) · Battery optimization:{' '}
-                {health.batteryOptimizationIgnored ? 'off (safe)' : 'on (kill risk)'}
+                {`${t('Accessibility: {{state}}', {
+                  state: health.accessibilityEnabled ? t('enabled') : t('DISABLED'),
+                })} · ${t('Guard bound: {{state}}', {
+                  state: health.serviceRunning ? t('yes') : t('no'),
+                })} · ${t('Foreground service: {{state}}', {
+                  state: health.foregroundActive ? t('running') : t('DOWN'),
+                })} · ${t('Watchdog: {{state}}', {
+                  state: health.watchdogRunning ? t('up') : t('DOWN'),
+                })} (${formatHeartbeat(health.heartbeatAgeMs, t)}) · ${t('Battery optimization')}: ${
+                  health.batteryOptimizationIgnored
+                    ? t('battery optimization off (safe)')
+                    : t('battery optimization on (kill risk)')
+                }`}
               </Text>
               {!health.batteryOptimizationIgnored ? (
                 <ActionButton
-                  label="Exclude from battery optimization"
+                  label={t('Exclude from battery optimization')}
                   variant="secondary"
                   onPress={fixBattery}
                 />
@@ -749,8 +856,9 @@ export default function App() {
               contentContainerStyle={styles.logList}
               ListEmptyComponent={
                 <Text style={styles.logEmpty}>
-                  No events recorded yet. The log fills as soon as the guard runs — tap Refresh
-                  after using the phone, or Clear to start over.
+                  {t(
+                    'No events recorded yet. The log fills as soon as the guard runs — tap Refresh after using the phone, or Clear to start over.'
+                  )}
                 </Text>
               }
               renderItem={({ item }) => (
@@ -770,15 +878,20 @@ export default function App() {
 
           <View style={styles.logFooter}>
             <View style={styles.logFooterButton}>
-              <ActionButton label="Refresh" variant="secondary" onPress={loadLogs} busy={logsLoading} />
+              <ActionButton label={t('Refresh')} variant="secondary" onPress={loadLogs} busy={logsLoading} />
             </View>
             <View style={styles.logFooterButton}>
-              <ActionButton label="Clear log" variant="secondary" onPress={clearLogs} busy={clearingLogs} />
+              <ActionButton
+                label={t('Clear log')}
+                variant="secondary"
+                onPress={clearLogs}
+                busy={clearingLogs}
+              />
             </View>
           </View>
         </View>
       </Modal>
-    </View>
+    </ImageBackground>
   );
 }
 
@@ -787,26 +900,64 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: COLORS.overlay,
+  },
   content: {
     paddingHorizontal: 20,
     paddingTop: (StatusBar.currentHeight || 24) + 20,
     paddingBottom: 48,
   },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  brandRowRtl: {
+    flexDirection: 'row-reverse',
+  },
+  brandText: {
+    flex: 1,
+  },
   brand: {
     color: COLORS.text,
-    fontSize: 30,
+    fontSize: 32,
     fontWeight: '700',
     letterSpacing: -0.5,
+  },
+  brandSub: {
+    color: COLORS.accent,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  gear: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.surfaceAlt,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  gearIcon: {
+    color: COLORS.text,
+    fontSize: 20,
+  },
+  pressed: {
+    opacity: 0.75,
   },
   tagline: {
     color: COLORS.muted,
     fontSize: 14,
     lineHeight: 21,
-    marginTop: 8,
-    marginBottom: 20,
+    marginTop: 12,
+    marginBottom: 18,
   },
   warningBox: {
-    backgroundColor: '#3A2C08',
+    backgroundColor: 'rgba(58,44,8,0.92)',
     borderColor: '#6B5110',
     borderWidth: 1,
     borderRadius: 14,
@@ -879,28 +1030,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 3,
   },
-  section: {
-    marginTop: 24,
-  },
-  sectionTitle: {
-    color: COLORS.text,
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  sectionSubtitle: {
-    color: COLORS.muted,
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 6,
-  },
-  sectionBody: {
-    marginTop: 12,
-    backgroundColor: COLORS.surface,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 16,
-  },
   input: {
     color: COLORS.text,
     backgroundColor: COLORS.surfaceAlt,
@@ -908,8 +1037,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 12,
+    paddingVertical: 12,
     minHeight: 56,
     fontSize: 15,
   },
@@ -918,28 +1046,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginTop: 12,
-  },
-  chip: {
-    backgroundColor: COLORS.accentSoft,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  chipText: {
-    color: COLORS.accent,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  chipDanger: {
-    backgroundColor: '#33222A',
-  },
-  chipTextDanger: {
-    color: COLORS.danger,
-  },
-  lastBlockLine: {
-    color: COLORS.muted,
-    fontSize: 12,
-    marginBottom: 12,
   },
   emptyHint: {
     color: COLORS.muted,
@@ -965,79 +1071,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 3,
   },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  pillOn: {
-    backgroundColor: COLORS.accentSoft,
-  },
-  pillOff: {
-    backgroundColor: '#33222A',
-  },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  dotOn: {
-    backgroundColor: COLORS.accent,
-  },
-  dotOff: {
-    backgroundColor: COLORS.danger,
-  },
-  pillText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  pillTextOn: {
-    color: COLORS.accent,
-  },
-  pillTextOff: {
-    color: COLORS.danger,
-  },
-  button: {
-    marginTop: 4,
-    minHeight: 48,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  buttonPrimary: {
-    backgroundColor: COLORS.accent,
-  },
-  buttonSaved: {
-    backgroundColor: '#FFFFFF',
-  },
-  buttonSecondary: {
-    backgroundColor: COLORS.surfaceAlt,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  buttonDisabled: {
-    opacity: 0.45,
-  },
-  buttonPressed: {
-    opacity: 0.75,
-  },
-  buttonText: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  buttonTextPrimary: {
-    color: '#04130A',
-  },
-  buttonTextSaved: {
-    color: '#14532D',
-  },
-  buttonTextSecondary: {
-    color: COLORS.text,
-  },
   statsRow: {
     flexDirection: 'row',
     gap: 10,
@@ -1061,6 +1094,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 4,
   },
+  lastBlockLine: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginBottom: 12,
+  },
   message: {
     color: COLORS.warning,
     fontSize: 13,
@@ -1083,7 +1121,19 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     fontSize: 12,
     lineHeight: 18,
-    marginTop: 4,
+    marginTop: 6,
+  },
+  footer: {
+    color: '#8C9AAB',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 28,
+  },
+  versionText: {
+    color: '#5A6779',
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 14,
   },
   logModalRoot: {
     flex: 1,
@@ -1196,12 +1246,5 @@ const styles = StyleSheet.create({
   },
   logFooterButton: {
     flex: 1,
-  },
-  footer: {
-    color: '#5A6779',
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 28,
-    textAlign: 'center',
   },
 });

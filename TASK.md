@@ -1,3 +1,44 @@
+# TASK — Tavakkol v1.2.0 (rebrand + settings, i18n, excluded apps, whole-word matching)
+
+GOAL: rebrand FocusBlocker to **Tavakkol** and ship the owner's v1.2.0 feature set:
+a real Settings screen (language en/fa, excluded apps, share, contact), full English/Persian
+i18n, per-app exclusion, word-boundary keyword matching (fixes the "gi" keyword firing
+inside "payam-resan"), the prayer text, a background image, and default keywords seeded once.
+Locales: Persian strings are written in Persian script in the app itself (the chat stays
+English). Debug Log UI + native logging stay untouched (owner rule from v1.1.4).
+
+## v1.2.0 steps
+
+- [x] `src/theme.js` — COLORS, overlay, direction/textAlign helpers (per-node RTL, no restart).
+- [x] `src/i18n.js` — English string IS the key; `createTranslator`, `format` ({{name}}),
+      full fa dictionary; `scripts/check-i18n.js` fails the build gate on a missing key.
+- [x] `src/defaults.js` — DEFAULT_KEYWORDS = sex, porn, casino; APP_SHARE_URL; Rubika dev id.
+- [x] `src/buildInfo.js` — VERSION 1.2.0 / VERSION_CODE 7 / VERSION_LABEL.
+- [x] `src/components/ui.js` — Section / StatusPill / ActionButton / Chip / GiftNote.
+- [x] `src/screens/SettingsScreen.js` — language toggle, excluded-apps picker (search,
+      launcher apps only), share app, contact developer (Rubika), about footer.
+- [x] `App.js` — i18n everywhere, background ImageBackground + dark overlay, gear → Settings,
+      one-time keyword seeding via `defaultsSeeded`, prayer GiftNote, excluded-app handlers,
+      Settings receives the shared `message`.
+- [x] Native: `FocusGuardStore` (excluded_apps, defaults_seeded, language + text helpers);
+      `FocusAccessibilityService` (whole-word + Persian normalization — Arabic yeh/kaf/heh
+      folding, ZWNJ, diacritics; excluded-package skip; localized toast/notification);
+      `FocusGuardModule` (getInstalledApps / getExcludedApps / setExcludedApps / getLanguage /
+      setLanguage / openUrl); watchdog + device-admin texts localized; `values-fa/strings.xml`;
+      manifest `<queries>` MAIN/LAUNCHER so the picker can see apps on Android 11+.
+- [x] `app.json` name Tavakkol, version 1.2.0, versionCode 7; `package.json` 1.2.0.
+- [x] `assets/background.jpg` — generated placeholder (drop the owner's photo in with
+      `node scripts/set-background.js <image>` → crops to 1080x1920).
+- [x] Verify: `npm run verify` (622 modules, background asset bundled),
+      `node scripts/check-i18n.js` (135 strings, all translated), prebuild + manifest merge.
+- [ ] Owner: install the v1.2.0 release APK, check Persian RTL, the excluded-apps picker,
+      and that "payam-resan" no longer trips the "gi" keyword.
+- [ ] Owner: replace the placeholder background with their own image if they want.
+
+NOW: docs written, everything staged for the v1.2.0 commit + tag (CI ships the APK).
+
+---
+
 # TASK — FocusBlocker v1.1.4 (keep-alive that survives the kill)
 
 GOAL: the guard died again in v1.1.3. Owner's own debug log proved it: Accessibility still

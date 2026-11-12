@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="focus_guard_service_label">محافظ توکل (کلمه‌ها و سایت‌ها)</string>
+  <string name="accessibility_service_description">متنی که در کادرهای جستجو تایپ می‌کنید و آدرس صفحهٔ باز شده در مرورگر را بررسی می‌کند. اگر کلمه یا سایت مسدودی ظاهر شود، کیبورد یا جستجو فوراً بسته می‌شود.</string>
+  <string name="device_admin_label">مدیر دستگاه توکل</string>
+  <string name="device_admin_description">تا زمانی که توکل از شما محافظت می‌کند، اجازه نمی‌دهد حذف شود. برای حذف، آن را در تنظیمات اندروید غیرفعال کنید.</string>
+</resources>
