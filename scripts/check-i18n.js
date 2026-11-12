@@ -12,6 +12,8 @@ const root = path.join(__dirname, '..');
 const UI_FILES = [
   'App.js',
   path.join('src', 'screens', 'SettingsScreen.js'),
+  path.join('src', 'screens', 'HelpScreen.js'),
+  path.join('src', 'screens', 'LockScreen.js'),
   path.join('src', 'components', 'ui.js'),
 ];
 

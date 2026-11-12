@@ -1,3 +1,93 @@
+# TASK — Tavakkol v1.3.1 (strict lock + Partner PIN)
+
+GOAL: make the guard genuinely strict. With a Partner PIN saved, the app itself is gated on
+every foreground (PIN keypad), and the accessibility service kicks the user out of the system
+"Device admin apps" page and of Tavakkol's own app-info page (force-stop / uninstall) unless a
+correct PIN was entered in the last 15 min. Owner decision (2026-11-12, final): the PIN is
+ONLY for entering the app — Settings and the Protection switch are never PIN-gated.
+v1.3.0 (Help + Donate) rides along in the same release — it was built but never pushed.
+
+## v1.3.1 steps
+
+- [x] `FocusGuardStore.kt` — PIN_MIN/MAX (4-8), `partner_pin_hash` + `partner_pin_salt`
+      (SHA-256 of salt+pin, `SecureRandom` 16-byte salt), `strict_unlock_until`,
+      `isValidPin` / `hasPin` / `setPin` / `verifyPin` (constant-time compare, opens the
+      15-min window) / `clearPin` / `unlockUntil` / `strictLocked` / `clearUnlockWindow`.
+- [x] `FocusGuardModule.kt` — `setPartnerPin` (rejects invalid), `verifyPartnerPin`,
+      `clearPartnerPin` (needs the current PIN), `getStrictState` → `{pinSet, locked,
+      unlockMinutesLeft}`; `getConfig` now carries pinSet / strictLocked / unlockMinutesLeft;
+      `setEnabled(false)` closes the window.
+- [x] `FocusAccessibilityService.kt` — `guardStrictSettings(event)` runs FIRST in
+      `onAccessibilityEvent`, throttled to one scan / 500 ms, only for Settings packages
+      (AOSP + MIUI/HyperOS/Samsung/OPPO/ColorOS/vivo): reads the page text and presses BACK on
+      the device-admin page, or on our own app-info page when "force stop"/"uninstall" is
+      visible. Logs `strict_guard`. `collectScreenText` = breadth-first text collector
+      (220 nodes / depth 14).
+- [x] `modules/focus-guard/index.js` — `setPartnerPin`, `verifyPartnerPin`, `clearPartnerPin`,
+      `getStrictState` + the three new config fields in `EMPTY_CONFIG`.
+- [x] `src/components/PinPad.js` — dots + numeric keypad (no TextInput: no IME, no autocorrect),
+      OK/backspace, 4-8 digits, used by both the gate and the dialog.
+- [x] `src/screens/LockScreen.js` — full-screen gate (lock badge, localized title, keypad,
+      wrong-PIN error, "ask your partner" hint).
+- [x] `App.js` — boot loader while the config loads (no content flash), gate above every screen
+      when `pinSet && enabled && !sessionUnlocked`, re-lock on background, `unlockApp` via
+      `verifyPartnerPin`. The Protection switch is a plain switch (no PIN, no dialog).
+- [x] `src/screens/SettingsScreen.js` — "Partner PIN" section: Set / Change / Remove
+      (enter → repeat; change and remove ask for the current PIN first), using the same PinPad.
+      This is the only place the PIN is managed, and it never blocks the screen.
+- [x] i18n: 179 UI strings / 201 translations (`node scripts/check-i18n.js`).
+- [x] Version: app.json 1.3.1 / versionCode 9, buildInfo 1.3.1 (9), package.json 1.3.1.
+- [x] Verify: `npm run verify` green (1.1 MB android bundle), prebuild OK (versionName 1.3.1 /
+      versionCode 9), module manifest intact, `expo-clipboard` in the lockfile.
+- [ ] CI: push main + tag v1.3.1 → both runs green, Release published.
+- [ ] Owner: paste the real donation wallet into `src/defaults.js` (`DONATION_WALLET`).
+- [ ] Owner on-device: Settings → set a PIN → app locks on next open; wrong PIN refused;
+      Settings and the Protection switch open/toggle with no PIN; Settings → Device admin apps
+      and Tavakkol's app-info page kicked back while locked; correct PIN opens a 15-minute window.
+
+HONEST LIMITS (documented, not hidden): an accessibility service can only leave a Settings
+page, never remove the entry; a normal app cannot force-lock the Device Admin toggle (only a
+device-owner/MDM build can); clearing app data (Settings → Storage → Clear data) erases the
+PIN, which no non-root app can prevent.
+
+NOW: code + verify done → waiting for "push koro" (main + tag v1.3.1).
+
+---
+
+# TASK — Tavakkol v1.3.0 (Help screen + Support Us / Donate)
+
+GOAL: owner's final scope for v1.3.0 = **Help screen** (scrollable, localized) + **Support Us
+(Donate)** section in Settings. The earlier strict-lock list (auto-strict on Protection,
+partner PIN, app-info kick, bypass alert) is NOT part of this release — owner narrowed the
+scope to Help + Donate ("I ONLY need you to add the Help Screen and the Support Us section").
+
+## v1.3.0 steps
+
+- [x] `src/screens/HelpScreen.js` — scrollable, 5 numbered step cards + Support paragraph +
+      the "free app, remember us in your prayers" note. Owner's wording kept verbatim
+      (step titles/bodies are i18n keys).
+- [x] Settings → new "Help" section ("How to use Tavakkol" button) + "Support Us" section
+      (donate text, Donate button, Share App, Contact Developer).
+- [x] Donate sheet (Modal): network label, wallet address (selectable), Copy button
+      (`expo-clipboard` ~58.0.4 added + autolinked), Close. Empty wallet → honest
+      "address is not set yet" message instead of a fake address.
+- [x] `src/defaults.js`: `DONATION_WALLET` (owner must paste their address) + `DONATION_NETWORK`.
+- [x] Main screen: "?" help button next to the gear; hardware Back returns Help → Settings → main.
+- [x] i18n: all new strings translated (fa) — `node scripts/check-i18n.js` = 150 UI strings,
+      166 dictionary entries. Gate now also scans HelpScreen.js.
+- [x] Version: app.json 1.3.0 / versionCode 8, buildInfo 1.3.0 (8), package.json 1.3.0.
+- [x] Verify: `npm run verify` green (622 modules), prebuild OK (label Tavakkol, queries intact),
+      `expo-clipboard` autolinked.
+- [ ] Owner: paste the real donation wallet address into `src/defaults.js` before shipping.
+- [ ] Owner: install + check Help screen (en/fa), Donate sheet, Back navigation.
+
+NOTE (honesty): help step 4 describes the Partner PIN / strict lock, which is NOT implemented
+yet — the text is the owner's copy for the coming v1.3.1 strict-lock work.
+
+NOW: done and folded into the v1.3.1 push (same working tree).
+
+---
+
 # TASK — Tavakkol v1.2.0 (rebrand + settings, i18n, excluded apps, whole-word matching)
 
 GOAL: rebrand FocusBlocker to **Tavakkol** and ship the owner's v1.2.0 feature set:
@@ -31,11 +121,13 @@ English). Debug Log UI + native logging stay untouched (owner rule from v1.1.4).
       `node scripts/set-background.js <image>` → crops to 1080x1920).
 - [x] Verify: `npm run verify` (622 modules, background asset bundled),
       `node scripts/check-i18n.js` (135 strings, all translated), prebuild + manifest merge.
+- [x] SHIPPED 2026-11-12: commit `e1d94d4`, tag `v1.2.0`, CI green (main 43253253110, tag
+      43253259589) → https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v1.2.0/FocusBlocker-release.apk
 - [ ] Owner: install the v1.2.0 release APK, check Persian RTL, the excluded-apps picker,
       and that "payam-resan" no longer trips the "gi" keyword.
-- [ ] Owner: replace the placeholder background with their own image if they want.
+- [x] Owner's photo is in place (337x471 source — soft when stretched; swap for a bigger one later).
 
-NOW: docs written, everything staged for the v1.2.0 commit + tag (CI ships the APK).
+NOW: v1.2.0 shipped and released. Waiting on owner's on-device check.
 
 ---
 

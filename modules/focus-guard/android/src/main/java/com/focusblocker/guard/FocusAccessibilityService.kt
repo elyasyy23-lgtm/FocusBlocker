@@ -52,6 +52,42 @@ class FocusAccessibilityService : AccessibilityService() {
     private const val SCAN_INTERVAL_MS = 350L
     private const val MAX_DEPTH = 40
     private const val MAX_NODES = 600
+    /** Strict lock (v1.3.1): how often the system pages are re-inspected. */
+    private const val STRICT_SCAN_MS = 500L
+    private const val STRICT_MAX_NODES = 220
+    private const val STRICT_MAX_DEPTH = 14
+
+    /** Apps that host Android Settings (AOSP + the usual OEM skins). */
+    private val SETTINGS_PACKAGES = setOf(
+      "com.android.settings",
+      "com.android.settings.intelligence",
+      "com.miui.securitycenter",
+      "com.samsung.android.settings",
+      "com.oplus.settings",
+      "com.coloros.settings",
+      "com.vivo.settings"
+    )
+
+    /** Text that identifies the "Device admin apps" page. */
+    private val ADMIN_PAGE_TOKENS = arrayOf(
+      "device admin",
+      "device administrator",
+      "مدیر دستگاه",
+      "مدیران دستگاه",
+      "برنامه‌های مدیر دستگاه"
+    )
+
+    /** Text that identifies OUR app on a Settings page. */
+    private val OUR_PAGE_TOKENS = arrayOf("tavakkol", "توکل", "com.focusblocker.app")
+
+    /** Text that only the "force stop / uninstall" page shows. */
+    private val DANGER_TOKENS = arrayOf(
+      "force stop",
+      "uninstall",
+      "توقف اجباری",
+      "حذف برنامه"
+    )
+
     private const val RECHECK_DELAY_MS = 800L
     private const val MAX_RECHECKS = 3
 
@@ -178,6 +214,9 @@ class FocusAccessibilityService : AccessibilityService() {
   private var lastBlockAt = 0L
   private var lastScanAt = 0L
   private var lastScanPackage: String? = null
+
+  /** Strict-lock guard throttle: one tree scan per STRICT_SCAN_MS at most. */
+  private var lastStrictScanAt = 0L
 
   override fun onServiceConnected() {
     super.onServiceConnected()
@@ -404,6 +443,10 @@ class FocusAccessibilityService : AccessibilityService() {
   }
 
   override fun onAccessibilityEvent(event: AccessibilityEvent) {
+    // v1.3.1 strict lock: runs even with an empty keyword list, and before the
+    // enabled check, because it protects the APP ITSELF, not the browsing.
+    if (guardStrictSettings(event)) return
+
     if (!enabled || (keywords.isEmpty() && domains.isEmpty())) return
 
     val eventPackage = event.packageName?.toString() ?: return
@@ -654,6 +697,100 @@ class FocusAccessibilityService : AccessibilityService() {
       }
     }
     return null
+  }
+
+  /**
+   * Strict lock (v1.3.1): while Protection is ON and a Partner PIN is set, the
+   * two ways OUT of the app are closed:
+   *
+   *  - Settings → Device admin apps (the standard place to deactivate the admin
+   *    that blocks uninstall), and
+   *  - App info → Force stop / Uninstall.
+   *
+   * Both are plain Settings screens, so the guard reads their text and presses
+   * BACK before the user can reach the button. A correct PIN opens a 15-minute
+   * window (see FocusGuardStore.verifyPin) during which this stays quiet, so the
+   * partner can still manage the phone.
+   *
+   * Honest limit: an accessibility service cannot REMOVE the Settings entry, it
+   * can only kick the user out of the page — that is what this does.
+   */
+  private fun guardStrictSettings(event: AccessibilityEvent): Boolean {
+    val pkg = try {
+      event.packageName?.toString()
+    } catch (error: Throwable) {
+      null
+    } ?: return false
+    if (pkg !in SETTINGS_PACKAGES) return false
+    if (!FocusGuardStore.strictLocked(this)) return false
+
+    val now = System.currentTimeMillis()
+    if (now - lastStrictScanAt < STRICT_SCAN_MS) return false
+    lastStrictScanAt = now
+
+    val root = activeRoot() ?: return false
+    try {
+      val screen = collectScreenText(root).lowercase()
+      if (screen.isEmpty()) return false
+
+      val adminPage = ADMIN_PAGE_TOKENS.any { screen.contains(it) }
+      val ourPage = OUR_PAGE_TOKENS.any { screen.contains(it) }
+      val dangerous = DANGER_TOKENS.any { screen.contains(it) }
+      if (!adminPage && !(ourPage && dangerous)) return false
+
+      val detail = if (adminPage) "device admin page" else "app info page"
+      FocusGuardStore.logEvent(this, "strict_guard", pkg, detail)
+      Toast.makeText(
+        this,
+        FocusGuardStore.text(
+          this,
+          "Tavakkol is locked — enter the Partner PIN in the app.",
+          "توکل قفل است — رمز همراه را در برنامه وارد کنید."
+        ),
+        Toast.LENGTH_SHORT
+      ).show()
+      performGlobalAction(GLOBAL_ACTION_BACK)
+      return true
+    } catch (error: Throwable) {
+      FocusGuardStore.logEvent(
+        this, "scan_failed", pkg,
+        "strict scan failed: ${error.javaClass.simpleName}: ${error.message}"
+      )
+      return false
+    } finally {
+      recycleQuietly(root)
+    }
+  }
+
+  /**
+   * Every visible label under [root], joined with spaces. Used only by the
+   * strict-lock guard, which needs the page's wording ("Force stop", "Device
+   * admin apps"), never the URL/input logic of [inspectTree].
+   */
+  private fun collectScreenText(root: AccessibilityNodeInfo): String {
+    val builder = StringBuilder()
+    val queue = ArrayDeque<Pair<AccessibilityNodeInfo, Int>>()
+    queue.addLast(root to 0)
+    var visited = 0
+
+    while (queue.isNotEmpty() && visited < STRICT_MAX_NODES) {
+      val (node, depth) = queue.removeFirst()
+      visited += 1
+      node.text?.toString()?.let { if (it.isNotBlank()) builder.append(it).append(' ') }
+      node.contentDescription?.toString()?.let {
+        if (it.isNotBlank()) builder.append(it).append(' ')
+      }
+      if (depth >= STRICT_MAX_DEPTH) continue
+      for (index in 0 until node.childCount) {
+        val child = try {
+          node.getChild(index)
+        } catch (error: Throwable) {
+          null
+        } ?: continue
+        queue.addLast(child to depth + 1)
+      }
+    }
+    return builder.toString()
   }
 
   private fun triggerBlock(packageName: String, reason: String, detail: String) {

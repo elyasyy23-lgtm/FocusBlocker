@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   ImageBackground,
   Linking,
+  Modal,
   Pressable,
   ScrollView,
   Share,
@@ -12,12 +13,19 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import * as FocusGuard from '../../modules/focus-guard';
 import { ActionButton, Section } from '../components/ui';
+import PinPad from '../components/PinPad';
 import { COLORS, textAlign } from '../theme';
 import { LANGUAGES } from '../i18n';
 import { VERSION_LABEL } from '../buildInfo';
-import { DEVELOPER_RUBIKA_SCHEME, DEVELOPER_RUBIKA_URL } from '../defaults';
+import {
+  DEVELOPER_RUBIKA_SCHEME,
+  DEVELOPER_RUBIKA_URL,
+  DONATION_NETWORK,
+  DONATION_WALLET,
+} from '../defaults';
 
 const BACKGROUND = require('../../assets/background.jpg');
 
@@ -40,6 +48,7 @@ export default function SettingsScreen({
   onToggleExcluded,
   onClearExcluded,
   isAvailable,
+  onOpenHelp,
   onMessage,
   message,
 }) {
@@ -49,6 +58,31 @@ export default function SettingsScreen({
   const [query, setQuery] = useState('');
   const [busyPkg, setBusyPkg] = useState(null);
   const [sharing, setSharing] = useState(false);
+  const [donateOpen, setDonateOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  // v1.3.1: the Partner PIN is set/removed here — the Protection switch and
+  // this screen never ask for it, only the app lock does.
+  const [pinSet, setPinSet] = useState(false);
+  const [pinDialog, setPinDialog] = useState({
+    mode: null, // 'set' | 'change' | 'remove'
+    step: 'new',
+    value: '',
+    first: '',
+    error: null,
+    busy: false,
+  });
+
+  useEffect(() => {
+    let alive = true;
+    FocusGuard.getStrictState()
+      .then((state) => {
+        if (alive) setPinSet(Boolean(state.pinSet));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -117,6 +151,181 @@ export default function SettingsScreen({
       } catch (error) {
         onMessage(t('Could not open the link.'));
       }
+    }
+  }, [onMessage, t]);
+
+  // -------------------------------------------------------------------
+  // Partner PIN (v1.3.1) — set, change or remove the app-lock PIN.
+  // -------------------------------------------------------------------
+
+  const closePinDialog = () =>
+    setPinDialog({ mode: null, step: 'new', value: '', first: '', error: null, busy: false });
+
+  const openPinDialog = (mode) => {
+    if (!isAvailable) {
+      onMessage(t('Native build required'));
+      return;
+    }
+    setPinDialog({
+      mode,
+      step: mode === 'set' ? 'new' : 'current',
+      value: '',
+      first: '',
+      error: null,
+      busy: false,
+    });
+  };
+
+  const savePin = async (pin) => {
+    setPinDialog((prev) => ({ ...prev, busy: true, error: null }));
+    try {
+      await FocusGuard.setPartnerPin(pin);
+      setPinSet(true);
+      closePinDialog();
+      onMessage(t('Partner PIN saved. The app now asks for it when it opens.'));
+    } catch (error) {
+      setPinDialog((prev) => ({
+        ...prev,
+        busy: false,
+        error: error.message || t('Could not save the PIN.'),
+      }));
+    }
+  };
+
+  const submitPinDialog = async () => {
+    const { mode, step, value, first } = pinDialog;
+    if (value.length < 4 || pinDialog.busy) return;
+
+    if (mode === 'set') {
+      if (step === 'new') {
+        setPinDialog((prev) => ({ ...prev, step: 'confirm', value: '', first: value, error: null }));
+        return;
+      }
+      if (value !== first) {
+        setPinDialog({
+          mode: 'set',
+          step: 'new',
+          value: '',
+          first: '',
+          error: t('PINs do not match. Start again.'),
+          busy: false,
+        });
+        return;
+      }
+      await savePin(value);
+      return;
+    }
+
+    if (mode === 'change') {
+      if (step === 'current') {
+        setPinDialog((prev) => ({ ...prev, busy: true, error: null }));
+        try {
+          const ok = await FocusGuard.verifyPartnerPin(value);
+          if (!ok) {
+            setPinDialog((prev) => ({
+              ...prev,
+              busy: false,
+              value: '',
+              error: t('Wrong PIN. Try again.'),
+            }));
+            return;
+          }
+          setPinDialog({ mode, step: 'new', value: '', first: '', error: null, busy: false });
+        } catch (error) {
+          setPinDialog((prev) => ({
+            ...prev,
+            busy: false,
+            error: error.message || t('Wrong PIN. Try again.'),
+          }));
+        }
+        return;
+      }
+      if (step === 'new') {
+        setPinDialog((prev) => ({ ...prev, step: 'confirm', value: '', first: value, error: null }));
+        return;
+      }
+      if (value !== first) {
+        setPinDialog({
+          mode: 'change',
+          step: 'new',
+          value: '',
+          first: '',
+          error: t('PINs do not match. Start again.'),
+          busy: false,
+        });
+        return;
+      }
+      await savePin(value);
+      return;
+    }
+
+    if (mode === 'remove') {
+      setPinDialog((prev) => ({ ...prev, busy: true, error: null }));
+      try {
+        const ok = await FocusGuard.clearPartnerPin(value);
+        if (!ok) {
+          setPinDialog((prev) => ({
+            ...prev,
+            busy: false,
+            value: '',
+            error: t('Wrong PIN. Try again.'),
+          }));
+          return;
+        }
+        setPinSet(false);
+        closePinDialog();
+        onMessage(t('PIN removed. The app no longer asks for it.'));
+      } catch (error) {
+        setPinDialog((prev) => ({
+          ...prev,
+          busy: false,
+          error: error.message || t('Could not save the PIN.'),
+        }));
+      }
+    }
+  };
+
+  const pinDialogCopy = () => {
+    const { mode, step } = pinDialog;
+    if (mode === 'remove') {
+      return {
+        title: t('Remove Partner PIN'),
+        body: t('Enter the current PIN to remove the app lock.'),
+        ok: t('Remove'),
+      };
+    }
+    if (step === 'current') {
+      return {
+        title: t('Enter the current PIN'),
+        body: t('The current PIN is needed to choose a new one.'),
+        ok: t('Continue'),
+      };
+    }
+    if (step === 'confirm') {
+      return {
+        title: t('Repeat the PIN'),
+        body: t('Enter the same PIN again.'),
+        ok: t('Save'),
+      };
+    }
+    return {
+      title: pinSet ? t('Choose a new PIN') : t('Set the Partner PIN'),
+      body: t('4 to 8 digits. This PIN is asked for when the app opens.'),
+      ok: t('Continue'),
+    };
+  };
+
+  const openDonate = useCallback(() => {
+    setCopied(false);
+    setDonateOpen(true);
+  }, []);
+
+  const copyWallet = useCallback(async () => {
+    try {
+      await Clipboard.setStringAsync(DONATION_WALLET);
+      setCopied(true);
+    } catch (error) {
+      onMessage(t('Could not copy the wallet address.'));
     }
   }, [onMessage, t]);
 
@@ -251,8 +460,51 @@ export default function SettingsScreen({
           </Text>
         </Section>
 
-        <Section title={t('Support')} lang={lang}>
-          <ActionButton label={t('Share App')} onPress={shareApp} busy={sharing} />
+        <Section
+          title={t('Partner PIN')}
+          subtitle={t(
+            'The app asks for this PIN when it opens. Settings and the Protection switch never ask for it.'
+          )}
+          lang={lang}>
+          <Text style={[styles.body, { textAlign: align }]}>
+            {pinSet
+              ? t('The app lock is on.')
+              : t('No PIN yet — the app opens without asking.')}
+          </Text>
+          <ActionButton
+            label={pinSet ? t('Change PIN') : t('Set Partner PIN')}
+            onPress={() => openPinDialog(pinSet ? 'change' : 'set')}
+          />
+          {pinSet ? (
+            <ActionButton
+              label={t('Remove PIN')}
+              variant="secondary"
+              onPress={() => openPinDialog('remove')}
+            />
+          ) : null}
+        </Section>
+
+        <Section
+          title={t('Help')}
+          subtitle={t('Five short steps — from the first keyword to the partner PIN.')}
+          lang={lang}>
+          <ActionButton label={t('How to use Tavakkol')} onPress={onOpenHelp} />
+        </Section>
+
+        <Section
+          title={t('Support Us')}
+          subtitle={t('Tavakkol is free and has no ads. If it helps you, you can support it.')}
+          lang={lang}>
+          <Text style={[styles.body, { textAlign: align }]}>
+            {t('International supporters can use the Crypto Wallet option.')}
+          </Text>
+          <ActionButton label={t('Donate')} onPress={openDonate} />
+          <ActionButton
+            label={t('Share App')}
+            variant="secondary"
+            onPress={shareApp}
+            busy={sharing}
+          />
           <ActionButton
             label={t('Contact Developer')}
             variant="secondary"
@@ -267,6 +519,83 @@ export default function SettingsScreen({
         <Text style={styles.footer}>{t('Tavakkol')}</Text>
         {message ? <Text style={styles.message}>{message}</Text> : null}
       </ScrollView>
+
+      <Modal
+        visible={donateOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDonateOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={[styles.modalTitle, { textAlign: align }]}>{t('Support Us')}</Text>
+            <Text style={[styles.body, { textAlign: align }]}>
+              {t('Thank you for supporting Tavakkol. Every donation keeps it free.')}
+            </Text>
+            {DONATION_WALLET ? (
+              <>
+                <Text style={[styles.walletNetwork, { textAlign: align }]}>
+                  {DONATION_NETWORK}
+                </Text>
+                <Text selectable style={[styles.walletAddress, { textAlign: align }]}>
+                  {DONATION_WALLET}
+                </Text>
+                <ActionButton
+                  label={copied ? t('Copied') : t('Copy wallet address')}
+                  onPress={copyWallet}
+                  saved={copied}
+                />
+              </>
+            ) : (
+              <Text style={[styles.body, { textAlign: align }]}>
+                {t('The donation wallet address is not set yet.')}
+              </Text>
+            )}
+            <ActionButton
+              label={t('Close')}
+              variant="secondary"
+              onPress={() => setDonateOpen(false)}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={pinDialog.mode !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closePinDialog}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={[styles.modalTitle, { textAlign: align }]}>
+              {pinDialogCopy().title}
+            </Text>
+            <Text style={[styles.body, { textAlign: align }]}>{pinDialogCopy().body}</Text>
+
+            {pinDialog.error ? (
+              <Text style={[styles.pinError, { textAlign: align }]}>{pinDialog.error}</Text>
+            ) : null}
+
+            <View style={styles.pinPad}>
+              <PinPad
+                value={pinDialog.value}
+                onChange={(next) =>
+                  setPinDialog((prev) => ({ ...prev, value: next, error: null }))
+                }
+                onComplete={submitPinDialog}
+                disabled={pinDialog.busy}
+                okLabel={pinDialogCopy().ok}
+              />
+            </View>
+
+            <ActionButton
+              label={t('Cancel')}
+              variant="secondary"
+              onPress={closePinDialog}
+              disabled={pinDialog.busy}
+            />
+          </View>
+        </View>
+      </Modal>
     </ImageBackground>
   );
 }
@@ -457,6 +786,62 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     marginTop: 26,
+  },
+  body: {
+    color: COLORS.muted,
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: 10,
+  },
+  pinError: {
+    color: COLORS.danger,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  pinPad: {
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(3,6,10,0.86)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 22,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#101820',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 18,
+  },
+  modalTitle: {
+    color: COLORS.text,
+    fontSize: 19,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  walletNetwork: {
+    color: COLORS.accent,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    marginBottom: 4,
+  },
+  walletAddress: {
+    color: COLORS.text,
+    fontSize: 14,
+    lineHeight: 21,
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 12,
+    marginBottom: 10,
   },
   footer: {
     color: '#5A6779',

@@ -40,7 +40,7 @@ Docs: https://docs.expo.dev/eas/index.md
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
 
-## Project: Tavakkol (state as of 2026-11-12, v1.2.0)
+## Project: Tavakkol (state as of 2026-11-12, v1.3.1)
 
 Android-only self-control app, English UI, Expo SDK 58 / RN 0.88.1 / React 19.3.
 v1.1.2 died again ~a day after install (never verified on-device); v1.1.3 adds an
@@ -186,6 +186,33 @@ in-app DEBUG LOG so the next death shows its cause.
   Persian entry — 135 strings, all covered) and `scripts/set-background.js <img>` (jimp-compact
   crop to 1080x1920 → `assets/background.jpg`; the shipped file is a generated placeholder
   because `/storage/emulated/0/Download` is not readable from Termux).
+- v1.2.0 SHIPPED 2026-11-12: commit `e1d94d4` → main + tag `v1.2.0`; CI runs 43253253110 (main)
+  and 43253259589 (tag → Release) both SUCCESS; release live, APK 30.9 MB at
+  https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v1.2.0/FocusBlocker-release.apk
+  (logo/display name Tavakkol; the ASSET filename still says FocusBlocker because the workflow
+  names the artifact — harmless, rename in the workflow if it ever matters).
+  Owner's background photo is `assets/background.jpg` (337x471 source, cover-scaled — soft on a
+  big screen; swap with `node scripts/set-background.js <img>` and re-tag).
+  Lesson: Termux cannot compile Kotlin, so the FIRST CI run is the real compiler — the first
+  push failed on `compareBy(collator) { it.second }` (type inference: 4 errors). Fixed by an
+  explicit `Comparator<Pair<String,String>> { … }`. Keep sorts explicit.
+- v1.3.0 (2026-11-12): Help screen + Support Us (Donate). Owner narrowed the release scope to
+  these two — the strict-lock list (auto-strict on Protection, partner PIN, app-info-page kick,
+  bypass alert) is NOT implemented and belongs to the next version.
+  - `src/screens/HelpScreen.js` — scrollable; `STEPS` array of {title, body} i18n keys rendered as
+    numbered cards, then the Support paragraph and the GiftNote. Owner's wording is verbatim
+    ("Strict Lock & Partner PIN" is described even though the feature does not exist yet — keep
+    that in mind before telling users it works).
+  - Settings gains a "Help" section (`onOpenHelp`) and a "Support Us" section: Donate → Modal
+    sheet (`expo-clipboard` for Copy), plus the existing Share/Contact actions.
+  - `src/defaults.js`: `DONATION_WALLET` (EMPTY until the owner pastes their address — the sheet
+    then says "not set yet" rather than showing a fake address) + `DONATION_NETWORK`.
+  - Routing: `screen` is now 'main' | 'settings' | 'help'; a `BackHandler` effect sends hardware
+    Back Help → Settings → main (previously Back exited the app from Settings).
+  - Main header: "?" button next to the gear (`styles.headerActions`, `gap: 10`).
+  - `expo-clipboard ~58.0.4` added (autolinks; no config plugin needed) — `npm ci` in CI needs the
+    updated package-lock.json, so always install with `npx expo install <pkg>`.
+  - `scripts/check-i18n.js` now also scans HelpScreen.js (150 strings / 166 entries).
 - Decisions (2026-11-10): `expo-pilot` is NOT used as the engine — its listeners run in JS and die
   with the backgrounded RN runtime. `react-native-device-admin` does not exist on npm (404).
   v1.1.0's "page body text deliberately ignored" was SUPERSEDED in v1.1.2 by owner request:
@@ -210,6 +237,30 @@ in-app DEBUG LOG so the next death shows its cause.
   EAS alternative: `eas build -p android --profile preview`. Never ship the default `.aab`.
 - Not yet installed on a device: first-run steps are in README.md (accessibility toggle,
   Android 13+ "Restricted setting" workaround, device admin, removal steps).
+
+### Strict lock + Partner PIN (v1.3.1)
+
+- Store: `FocusGuardStore.kt` → `partner_pin_salt`, `partner_pin_hash` =
+  `sha256(salt + pin)`, `strict_unlock_until`. 4-8 digits (`isValidPin`). A correct
+  `verifyPin` opens a 15-minute `STRICT_UNLOCK_MS` window and nothing else; the PIN is never
+  stored in clear and never leaves the device.
+- `strictLocked(ctx) = isEnabled && hasPin && now >= unlockUntil` — the ONE predicate shared by
+  the guard and `getConfig`/`getStrictState` (`pinSet`, `strictLocked`/`locked`,
+  `unlockMinutesLeft`). `setEnabled(false)` closes the window.
+- Guard: `guardStrictSettings(event)` is the FIRST thing `onAccessibilityEvent` does. Only for
+  Settings packages (`SETTINGS_PACKAGES`: AOSP, MIUI/HyperOS, Samsung, OPPO/ColorOS, vivo),
+  throttled 500 ms, `collectScreenText` BFS (220 nodes / depth 14). Fires BACK + toast when the
+  page looks like `ADMIN_PAGE_TOKENS` (device admin) or `OUR_PAGE_TOKENS` + `DANGER_TOKENS`
+  (our app-info page with force stop/uninstall). Logs `strict_guard`.
+- UI: `src/components/PinPad.js` (dots + keypad, no TextInput — no IME/autocorrect) and
+  `src/screens/LockScreen.js`. `App.js` gates above every screen when locked, re-locks in the
+  AppState background branch, and shows a boot loader until the config loads (no content flash).
+  SCOPE (owner decision 2026-11-12): the PIN guards ONLY entering the app — the Protection
+  switch needs no PIN, Settings needs no PIN. The PIN is set/changed/removed in Settings'
+  "Partner PIN" section (`src/screens/SettingsScreen.js`).
+- Honest limits (keep them in the UI/docs): a Settings entry can be left but not removed; the
+  Device Admin toggle cannot be force-locked by a normal app (device-owner/MDM only); clearing
+  app data erases the PIN.
 
 ### Testing (2026-11-10)
 

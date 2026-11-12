@@ -24,6 +24,13 @@ class FocusGuardModule : Module() {
   private fun requireContext(): Context =
     appContext.reactContext ?: throw IllegalStateException("React context is not available")
 
+  /** Minutes left on the partner's unlock window, 0 when it is closed. */
+  private fun unlockMinutesLeft(context: Context): Int {
+    val left = FocusGuardStore.unlockUntil(context) - System.currentTimeMillis()
+    if (left <= 0L) return 0
+    return Math.ceil(left / 60000.0).toInt()
+  }
+
   override fun definition() = ModuleDefinition {
     Name("FocusGuard")
 
@@ -42,6 +49,9 @@ class FocusGuardModule : Module() {
       config.put("excludedApps", JSONArray(FocusGuardStore.excludedApps(ctx)))
       config.put("language", FocusGuardStore.language(ctx))
       config.put("defaultsSeeded", FocusGuardStore.defaultsSeeded(ctx))
+      config.put("pinSet", FocusGuardStore.hasPin(ctx))
+      config.put("strictLocked", FocusGuardStore.strictLocked(ctx))
+      config.put("unlockMinutesLeft", unlockMinutesLeft(ctx))
       config.toString()
     }
 
@@ -62,8 +72,47 @@ class FocusGuardModule : Module() {
     AsyncFunction("setEnabled") { enabled: Boolean ->
       val ctx = requireContext()
       FocusGuardStore.setEnabled(ctx, enabled)
+      // Switching Protection OFF ends the strict lock — guards stop instantly.
+      if (!enabled) FocusGuardStore.clearUnlockWindow(ctx)
       FocusAccessibilityService.reload()
       true
+    }
+
+    // -------------------------------------------------------------------
+    // Strict lock (v1.3.1) — partner PIN that cannot be removed from the UI.
+    // -------------------------------------------------------------------
+
+    AsyncFunction("setPartnerPin") { pin: String ->
+      val ctx = requireContext()
+      if (!FocusGuardStore.isValidPin(pin)) {
+        throw IllegalArgumentException("The PIN must be 4 to 8 digits")
+      }
+      FocusGuardStore.setPin(ctx, pin)
+      true
+    }
+
+    AsyncFunction("verifyPartnerPin") { pin: String ->
+      val ctx = requireContext()
+      FocusGuardStore.verifyPin(ctx, pin)
+    }
+
+    AsyncFunction("clearPartnerPin") { pin: String ->
+      val ctx = requireContext()
+      if (!FocusGuardStore.verifyPin(ctx, pin)) {
+        false
+      } else {
+        FocusGuardStore.clearPin(ctx)
+        true
+      }
+    }
+
+    AsyncFunction("getStrictState") {
+      val ctx = requireContext()
+      JSONObject()
+        .put("pinSet", FocusGuardStore.hasPin(ctx))
+        .put("locked", FocusGuardStore.strictLocked(ctx))
+        .put("unlockMinutesLeft", unlockMinutesLeft(ctx))
+        .toString()
     }
 
     // -------------------------------------------------------------------

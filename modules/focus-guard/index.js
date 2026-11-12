@@ -29,6 +29,9 @@ export const EMPTY_CONFIG = {
   excludedApps: [],
   language: 'en',
   defaultsSeeded: false,
+  pinSet: false,
+  strictLocked: false,
+  unlockMinutesLeft: 0,
 };
 
 function parseConfig(raw) {
@@ -128,6 +131,51 @@ export async function openUrl(url) {
     return await native.openUrl(url);
   } catch (error) {
     return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Strict lock (v1.3.1)
+// ---------------------------------------------------------------------------
+
+/** Stores the Partner PIN (4-8 digits). Throws on an invalid PIN. */
+export async function setPartnerPin(pin) {
+  if (!native) throw new Error('Native module missing — build a dev/release APK first.');
+  return native.setPartnerPin(pin);
+}
+
+/** True when the PIN is correct; also opens the 15-minute Settings window. */
+export async function verifyPartnerPin(pin) {
+  if (!native) return false;
+  try {
+    return Boolean(await native.verifyPartnerPin(pin));
+  } catch (error) {
+    return false;
+  }
+}
+
+/** Removes the PIN — only when the current PIN is supplied. */
+export async function clearPartnerPin(pin) {
+  if (!native) return false;
+  try {
+    return Boolean(await native.clearPartnerPin(pin));
+  } catch (error) {
+    return false;
+  }
+}
+
+/** { pinSet, locked, unlockMinutesLeft } — the guard's own view of the lock. */
+export async function getStrictState() {
+  if (!native) return { pinSet: false, locked: false, unlockMinutesLeft: 0 };
+  try {
+    const parsed = JSON.parse(await native.getStrictState());
+    return {
+      pinSet: Boolean(parsed.pinSet),
+      locked: Boolean(parsed.locked),
+      unlockMinutesLeft: Number(parsed.unlockMinutesLeft) || 0,
+    };
+  } catch (error) {
+    return { pinSet: false, locked: false, unlockMinutesLeft: 0 };
   }
 }
 

@@ -1,6 +1,6 @@
 # Tavakkol
 
-A personal self-control app for Android (formerly FocusBlocker) with six safeguards,
+A personal self-control app for Android (formerly FocusBlocker) with seven safeguards,
 a full Settings screen, and an English/Persian interface:
 
 1. **Targeted keyword blocker** — the Accessibility Service does *not* read the whole screen.
@@ -22,6 +22,17 @@ a full Settings screen, and an English/Persian interface:
    diacritics are normalized before matching, so a phrase with a space matches too.
 6. **Settings** — language (English / Persian, RTL without restarting), excluded-app picker
    with search, share the app, contact the developer, and the version footer.
+7. **Help screen** — five numbered setup steps (keywords, accessibility, device admin, partner
+   PIN, excluded apps) in both languages, reachable from the "?" button on the main screen.
+8. **Support Us** — a Donate sheet with a crypto wallet address (copy button), plus share and
+   contact. The wallet address is configured in `src/defaults.js` (`DONATION_WALLET`).
+9. **Strict lock + Partner PIN (v1.3.1)** — a 4-8 digit PIN is set in Settings and handed to a
+   partner. From then on the app is gated behind that PIN every time it opens (Settings and the
+   Protection switch never ask for it), and the accessibility service backs out of the system
+   *Device admin apps* page and of Tavakkol's own app-info page (force-stop / uninstall) unless
+   the PIN was entered in the last 15 minutes. The PIN is stored only as `SHA-256(salt + pin)`.
+   Honest limits: a Settings entry cannot be removed, only left; the Device Admin toggle cannot
+   be locked by a normal app (only a device-owner build); clearing app data erases the PIN.
 
 Everything runs on the phone, offline. Nothing is uploaded, no analytics, no network calls.
 
@@ -39,7 +50,10 @@ src/
   defaults.js                            default keywords, share/contact links
   buildInfo.js                           version label shown in Settings
   components/ui.js                       Section / StatusPill / ActionButton / Chip / GiftNote
-  screens/SettingsScreen.js              language, excluded apps, share, contact, about
+  components/PinPad.js                   numeric keypad + PIN dots (v1.3.1)
+  screens/LockScreen.js                  full-screen Partner-PIN gate (v1.3.1)
+  screens/SettingsScreen.js              language, excluded apps, help, donate, share, contact
+  screens/HelpScreen.js                  the five setup steps + support note
 scripts/
   check-i18n.js                          fails if a UI string has no Persian translation
   make-background.js                     generates the placeholder background

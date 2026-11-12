@@ -25,6 +25,19 @@ internal object FocusGuardStore {
   private const val KEY_LAST_BLOCK_REASON = "last_block_reason"
   private const val KEY_DEBUG_LOG = "debug_log"
   private const val KEY_HEARTBEAT = "watchdog_heartbeat"
+  private const val KEY_PIN_HASH = "partner_pin_hash"
+  private const val KEY_PIN_SALT = "partner_pin_salt"
+  private const val KEY_UNLOCK_UNTIL = "strict_unlock_until"
+  /**
+   * v1.3.1: how long a correct Partner PIN keeps the SYSTEM pages (device admin,
+   * app info) unguarded. Long enough for the partner to walk to Settings and
+   * deactivate the admin, short enough that a forgotten phone re-arms itself.
+   * The app itself re-locks long before this — see the JS session flag.
+   */
+  private const val STRICT_UNLOCK_MS = 15 * 60 * 1000L
+  private const val PIN_MIN_LENGTH = 4
+  private const val PIN_MAX_LENGTH = 8
+
   private const val DEBUG_LOG_LIMIT = 100
   private const val DEBUG_TEXT_LIMIT = 160
 
@@ -173,6 +186,92 @@ internal object FocusGuardStore {
   }
 
   fun isEnabled(context: Context): Boolean = prefs(context).getBoolean(KEY_ENABLED, true)
+
+  // ---------------------------------------------------------------------
+  // Strict lock (v1.3.1): partner PIN + one-way lock.
+  //
+  // The PIN is never stored in clear text — only a random salt and
+  // SHA-256(salt + pin). A correct PIN opens a short window
+  // (STRICT_UNLOCK_MS) during which the accessibility guard stops kicking the
+  // user out of the system device-admin / app-info pages, so the partner can
+  // actually manage the phone. The app UI itself re-locks every time it comes
+  // back from the background; only the PIN clears it.
+  // ---------------------------------------------------------------------
+
+  fun isValidPin(pin: String): Boolean =
+    pin.length in PIN_MIN_LENGTH..PIN_MAX_LENGTH && pin.all { it.isDigit() }
+
+  fun hasPin(context: Context): Boolean =
+    !prefs(context).getString(KEY_PIN_HASH, null).isNullOrEmpty()
+
+  /** Stores salt + hash, wipes any open window, and arms the lock immediately. */
+  fun setPin(context: Context, pin: String) {
+    val salt = randomHex(16)
+    prefs(context).edit()
+      .putString(KEY_PIN_SALT, salt)
+      .putString(KEY_PIN_HASH, sha256(salt + pin))
+      .putLong(KEY_UNLOCK_UNTIL, 0L)
+      .apply()
+  }
+
+  /** True when the PIN matches; a correct PIN also opens the guard window. */
+  fun verifyPin(context: Context, pin: String): Boolean {
+    val preferences = prefs(context)
+    val salt = preferences.getString(KEY_PIN_SALT, null) ?: return false
+    val stored = preferences.getString(KEY_PIN_HASH, null) ?: return false
+    if (!constantTimeEquals(stored, sha256(salt + pin))) return false
+    preferences.edit()
+      .putLong(KEY_UNLOCK_UNTIL, System.currentTimeMillis() + STRICT_UNLOCK_MS)
+      .apply()
+    return true
+  }
+
+  fun clearPin(context: Context) {
+    prefs(context).edit()
+      .remove(KEY_PIN_HASH)
+      .remove(KEY_PIN_SALT)
+      .putLong(KEY_UNLOCK_UNTIL, 0L)
+      .apply()
+  }
+
+  fun unlockUntil(context: Context): Long = prefs(context).getLong(KEY_UNLOCK_UNTIL, 0L)
+
+  /**
+   * The one question the guard asks before kicking anyone out of Settings:
+   * is Protection ON, is a PIN set, and has the unlock window run out?
+   */
+  fun strictLocked(context: Context): Boolean =
+    isEnabled(context) && hasPin(context) && System.currentTimeMillis() >= unlockUntil(context)
+
+  /** Closes the guard window without touching the PIN (Protection turned OFF). */
+  fun clearUnlockWindow(context: Context) {
+    prefs(context).edit().putLong(KEY_UNLOCK_UNTIL, 0L).apply()
+  }
+
+  private fun randomHex(bytes: Int): String {
+    val buffer = ByteArray(bytes)
+    java.security.SecureRandom().nextBytes(buffer)
+    val builder = StringBuilder(bytes * 2)
+    for (byte in buffer) builder.append(String.format("%02x", byte))
+    return builder.toString()
+  }
+
+  private fun sha256(value: String): String {
+    val digest = java.security.MessageDigest.getInstance("SHA-256")
+    val bytes = digest.digest(value.toByteArray(Charsets.UTF_8))
+    val builder = StringBuilder(bytes.size * 2)
+    for (byte in bytes) builder.append(String.format("%02x", byte))
+    return builder.toString()
+  }
+
+  private fun constantTimeEquals(left: String, right: String): Boolean {
+    if (left.length != right.length) return false
+    var diff = 0
+    for (index in left.indices) {
+      diff = diff or (left[index].code xor right[index].code)
+    }
+    return diff == 0
+  }
 
   fun setEnabled(context: Context, enabled: Boolean) {
     prefs(context).edit().putBoolean(KEY_ENABLED, enabled).apply()

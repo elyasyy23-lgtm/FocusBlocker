@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   AppState,
+  BackHandler,
   FlatList,
   ImageBackground,
   Modal,
@@ -23,6 +24,8 @@ import { ActionButton, Chip, GiftNote, Section, StatusPill } from './src/compone
 import { DEFAULT_KEYWORDS } from './src/defaults';
 import { VERSION_LABEL } from './src/buildInfo';
 import SettingsScreen from './src/screens/SettingsScreen';
+import HelpScreen from './src/screens/HelpScreen';
+import LockScreen from './src/screens/LockScreen';
 
 const BACKGROUND = require('./assets/background.jpg');
 
@@ -109,6 +112,23 @@ export default function App() {
   const [clearingLogs, setClearingLogs] = useState(false);
   const [keepAliveBusy, setKeepAliveBusy] = useState(false);
   const [screen, setScreen] = useState('main');
+
+  // v1.3.1 strict lock: the app is gated on every foreground while a Partner
+  // PIN exists. Nothing else in the app asks for it — Settings and the
+  // Protection switch stay free (owner decision, 2026-11-12).
+  const [sessionUnlocked, setSessionUnlocked] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
+  const [unlockError, setUnlockError] = useState(null);
+
+  // v1.3.0: the Help screen came from Settings, so Back goes back there first.
+  useEffect(() => {
+    if (screen === 'main') return undefined;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      setScreen(screen === 'help' ? 'settings' : 'main');
+      return true;
+    });
+    return () => subscription.remove();
+  }, [screen]);
   const [lang, setLang] = useState('en');
   const keywordsDirtyRef = useRef(false);
   const domainsDirtyRef = useRef(false);
@@ -144,7 +164,12 @@ export default function App() {
   useEffect(() => {
     refresh();
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') refresh();
+      if (state === 'active') {
+        refresh();
+      } else {
+        // Leaving the app locks it again — the next return needs the PIN.
+        setSessionUnlocked(false);
+      }
     });
     return () => subscription.remove();
   }, [refresh]);
@@ -234,6 +259,11 @@ export default function App() {
     }
   };
 
+  /**
+   * v1.3.1: the Protection switch is a plain switch — no PIN, no dialog. The
+   * Partner PIN only guards entering the app (LockScreen) and the system
+   * device-admin / app-info pages.
+   */
   const toggleBlocking = async (value) => {
     setToggling(true);
     setMessage(null);
@@ -244,6 +274,26 @@ export default function App() {
       setMessage(error.message || t('Could not change the blocker state.'));
     } finally {
       setToggling(false);
+    }
+  };
+
+  const unlockApp = async (pin) => {
+    setUnlocking(true);
+    setUnlockError(null);
+    try {
+      const ok = await FocusGuard.verifyPartnerPin(pin);
+      if (ok) {
+        setSessionUnlocked(true);
+        refresh();
+      } else {
+        setUnlockError(t('Wrong PIN. Try again.'));
+      }
+      return ok;
+    } catch (error) {
+      setUnlockError(error.message || t('Wrong PIN. Try again.'));
+      return false;
+    } finally {
+      setUnlocking(false);
     }
   };
 
@@ -419,6 +469,52 @@ export default function App() {
     config.enabled &&
     (config.keywords.length > 0 || config.domains.length > 0);
 
+  // The first millisecond has no config yet — show a bare loader so a locked
+  // app never flashes its content before the gate decides.
+  if (loading && FocusGuard.isAvailable) {
+    return (
+      <ImageBackground source={BACKGROUND} style={styles.root} resizeMode="cover">
+        <View style={styles.overlay} />
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+        <View style={styles.bootLoader}>
+          <ActivityIndicator color={COLORS.accent} />
+        </View>
+      </ImageBackground>
+    );
+  }
+
+  // v1.3.1: with a Partner PIN saved, nothing in the app is reachable until
+  // the PIN is entered — the gate sits above every screen (main/settings/help).
+  const appLocked =
+    FocusGuard.isAvailable && config.pinSet && config.enabled && !sessionUnlocked;
+
+  if (appLocked) {
+    return (
+      <ImageBackground source={BACKGROUND} style={styles.root} resizeMode="cover">
+        <View style={styles.overlay} />
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+        <LockScreen
+          t={t}
+          lang={lang}
+          busy={unlocking}
+          error={unlockError}
+          onSubmit={unlockApp}
+        />
+      </ImageBackground>
+    );
+  }
+
+  if (screen === 'help') {
+    return (
+      <HelpScreen
+        t={t}
+        lang={lang}
+        onBack={() => setScreen('settings')}
+        onOpenSettings={() => setScreen('settings')}
+      />
+    );
+  }
+
   if (screen === 'settings') {
     return (
       <SettingsScreen
@@ -430,6 +526,7 @@ export default function App() {
         onToggleExcluded={toggleExcluded}
         onClearExcluded={clearExcluded}
         isAvailable={FocusGuard.isAvailable}
+        onOpenHelp={() => setScreen('help')}
         onMessage={setMessage}
         message={message}
       />
@@ -449,13 +546,22 @@ export default function App() {
             <Text style={[styles.brand, { textAlign: align }]}>{t('Tavakkol')}</Text>
             <Text style={[styles.brandSub, { textAlign: align }]}>{t('Personal guard')}</Text>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('Settings')}
-            onPress={() => setScreen('settings')}
-            style={({ pressed }) => [styles.gear, pressed && styles.pressed]}>
-            <Text style={styles.gearIcon}>⚙</Text>
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('Help')}
+              onPress={() => setScreen('help')}
+              style={({ pressed }) => [styles.gear, pressed && styles.pressed]}>
+              <Text style={styles.helpIcon}>?</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('Settings')}
+              onPress={() => setScreen('settings')}
+              style={({ pressed }) => [styles.gear, pressed && styles.pressed]}>
+              <Text style={styles.gearIcon}>⚙</Text>
+            </Pressable>
+          </View>
         </View>
 
         <Text style={[styles.tagline, { textAlign: align }]}>
@@ -896,6 +1002,11 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  bootLoader: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   root: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -942,9 +1053,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   gearIcon: {
     color: COLORS.text,
     fontSize: 20,
+  },
+  helpIcon: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: '700',
   },
   pressed: {
     opacity: 0.75,
