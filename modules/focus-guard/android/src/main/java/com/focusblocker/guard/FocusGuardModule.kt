@@ -101,9 +101,13 @@ class FocusGuardModule : Module() {
         seen[pkg] = label.trim().ifEmpty { pkg }
       }
       val collator = java.text.Collator.getInstance()
+      val byLabel = Comparator<Pair<String, String>> { left, right ->
+        val order = collator.compare(left.second, right.second)
+        if (order != 0) order else left.first.compareTo(right.first)
+      }
       val entries = seen.entries
         .map { (pkg, label) -> pkg to label }
-        .sortedWith(compareBy(collator) { it.second }.thenBy { it.first })
+        .sortedWith(byLabel)
       val array = JSONArray()
       for ((pkg, label) in entries) {
         array.put(JSONObject().put("pkg", pkg).put("label", label))
