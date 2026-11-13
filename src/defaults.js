@@ -33,7 +33,16 @@ export const DEVELOPER_RUBIKA_SCHEME = `rubika://${DEVELOPER_RUBIKA_ID}`;
  * Left empty, the app says the address is not set yet — it must never display a
  * placeholder, because someone could copy it and send money to a stranger.
  */
-export const DONATION_WALLET = '';
+export const DONATION_WALLET = 'TANP1ibS4DsF2C1p1rBGAZ5MrGZyS5sUmU';
 
 /** Shown next to the address so the supporter knows which network to use. */
 export const DONATION_NETWORK = 'USDT (TRC20)';
+
+/**
+ * v1.3.2 — domestic (inside Iran) donation route: the owner's ZarinPal payment
+ * link. Same rule as the wallet: never invent a destination. Intentionally
+ * empty (owner decision 2026-11-13) — the "Support from inside Iran" button
+ * opens a sheet that says the link is not set yet, instead of sending money
+ * somewhere the owner never approved.
+ */
+export const DONATION_ZARINPAL_URL = '';

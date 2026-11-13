@@ -24,15 +24,24 @@ a full Settings screen, and an English/Persian interface:
    with search, share the app, contact the developer, and the version footer.
 7. **Help screen** — five numbered setup steps (keywords, accessibility, device admin, partner
    PIN, excluded apps) in both languages, reachable from the "?" button on the main screen.
-8. **Support Us** — a Donate sheet with a crypto wallet address (copy button), plus share and
-   contact. The wallet address is configured in `src/defaults.js` (`DONATION_WALLET`).
-9. **Strict lock + Partner PIN (v1.3.1)** — a 4-8 digit PIN is set in Settings and handed to a
-   partner. From then on the app is gated behind that PIN every time it opens (Settings and the
-   Protection switch never ask for it), and the accessibility service backs out of the system
-   *Device admin apps* page and of Tavakkol's own app-info page (force-stop / uninstall) unless
-   the PIN was entered in the last 15 minutes. The PIN is stored only as `SHA-256(salt + pin)`.
+8. **Support Us** — the app is free and ad-free; two donation routes (inside Iran via ZarinPal,
+   outside Iran via a crypto wallet) open from Settings, plus Share App / Contact Developer in
+   the "More" section below. Both destinations are configured in `src/defaults.js`
+   (`DONATION_ZARINPAL_URL`, `DONATION_WALLET`) and are empty until you paste your own — the app
+   then says "not set yet" rather than showing a fake address.
+9. **Partner PIN (v1.3.1/v1.3.2)** — a 4-8 digit PIN is set in Settings and handed to a partner.
+   From then on the app is gated behind that PIN every time it opens (Settings and the
+   Protection switch never ask for it). There is **no Unlock button**: the correct PIN opens the
+   app the moment the last digit is typed. The PIN is stored only as `SHA-256(salt + pin)`.
+10. **System-page guard (v1.3.2)** — while **Protection is on**, the accessibility service leaves
+   the system *Device admin apps* page (`com.android.settings`) and Tavakkol's own app-info page
+   (force-stop / uninstall) immediately with `GLOBAL_ACTION_BACK` — detected from the Settings
+   activity name, with a second Back and finally Home if the page comes back. No PIN is needed
+   for this part; turning Protection off makes the guard silent again.
    Honest limits: a Settings entry cannot be removed, only left; the Device Admin toggle cannot
    be locked by a normal app (only a device-owner build); clearing app data erases the PIN.
+11. **App name & icon (v1.3.2)** — the launcher shows **توکل** in Persian and **Tavakkol** in
+   English, with the icon built from your own photo (`scripts/make-icon.js`).
 
 Everything runs on the phone, offline. Nothing is uploaded, no analytics, no network calls.
 
@@ -51,11 +60,14 @@ src/
   buildInfo.js                           version label shown in Settings
   components/ui.js                       Section / StatusPill / ActionButton / Chip / GiftNote
   components/PinPad.js                   numeric keypad + PIN dots (v1.3.1)
-  screens/LockScreen.js                  full-screen Partner-PIN gate (v1.3.1)
+  screens/LockScreen.js                  full-screen Partner-PIN gate, auto-submit (v1.3.2)
   screens/SettingsScreen.js              language, excluded apps, help, donate, share, contact
   screens/HelpScreen.js                  the five setup steps + support note
+locales/
+  fa.json                                Persian app name (توکل) for the launcher
 scripts/
   check-i18n.js                          fails if a UI string has no Persian translation
+  make-icon.js                           builds assets/icon*.png from your own photo
   make-background.js                     generates the placeholder background
   set-background.js                      crops your own photo to assets/background.jpg
 assets/background.jpg                    main screen background (placeholder shipped)
@@ -186,7 +198,7 @@ git tag v1.1.0
 git push origin v1.1.0        # → APK attached to the GitHub Release
 ```
 
-Download it from the Actions run (Artifacts → `FocusBlocker-release-apk`) or from
+Download it from the Actions run (Artifacts → `Tavakkol-release-apk`) or from
 **Releases**. The CI template signs the release APK with the debug keystore, so it installs
 directly — replace it with a real keystore before publishing to a store.
 
@@ -204,8 +216,9 @@ directly — replace it with a real keystore before publishing to a store.
 - Deep scans are throttled (~350 ms per app) to protect battery; very fast scrolls can slip past
   a single frame but will be caught on the next event.
 - Device admin stops *normal* uninstall. It is not a security product: `adb uninstall`, a factory
-  reset, or a user who knows Settings → Device admin apps can still remove it. That is Android's
-  rule, not a bug in the app.
+  reset, or a user who turns Protection off and then opens Settings → Device admin apps can still
+  remove it. While Protection is on, the guard leaves that page immediately (v1.3.2), but Android
+  gives a normal app no way to hide or lock the entry — that is Android's rule, not a bug here.
 - After a reboot the boot receiver restarts the keep-alive chain; if the UI still shows
   *Accessibility: DISABLED* the toggle was switched off and only you can turn it back on.
 - Keep-alive is not magic: OEM power managers (MIUI, ColorOS, EMUI, Funtouch) can force-stop an

@@ -118,7 +118,6 @@ export default function App() {
   // Protection switch stay free (owner decision, 2026-11-12).
   const [sessionUnlocked, setSessionUnlocked] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
-  const [unlockError, setUnlockError] = useState(null);
 
   // v1.3.0: the Help screen came from Settings, so Back goes back there first.
   useEffect(() => {
@@ -261,8 +260,9 @@ export default function App() {
 
   /**
    * v1.3.1: the Protection switch is a plain switch — no PIN, no dialog. The
-   * Partner PIN only guards entering the app (LockScreen) and the system
-   * device-admin / app-info pages.
+   * v1.3.2: the Partner PIN only guards entering the app (LockScreen). The
+   * system device-admin / app-info pages are guarded by the accessibility
+   * service whenever Protection is ON — no PIN involved.
    */
   const toggleBlocking = async (value) => {
     setToggling(true);
@@ -279,18 +279,14 @@ export default function App() {
 
   const unlockApp = async (pin) => {
     setUnlocking(true);
-    setUnlockError(null);
     try {
       const ok = await FocusGuard.verifyPartnerPin(pin);
       if (ok) {
         setSessionUnlocked(true);
         refresh();
-      } else {
-        setUnlockError(t('Wrong PIN. Try again.'));
       }
       return ok;
     } catch (error) {
-      setUnlockError(error.message || t('Wrong PIN. Try again.'));
       return false;
     } finally {
       setUnlocking(false);
@@ -459,8 +455,10 @@ export default function App() {
     )
   );
 
-  // A save button stays white while the editor text is exactly what is stored,
-  // and turns green again the moment the text changes.
+  // v1.3.2: a save button is GREEN while the editor text is exactly what is
+  // stored (the save went through) and turns WHITE the moment the text changes,
+  // so "white" always means "there are unsaved edits". Derived from the stored
+  // list, so the state survives restarts without extra flags.
   const keywordsSaved = !loading && keywordsText === config.keywords.join(', ');
   const domainsSaved = !loading && domainsText === config.domains.join(', ');
 
@@ -475,7 +473,7 @@ export default function App() {
     return (
       <ImageBackground source={BACKGROUND} style={styles.root} resizeMode="cover">
         <View style={styles.overlay} />
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.pageBackground} />
         <View style={styles.bootLoader}>
           <ActivityIndicator color={COLORS.accent} />
         </View>
@@ -492,12 +490,11 @@ export default function App() {
     return (
       <ImageBackground source={BACKGROUND} style={styles.root} resizeMode="cover">
         <View style={styles.overlay} />
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.pageBackground} />
         <LockScreen
           t={t}
           lang={lang}
           busy={unlocking}
-          error={unlockError}
           onSubmit={unlockApp}
         />
       </ImageBackground>
@@ -536,7 +533,7 @@ export default function App() {
   return (
     <ImageBackground source={BACKGROUND} style={styles.root} resizeMode="cover">
       <View style={styles.overlay} />
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.pageBackground} />
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -1032,13 +1029,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   brand: {
-    color: COLORS.text,
+    color: COLORS.pageText,
     fontSize: 32,
     fontWeight: '700',
     letterSpacing: -0.5,
   },
   brandSub: {
-    color: COLORS.accent,
+    color: COLORS.pageAccent,
     fontSize: 13,
     fontWeight: '600',
     marginTop: 2,
@@ -1070,7 +1067,7 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
   tagline: {
-    color: COLORS.muted,
+    color: COLORS.pageMuted,
     fontSize: 14,
     lineHeight: 21,
     marginTop: 12,
@@ -1220,7 +1217,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   message: {
-    color: COLORS.warning,
+    color: COLORS.pageWarning,
     fontSize: 13,
     lineHeight: 19,
     marginTop: 20,
@@ -1244,13 +1241,13 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   footer: {
-    color: '#8C9AAB',
+    color: COLORS.pageMuted,
     fontSize: 12,
     lineHeight: 18,
     marginTop: 28,
   },
   versionText: {
-    color: '#5A6779',
+    color: '#475569',
     fontSize: 11,
     textAlign: 'center',
     marginTop: 14,

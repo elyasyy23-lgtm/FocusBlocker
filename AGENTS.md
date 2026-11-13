@@ -40,7 +40,7 @@ Docs: https://docs.expo.dev/eas/index.md
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
 
-## Project: Tavakkol (state as of 2026-11-12, v1.3.1)
+## Project: Tavakkol (state as of 2026-11-13, v1.3.2)
 
 Android-only self-control app, English UI, Expo SDK 58 / RN 0.88.1 / React 19.3.
 v1.1.2 died again ~a day after install (never verified on-device); v1.1.3 adds an
@@ -48,9 +48,11 @@ in-app DEBUG LOG so the next death shows its cause.
 
 - `App.js` — the entire UI. Talks to the native module through `modules/focus-guard/index.js`
   (never import `requireNativeModule` in a screen; the wrapper no-ops in Expo Go).
-  Save buttons turn WHITE while the editor text equals the stored list (`keywordsSaved` /
-  `domainsSaved` derived from `config.*.join(', ')` — stateless, survives restart) and go
-  green again on any text change. Requests `POST_NOTIFICATIONS` once on mount (Android 13+).
+  Save buttons (v1.3.2, owner request) are GREEN when the editor text equals the stored
+  list (`keywordsSaved` / `domainsSaved`, derived from `config.*.join(', ')` — stateless,
+  survives restart) and turn WHITE the moment the text changes, so white always means
+  "unsaved edits". `ActionButton`'s `saved` prop is three-state (undefined = plain primary,
+  false = pending white, true = saved green). Requests `POST_NOTIFICATIONS` once on mount (Android 13+).
 - `modules/focus-guard/` — local Expo module, autolinked, no package.json:
   - `FocusAccessibilityService.kt` — the guard. TWO rules, both from SharedPreferences:
     (1) keyword = text that CHANGES on screen: checked first on `event.source`
@@ -252,15 +254,64 @@ in-app DEBUG LOG so the next death shows its cause.
   throttled 500 ms, `collectScreenText` BFS (220 nodes / depth 14). Fires BACK + toast when the
   page looks like `ADMIN_PAGE_TOKENS` (device admin) or `OUR_PAGE_TOKENS` + `DANGER_TOKENS`
   (our app-info page with force stop/uninstall). Logs `strict_guard`.
+  **v1.3.2 (owner decision)**: the gate is `FocusGuardStore.isEnabled(this)` — Protection ON —
+  NOT `strictLocked`; the PIN is only for opening the app. Detection now tries the Settings
+  ACTIVITY name first (`rememberSettingsActivity()` records the class name of every
+  TYPE_WINDOW_STATE_CHANGED from a Settings package; `ADMIN_ACTIVITY_TOKENS` = deviceadmin /
+  device_admin, matching `Settings$DeviceAdminSettingsActivity` / `...DeviceAdminAddActivity`
+  on AOSP and OEM skins) and presses Back instantly with no tree walk; the page-text scan stays
+  as the throttled fallback. `pressBackOutOfAdminPage()` presses Back again if the page
+  survives (MAX_ADMIN_BACKS = 3 inside a 6 s window) and then `GLOBAL_ACTION_HOME`, so the
+  page cannot be opened at all. The toast is PIN-aware (`guardLockedMessage()`): with a PIN it
+  says "برنامه توکل قفل است — رمز همراه را در برنامه وارد کنید.", without one it says
+  "محافظت توکل روشن است — ابتدا محافظت را در برنامه خاموش کنید.".
 - UI: `src/components/PinPad.js` (dots + keypad, no TextInput — no IME/autocorrect) and
   `src/screens/LockScreen.js`. `App.js` gates above every screen when locked, re-locks in the
   AppState background branch, and shows a boot loader until the config loads (no content flash).
+  v1.3.2 LockScreen (owner request): title "برنامه توکل قفل است", **no Unlock button** — every
+  keystroke is verified, so a correct PIN opens the app the instant it is complete (a wrong
+  PIN only reports itself after 700 ms of no typing, then clears the field; at the 8-digit cap
+  it reports immediately). `onSubmit` returns a boolean, `PinPad` is called with
+  `showOk={false}`.
   SCOPE (owner decision 2026-11-12): the PIN guards ONLY entering the app — the Protection
   switch needs no PIN, Settings needs no PIN. The PIN is set/changed/removed in Settings'
   "Partner PIN" section (`src/screens/SettingsScreen.js`).
 - Honest limits (keep them in the UI/docs): a Settings entry can be left but not removed; the
   Device Admin toggle cannot be force-locked by a normal app (device-owner/MDM only); clearing
   app data erases the PIN.
+
+### v1.3.2 (2026-11-13, owner request list — all applied)
+
+- **Name/icon**: Persian app name is **توکل** (`locales/fa.json` → Expo `locales` writes
+  `values-b+fa/strings.xml`), English stays Tavakkol. Icon comes from the owner's photo
+  (`scripts/make-icon.js` → `assets/icon.png` 1024², `android-icon-foreground.png` inset +
+  rounded, `android-icon-background.png` #0B0F14); `android-icon-monochrome.png` deleted and
+  the `monochromeImage` key removed from app.json.
+- **Light page theme** (the owner's background photo is bright, avg luminance 177): `src/theme.js`
+  gained a second color set — `pageBackground #EEF3F8`, `pageText #0F172A`, `pageMuted #334155`,
+  `pageAccent #15803D`, `pageWarning #9A3412`, `pageError #B91C1C` — used for text that sits
+  directly on the photo (screen titles, hints, messages, version footer) in App.js,
+  SettingsScreen.js and HelpScreen.js, with `StatusBar barStyle="dark-content"` on those
+  screens. Cards stay dark translucent with light text.
+- **Excluded apps**: only the first 3 rows are listed; `Show more ({{count}})` / `Show less`
+  (`showAllApps` state) reveals the rest — a search always shows every match, so the filter
+  stays useful. `ActionButton` save buttons are green-when-saved / white-when-edited (above).
+- **Support Us** rewritten: owner's exact Persian description
+  («برنامه توکل کاملاً رایگان است و تبلیغ ندارد…»), then two buttons —
+  "Support from inside Iran" (ZarinPal) and "Support from outside Iran" (crypto). The donate
+  sheet is mode-aware (`donateMode` = 'iran' | 'crypto'); `DONATION_ZARINPAL_URL` in
+  `src/defaults.js` is EMPTY until the owner pastes the link (sheet then says the link is not
+  set yet — never a placeholder destination). Share App + Contact Developer moved OUT of
+  Support into a new "More" section.
+- **Device-admin guard** — see the Strict-lock section above (Protection-ON gate, activity-name
+  detection, repeated Back → Home, PIN-aware toast).
+- Verify: `node scripts/check-i18n.js` = 183 UI strings / 210 translations; `npm run verify`
+  green (631 modules, 1.1 MB android bundle); `npm run prebuild:android` OK →
+  `versionName 1.3.2` / `versionCode 10`, `app_name` = Tavakkol (fa: توکل).
+- Pending owner: paste the ZarinPal link + the crypto wallet address into `src/defaults.js`;
+  install the release and check the icon, the light text on the photo, the 3-app list +
+  Show more, both donation sheets, the auto-submit lock screen, and the Device-admin page
+  being kicked while Protection is on.
 
 ### Testing (2026-11-10)
 

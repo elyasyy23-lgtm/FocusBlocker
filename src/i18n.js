@@ -230,7 +230,7 @@ const FA = {
   Copied: 'کپی شد',
 
   // ------------------------------------------- v1.3.1: strict lock / PIN
-  'Tavakkol is locked': 'توکل قفل است',
+  'Tavakkol is locked': 'برنامه توکل قفل است',
   'Enter the Partner PIN to continue.': 'برای ادامه، رمز همراه را وارد کنید.',
   Unlock: 'باز کردن',
   'Wrong PIN. Try again.': 'رمز نادرست است. دوباره تلاش کنید.',
@@ -243,6 +243,19 @@ const FA = {
   'Choose a 4 to 8 digit PIN and give it to your partner. Without it Protection cannot be turned off and this app cannot be opened.':
     'یک رمز ۴ تا ۸ رقمی انتخاب کنید و به همراه خود بدهید. بدون آن نه می‌توان محافظت را خاموش کرد و نه این برنامه باز می‌شود.',
   'PINs do not match. Start again.': 'رمزها یکسان نیستند. از نو شروع کنید.',
+
+  // ------------------------- v1.3.2: lock title, collapsed list, donations
+  'Show more ({{count}})': 'نمایش بیشتر ({{count}})',
+  'Show less': 'نمایش کمتر',
+  'Tavakkol is completely free and has no ads. If you are happy with this app, you can share in this good deed.':
+    'برنامه توکل کاملاً رایگان است و تبلیغ ندارد. اگر از این برنامه راضی هستید، می‌توانید در این امر خیر شریک شوید.',
+  More: 'بیشتر',
+  'Support from inside Iran': 'حمایت از حامیان داخل ایران',
+  'Support from outside Iran': 'حمایت از حامیان خارج از کشور',
+  'Open the payment page': 'باز کردن صفحه پرداخت',
+  'The domestic payment link is not set yet.': 'لینک پرداخت داخلی هنوز تنظیم نشده است.',
+  'The app asks for this PIN when it opens — never inside the app. While Protection is on, the Device-admin page is kept closed too.':
+    'برنامه هنگام باز شدن این رمز را می‌پرسد — نه در داخل برنامه. تا وقتی محافظت روشن است، صفحهٔ «مدیران دستگاه» هم بسته می‌ماند.',
   'Partner PIN saved. Protection is now locked.':
     'رمز همراه ذخیره شد. محافظت اکنون قفل است.',
   'Could not save the PIN.': 'ذخیرهٔ رمز انجام نشد.',

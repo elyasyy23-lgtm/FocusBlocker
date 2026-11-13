@@ -2,24 +2,26 @@
   "expo": {
     "name": "Tavakkol",
     "slug": "focusblocker",
-    "version": "1.3.1",
+    "version": "1.3.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#0B0F14",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#EEF3F8",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.focusblocker.app"
     },
     "android": {
       "package": "com.focusblocker.app",
-      "versionCode": 9,
+      "versionCode": 10,
       "adaptiveIcon": {
         "backgroundColor": "#0B0F14",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundImage": "./assets/android-icon-background.png"
       }
+    },
+    "locales": {
+      "fa": "./locales/fa.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"

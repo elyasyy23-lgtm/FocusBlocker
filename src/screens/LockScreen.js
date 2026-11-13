@@ -1,32 +1,81 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import PinPad from '../components/PinPad';
 import { COLORS, textAlign } from '../theme';
 
 /**
  * Full-screen gate shown every time the app comes back to the foreground while
- * a Partner PIN is set (v1.3.1).
+ * a Partner PIN is set (v1.3.1, auto-submit since v1.3.2).
  *
  * The gate is deliberately minimal: no Settings, no Help, no keyword list —
- * only the PIN field. The PIN never leaves the device: it is hashed in the
- * native module and compared there.
+ * only the PIN pad. There is no "Unlock" button: every keystroke is checked
+ * against the stored hash, so the app opens the instant the correct PIN is
+ * complete. A wrong PIN only reports itself once typing pauses (tapping the
+ * next digit must not flash an error), and the field clears so the next
+ * attempt starts clean.
+ *
+ * The PIN never leaves the device: it is hashed in the native module and
+ * compared there.
  */
-export default function LockScreen({ t, lang, busy = false, error = null, onSubmit }) {
+const PIN_MIN_LENGTH = 4;
+const PIN_MAX_LENGTH = 8;
+const WRONG_PIN_DELAY_MS = 700;
+
+export default function LockScreen({ t, lang, busy = false, onSubmit }) {
   const align = textAlign(lang);
   const [pin, setPin] = useState('');
-  const [localError, setLocalError] = useState(null);
+  const [error, setError] = useState(null);
+  const [checking, setChecking] = useState(false);
+  const errorTimer = useRef(null);
+  const inFlight = useRef(false);
 
-  const submit = async () => {
-    if (pin.length < 4 || busy) return;
-    setLocalError(null);
-    const ok = await onSubmit(pin);
-    if (!ok) {
-      setLocalError(t('Wrong PIN. Try again.'));
-      setPin('');
+  useEffect(
+    () => () => {
+      if (errorTimer.current) clearTimeout(errorTimer.current);
+    },
+    []
+  );
+
+  const showWrongPin = () => {
+    if (errorTimer.current) clearTimeout(errorTimer.current);
+    errorTimer.current = null;
+    setError(t('Wrong PIN. Try again.'));
+    setPin('');
+  };
+
+  const attempt = async (value) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setChecking(true);
+    try {
+      const ok = await onSubmit(value);
+      if (ok) {
+        if (errorTimer.current) clearTimeout(errorTimer.current);
+        errorTimer.current = null;
+        return;
+      }
+      if (value.length >= PIN_MAX_LENGTH) {
+        showWrongPin();
+        return;
+      }
+      // Give the next digit time to arrive before complaining.
+      if (errorTimer.current) clearTimeout(errorTimer.current);
+      errorTimer.current = setTimeout(showWrongPin, WRONG_PIN_DELAY_MS);
+    } finally {
+      inFlight.current = false;
+      setChecking(false);
     }
   };
 
-  const shownError = error || localError;
+  const change = (next) => {
+    setError(null);
+    if (errorTimer.current) {
+      clearTimeout(errorTimer.current);
+      errorTimer.current = null;
+    }
+    setPin(next);
+    if (next.length >= PIN_MIN_LENGTH) attempt(next);
+  };
 
   return (
     <View style={styles.root}>
@@ -42,24 +91,21 @@ export default function LockScreen({ t, lang, busy = false, error = null, onSubm
       <View style={styles.pad}>
         <PinPad
           value={pin}
-          onChange={(next) => {
-            setLocalError(null);
-            setPin(next);
-          }}
-          onComplete={submit}
-          disabled={busy}
-          okLabel={t('Unlock')}
+          onChange={change}
+          onComplete={() => {}}
+          disabled={busy || checking}
+          showOk={false}
         />
       </View>
 
-      {busy ? (
+      {busy || checking ? (
         <View style={styles.busyRow}>
-          <ActivityIndicator color={COLORS.accent} size="small" />
+          <ActivityIndicator color={COLORS.pageAccent} size="small" />
         </View>
       ) : null}
 
-      {shownError ? (
-        <Text style={styles.error}>{shownError}</Text>
+      {error ? (
+        <Text style={styles.error}>{error}</Text>
       ) : (
         <Text style={[styles.hint, { textAlign: align }]}>
           {t('Ask your partner for the PIN.')}
@@ -93,13 +139,13 @@ const styles = StyleSheet.create({
     fontSize: 26,
   },
   title: {
-    color: COLORS.text,
+    color: COLORS.pageText,
     fontSize: 22,
     fontWeight: '700',
     alignSelf: 'stretch',
   },
   subtitle: {
-    color: COLORS.muted,
+    color: COLORS.pageMuted,
     fontSize: 14,
     marginTop: 6,
     marginBottom: 20,
@@ -115,13 +161,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   error: {
-    color: COLORS.danger,
+    color: COLORS.pageError,
     fontSize: 14,
     marginTop: 8,
     fontWeight: '600',
   },
   hint: {
-    color: COLORS.muted,
+    color: COLORS.pageMuted,
     fontSize: 12,
     marginTop: 8,
   },

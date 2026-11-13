@@ -1,0 +1,8 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "توکل"
+  },
+  "android": {
+    "app_name": "توکل"
+  }
+}

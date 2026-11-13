@@ -56,14 +56,14 @@ jobs:
       - name: Collect APK
         run: |
           mkdir -p artifacts
-          cp android/app/build/outputs/apk/release/app-release.apk artifacts/FocusBlocker-release.apk
+          cp android/app/build/outputs/apk/release/app-release.apk artifacts/Tavakkol-release.apk
           ls -lh artifacts
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FocusBlocker-release-apk
-          path: artifacts/FocusBlocker-release.apk
+          name: Tavakkol-release-apk
+          path: artifacts/Tavakkol-release.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -71,6 +71,6 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          name: FocusBlocker ${{ github.ref_name }}
-          files: artifacts/FocusBlocker-release.apk
+          name: Tavakkol ${{ github.ref_name }}
+          files: artifacts/Tavakkol-release.apk
           generate_release_notes: true

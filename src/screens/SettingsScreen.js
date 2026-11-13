@@ -25,6 +25,7 @@ import {
   DEVELOPER_RUBIKA_URL,
   DONATION_NETWORK,
   DONATION_WALLET,
+  DONATION_ZARINPAL_URL,
 } from '../defaults';
 
 const BACKGROUND = require('../../assets/background.jpg');
@@ -58,7 +59,10 @@ export default function SettingsScreen({
   const [query, setQuery] = useState('');
   const [busyPkg, setBusyPkg] = useState(null);
   const [sharing, setSharing] = useState(false);
-  const [donateOpen, setDonateOpen] = useState(false);
+  // v1.3.2: only the first three apps are listed until "Show more" is tapped.
+  const [showAllApps, setShowAllApps] = useState(false);
+  // v1.3.2: two donation routes — 'iran' (ZarinPal) and 'crypto' (wallet).
+  const [donateMode, setDonateMode] = useState(null);
   const [copied, setCopied] = useState(false);
   // v1.3.1: the Partner PIN is set/removed here — the Protection switch and
   // this screen never ask for it, only the app lock does.
@@ -111,6 +115,12 @@ export default function SettingsScreen({
         app.label.toLowerCase().includes(needle) || app.pkg.toLowerCase().includes(needle)
     );
   }, [apps, query]);
+
+  // Three rows by default (owner request); a search always shows every match so
+  // the filter stays useful, and "Show more" reveals the whole list.
+  const searching = query.trim().length > 0;
+  const visibleApps = showAllApps || searching ? filtered : filtered.slice(0, 3);
+  const hiddenCount = filtered.length - visibleApps.length;
 
   const toggleApp = useCallback(
     async (pkg) => {
@@ -315,10 +325,24 @@ export default function SettingsScreen({
     };
   };
 
-  const openDonate = useCallback(() => {
+  const openDonate = useCallback((mode) => {
     setCopied(false);
-    setDonateOpen(true);
+    setDonateMode(mode);
   }, []);
+
+  const closeDonate = useCallback(() => setDonateMode(null), []);
+
+  const openZarinpal = useCallback(async () => {
+    if (!DONATION_ZARINPAL_URL) return;
+    const opened = await FocusGuard.openUrl(DONATION_ZARINPAL_URL);
+    if (!opened) {
+      try {
+        await Linking.openURL(DONATION_ZARINPAL_URL);
+      } catch (error) {
+        onMessage(t('Could not open the link.'));
+      }
+    }
+  }, [onMessage, t]);
 
   const copyWallet = useCallback(async () => {
     try {
@@ -332,7 +356,7 @@ export default function SettingsScreen({
   return (
     <ImageBackground source={BACKGROUND} style={styles.root} resizeMode="cover">
       <View style={styles.overlay} />
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.pageBackground} />
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -419,7 +443,7 @@ export default function SettingsScreen({
           ) : filtered.length === 0 ? (
             <Text style={styles.emptyText}>{t('No app matches this search.')}</Text>
           ) : (
-            filtered.map((app) => {
+            visibleApps.map((app) => {
               const checked = excludedSet.has(app.pkg);
               const busy = busyPkg === app.pkg;
               return (
@@ -455,6 +479,25 @@ export default function SettingsScreen({
             })
           )}
 
+          {hiddenCount > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setShowAllApps(true)}
+              style={({ pressed }) => [styles.showMore, pressed && styles.pressed]}>
+              <Text style={styles.showMoreText}>
+                {t('Show more ({{count}})', { count: hiddenCount })}
+              </Text>
+            </Pressable>
+          ) : null}
+          {showAllApps && !searching && filtered.length > 3 ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setShowAllApps(false)}
+              style={({ pressed }) => [styles.showMore, pressed && styles.pressed]}>
+              <Text style={styles.showMoreText}>{t('Show less')}</Text>
+            </Pressable>
+          ) : null}
+
           <Text style={[styles.hint, { textAlign: align }]}>
             {t('Excluded apps are saved instantly.')}
           </Text>
@@ -463,7 +506,7 @@ export default function SettingsScreen({
         <Section
           title={t('Partner PIN')}
           subtitle={t(
-            'The app asks for this PIN when it opens. Settings and the Protection switch never ask for it.'
+            'The app asks for this PIN when it opens — never inside the app. While Protection is on, the Device-admin page is kept closed too.'
           )}
           lang={lang}>
           <Text style={[styles.body, { textAlign: align }]}>
@@ -491,14 +534,27 @@ export default function SettingsScreen({
           <ActionButton label={t('How to use Tavakkol')} onPress={onOpenHelp} />
         </Section>
 
-        <Section
-          title={t('Support Us')}
-          subtitle={t('Tavakkol is free and has no ads. If it helps you, you can support it.')}
-          lang={lang}>
-          <Text style={[styles.body, { textAlign: align }]}>
-            {t('International supporters can use the Crypto Wallet option.')}
+        <Section title={t('Support Us')} lang={lang}>
+          <Text style={[styles.supportText, { textAlign: align }]}>
+            {t(
+              'Tavakkol is completely free and has no ads. If you are happy with this app, you can share in this good deed.'
+            )}
           </Text>
-          <ActionButton label={t('Donate')} onPress={openDonate} />
+          <ActionButton
+            label={t('Support from inside Iran')}
+            onPress={() => openDonate('iran')}
+          />
+          <ActionButton
+            label={t('Support from outside Iran')}
+            variant="secondary"
+            onPress={() => openDonate('crypto')}
+          />
+        </Section>
+
+        <Section title={t('More')} lang={lang}>
+          <Text style={[styles.body, { textAlign: align }]}>
+            {t('If you encounter any problems, please contact the developer.')}
+          </Text>
           <ActionButton
             label={t('Share App')}
             variant="secondary"
@@ -510,9 +566,6 @@ export default function SettingsScreen({
             variant="secondary"
             onPress={contactDeveloper}
           />
-          <Text style={[styles.supportNote, { textAlign: align }]}>
-            {t('If you encounter any problems, please contact the developer.')}
-          </Text>
         </Section>
 
         <Text style={styles.version}>{t('Version {{version}}', { version: VERSION_LABEL })}</Text>
@@ -521,17 +574,28 @@ export default function SettingsScreen({
       </ScrollView>
 
       <Modal
-        visible={donateOpen}
+        visible={donateMode !== null}
         transparent
         animationType="fade"
-        onRequestClose={() => setDonateOpen(false)}>
+        onRequestClose={closeDonate}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={[styles.modalTitle, { textAlign: align }]}>{t('Support Us')}</Text>
+            <Text style={[styles.modalTitle, { textAlign: align }]}>
+              {donateMode === 'iran' ? t('Support from inside Iran') : t('Support from outside Iran')}
+            </Text>
             <Text style={[styles.body, { textAlign: align }]}>
               {t('Thank you for supporting Tavakkol. Every donation keeps it free.')}
             </Text>
-            {DONATION_WALLET ? (
+
+            {donateMode === 'iran' ? (
+              DONATION_ZARINPAL_URL ? (
+                <ActionButton label={t('Open the payment page')} onPress={openZarinpal} />
+              ) : (
+                <Text style={[styles.body, { textAlign: align }]}>
+                  {t('The domestic payment link is not set yet.')}
+                </Text>
+              )
+            ) : DONATION_WALLET ? (
               <>
                 <Text style={[styles.walletNetwork, { textAlign: align }]}>
                   {DONATION_NETWORK}
@@ -550,11 +614,8 @@ export default function SettingsScreen({
                 {t('The donation wallet address is not set yet.')}
               </Text>
             )}
-            <ActionButton
-              label={t('Close')}
-              variant="secondary"
-              onPress={() => setDonateOpen(false)}
-            />
+
+            <ActionButton label={t('Close')} variant="secondary" onPress={closeDonate} />
           </View>
         </View>
       </Modal>
@@ -643,13 +704,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   title: {
-    color: COLORS.text,
+    color: COLORS.pageText,
     fontSize: 26,
     fontWeight: '700',
     letterSpacing: -0.4,
   },
   subtitle: {
-    color: COLORS.muted,
+    color: COLORS.pageMuted,
     fontSize: 13,
     marginTop: 2,
   },
@@ -775,14 +836,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 12,
   },
-  supportNote: {
-    color: COLORS.warning,
+  supportText: {
+    color: COLORS.text,
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 10,
+  },
+  showMore: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  showMoreText: {
+    color: COLORS.accent,
     fontSize: 13,
-    lineHeight: 20,
-    marginTop: 14,
+    fontWeight: '700',
   },
   version: {
-    color: COLORS.muted,
+    color: COLORS.pageMuted,
     fontSize: 12,
     textAlign: 'center',
     marginTop: 26,
@@ -844,13 +915,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   footer: {
-    color: '#5A6779',
+    color: '#475569',
     fontSize: 12,
     textAlign: 'center',
     marginTop: 6,
   },
   message: {
-    color: COLORS.warning,
+    color: COLORS.pageWarning,
     fontSize: 13,
     lineHeight: 19,
     marginTop: 18,

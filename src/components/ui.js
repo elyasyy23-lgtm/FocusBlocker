@@ -31,15 +31,26 @@ export function StatusPill({ active, labels }) {
   );
 }
 
+/**
+ * Main action button.
+ *
+ * `saved` (v1.3.2) is three-state on purpose:
+ *   undefined — a normal primary button (accent),
+ *   false     — there are unsaved edits: white, so it stands out as "tap me",
+ *   true      — the value is stored: green, and it stays green until the editor
+ *               text changes again (the caller derives that from the stored list).
+ */
 export function ActionButton({
   label,
   onPress,
   variant = 'primary',
   disabled = false,
   busy = false,
-  saved = false,
+  saved,
 }) {
   const isSecondary = variant === 'secondary';
+  const isSaved = saved === true;
+  const isPending = saved === false;
   return (
     <Pressable
       accessibilityRole="button"
@@ -48,20 +59,31 @@ export function ActionButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        isSecondary ? styles.buttonSecondary : saved ? styles.buttonSaved : styles.buttonPrimary,
+        isSecondary
+          ? styles.buttonSecondary
+          : isSaved
+          ? styles.buttonSaved
+          : isPending
+          ? styles.buttonPending
+          : styles.buttonPrimary,
         (disabled || busy) && styles.buttonDisabled,
         pressed && styles.buttonPressed,
       ]}>
       {busy ? (
-        <ActivityIndicator color={isSecondary ? COLORS.text : COLORS.onAccent} size="small" />
+        <ActivityIndicator
+          color={isSecondary ? COLORS.text : isSaved ? COLORS.successText : COLORS.onAccent}
+          size="small"
+        />
       ) : (
         <Text
           style={[
             styles.buttonText,
             isSecondary
               ? styles.buttonTextSecondary
-              : saved
+              : isSaved
               ? styles.buttonTextSaved
+              : isPending
+              ? styles.buttonTextPending
               : styles.buttonTextPrimary,
           ]}>
           {label}
@@ -116,12 +138,12 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   sectionTitle: {
-    color: COLORS.text,
+    color: COLORS.pageText,
     fontSize: 17,
     fontWeight: '700',
   },
   sectionSubtitle: {
-    color: COLORS.muted,
+    color: COLORS.pageMuted,
     fontSize: 13,
     lineHeight: 19,
     marginTop: 6,
@@ -180,8 +202,15 @@ const styles = StyleSheet.create({
   buttonPrimary: {
     backgroundColor: COLORS.accent,
   },
+  /** Stored — green until the editor text changes again. */
   buttonSaved: {
+    backgroundColor: COLORS.success,
+  },
+  /** Edited but not saved yet — white, the owner's requested "needs saving" look. */
+  buttonPending: {
     backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   buttonSecondary: {
     backgroundColor: COLORS.surfaceAlt,
@@ -203,7 +232,10 @@ const styles = StyleSheet.create({
     color: COLORS.onAccent,
   },
   buttonTextSaved: {
-    color: '#14532D',
+    color: COLORS.successText,
+  },
+  buttonTextPending: {
+    color: '#0F172A',
   },
   buttonTextSecondary: {
     color: COLORS.text,

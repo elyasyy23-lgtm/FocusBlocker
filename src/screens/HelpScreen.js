@@ -53,7 +53,7 @@ export default function HelpScreen({ t, lang, onBack, onOpenSettings }) {
   return (
     <ImageBackground source={BACKGROUND} style={styles.root} resizeMode="cover">
       <View style={styles.overlay} />
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.pageBackground} />
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
@@ -158,13 +158,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   title: {
-    color: COLORS.text,
+    color: COLORS.pageText,
     fontSize: 26,
     fontWeight: '700',
     letterSpacing: -0.4,
   },
   subtitle: {
-    color: COLORS.muted,
+    color: COLORS.pageMuted,
     fontSize: 13,
     marginTop: 2,
   },
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
   intro: {
-    color: COLORS.muted,
+    color: COLORS.pageMuted,
     fontSize: 14,
     lineHeight: 21,
     marginTop: 6,
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   version: {
-    color: '#5A6779',
+    color: COLORS.pageMuted,
     fontSize: 12,
     textAlign: 'center',
     marginTop: 4,

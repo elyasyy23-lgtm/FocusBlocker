@@ -72,10 +72,30 @@ class FocusAccessibilityService : AccessibilityService() {
     private val ADMIN_PAGE_TOKENS = arrayOf(
       "device admin",
       "device administrator",
+      "device admin apps",
       "مدیر دستگاه",
       "مدیران دستگاه",
-      "برنامه‌های مدیر دستگاه"
+      "برنامه‌های مدیر دستگاه",
+      "برنامه‌های مدیریت دستگاه"
     )
+
+    /**
+     * v1.3.2: the Settings ACTIVITY name is a far stronger signal than the
+     * page text — Android Settings opens these screens as
+     * `Settings$DeviceAdminSettingsActivity` / `Settings$DeviceAdminAddActivity`
+     * on AOSP and every OEM skin (MIUI keeps the same class names). Matched
+     * lowercase-contains so `device_admin` spellings also land.
+     */
+    private val ADMIN_ACTIVITY_TOKENS = arrayOf("deviceadmin", "device_admin")
+
+    /**
+     * v1.3.2: after the first Back, if the same admin page is still on screen
+     * (some OEM builds ignore a single Back on a nested Settings screen) press
+     * Back again — and after MAX_ADMIN_BACKS, go Home so the page cannot be
+     * reached at all. The counter resets once the page stays away for a while.
+     */
+    private const val ADMIN_BACK_WINDOW_MS = 6000L
+    private const val MAX_ADMIN_BACKS = 3
 
     /** Text that identifies OUR app on a Settings page. */
     private val OUR_PAGE_TOKENS = arrayOf("tavakkol", "توکل", "com.focusblocker.app")
@@ -217,6 +237,15 @@ class FocusAccessibilityService : AccessibilityService() {
 
   /** Strict-lock guard throttle: one tree scan per STRICT_SCAN_MS at most. */
   private var lastStrictScanAt = 0L
+
+  /**
+   * v1.3.2: the activity class of the last Settings window (from
+   * TYPE_WINDOW_STATE_CHANGED). `Settings$DeviceAdminSettingsActivity` lets the
+   * guard fire on the first event of the page, before any tree walk.
+   */
+  private var lastSettingsActivity: String? = null
+  private var lastAdminBackAt = 0L
+  private var adminBackCount = 0
 
   override fun onServiceConnected() {
     super.onServiceConnected()
@@ -443,8 +472,14 @@ class FocusAccessibilityService : AccessibilityService() {
   }
 
   override fun onAccessibilityEvent(event: AccessibilityEvent) {
-    // v1.3.1 strict lock: runs even with an empty keyword list, and before the
-    // enabled check, because it protects the APP ITSELF, not the browsing.
+    // v1.3.2: remember which Settings screen opened. The class name of a
+    // WINDOW_STATE_CHANGED event is the only place Android exposes the activity
+    // of another app, and it is what makes the Device-admin guard instant.
+    rememberSettingsActivity(event)
+
+    // v1.3.1/v1.3.2 strict lock: runs even with an empty keyword list, and
+    // before the enabled check, because it protects the APP ITSELF, not the
+    // browsing.
     if (guardStrictSettings(event)) return
 
     if (!enabled || (keywords.isEmpty() && domains.isEmpty())) return
@@ -700,20 +735,20 @@ class FocusAccessibilityService : AccessibilityService() {
   }
 
   /**
-   * Strict lock (v1.3.1): while Protection is ON and a Partner PIN is set, the
-   * two ways OUT of the app are closed:
+   * The "keep the system pages away" guard (v1.3.1, tightened in v1.3.2).
    *
-   *  - Settings → Device admin apps (the standard place to deactivate the admin
-   *    that blocks uninstall), and
-   *  - App info → Force stop / Uninstall.
+   * Fires while **Protection is ON** — the Partner PIN is only needed to open
+   * the app, never to keep the Device-admin / app-info pages away. With
+   * Protection off the guard is silent, so the owner can reach the page freely.
    *
-   * Both are plain Settings screens, so the guard reads their text and presses
-   * BACK before the user can reach the button. A correct PIN opens a 15-minute
-   * window (see FocusGuardStore.verifyPin) during which this stays quiet, so the
-   * partner can still manage the phone.
+   * Two detections, strongest first:
+   *   1. the Settings ACTIVITY name (DeviceAdminSettings / DeviceAdminAdd) —
+   *      available from the WINDOW_STATE_CHANGED event, no tree walk needed;
+   *   2. the page text, as a fallback for builds that report no activity name.
    *
-   * Honest limit: an accessibility service cannot REMOVE the Settings entry, it
-   * can only kick the user out of the page — that is what this does.
+   * Back is pressed immediately; if the page survives, Back is pressed again and
+   * after MAX_ADMIN_BACKS the guard goes Home instead, so the page cannot be
+   * opened at all while Protection is on.
    */
   private fun guardStrictSettings(event: AccessibilityEvent): Boolean {
     val pkg = try {
@@ -722,9 +757,19 @@ class FocusAccessibilityService : AccessibilityService() {
       null
     } ?: return false
     if (pkg !in SETTINGS_PACKAGES) return false
-    if (!FocusGuardStore.strictLocked(this)) return false
+    if (!FocusGuardStore.isEnabled(this)) return false
 
     val now = System.currentTimeMillis()
+    val activity = lastSettingsActivity?.lowercase()
+    val activityIsAdmin = activity != null && ADMIN_ACTIVITY_TOKENS.any { activity.contains(it) }
+
+    if (activityIsAdmin) {
+      FocusGuardStore.logEvent(this, "strict_guard", pkg, "device admin activity: $activity")
+      Toast.makeText(this, guardLockedMessage(), Toast.LENGTH_SHORT).show()
+      pressBackOutOfAdminPage(now)
+      return true
+    }
+
     if (now - lastStrictScanAt < STRICT_SCAN_MS) return false
     lastStrictScanAt = now
 
@@ -740,16 +785,8 @@ class FocusAccessibilityService : AccessibilityService() {
 
       val detail = if (adminPage) "device admin page" else "app info page"
       FocusGuardStore.logEvent(this, "strict_guard", pkg, detail)
-      Toast.makeText(
-        this,
-        FocusGuardStore.text(
-          this,
-          "Tavakkol is locked — enter the Partner PIN in the app.",
-          "توکل قفل است — رمز همراه را در برنامه وارد کنید."
-        ),
-        Toast.LENGTH_SHORT
-      ).show()
-      performGlobalAction(GLOBAL_ACTION_BACK)
+      Toast.makeText(this, guardLockedMessage(), Toast.LENGTH_SHORT).show()
+      pressBackOutOfAdminPage(now)
       return true
     } catch (error: Throwable) {
       FocusGuardStore.logEvent(
@@ -761,6 +798,62 @@ class FocusAccessibilityService : AccessibilityService() {
       recycleQuietly(root)
     }
   }
+
+  /**
+   * v1.3.2: remembers which Settings screen is open. Android only exposes
+   * another app's activity through the class name of a WINDOW_STATE_CHANGED
+   * event — that is what makes the Device-admin guard fire instantly instead of
+   * after a tree walk. Leaving an admin screen resets the Back counter.
+   */
+  private fun rememberSettingsActivity(event: AccessibilityEvent) {
+    if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+    val pkg = try {
+      event.packageName?.toString()
+    } catch (error: Throwable) {
+      null
+    }
+    if (pkg == null || pkg !in SETTINGS_PACKAGES) return
+    val className = try {
+      event.className?.toString()
+    } catch (error: Throwable) {
+      null
+    }
+    if (className.isNullOrEmpty()) return
+    lastSettingsActivity = className
+    val lower = className.lowercase()
+    if (ADMIN_ACTIVITY_TOKENS.none { lower.contains(it) }) adminBackCount = 0
+  }
+
+  /** One Back per detection; after MAX_ADMIN_BACKS inside the window, go Home. */
+  private fun pressBackOutOfAdminPage(now: Long) {
+    if (now - lastAdminBackAt > ADMIN_BACK_WINDOW_MS) adminBackCount = 0
+    adminBackCount += 1
+    lastAdminBackAt = now
+    if (adminBackCount > MAX_ADMIN_BACKS) {
+      FocusGuardStore.logEvent(
+        this, "strict_guard_home", null, "admin page survived $adminBackCount Back press(es) — going Home"
+      )
+      performGlobalAction(GLOBAL_ACTION_HOME)
+    } else {
+      performGlobalAction(GLOBAL_ACTION_BACK)
+    }
+  }
+
+  /** The toast shown when the guard pushes the user out of a system page. */
+  private fun guardLockedMessage(): String =
+    if (FocusGuardStore.hasPin(this)) {
+      FocusGuardStore.text(
+        this,
+        "Tavakkol is locked — enter the Partner PIN in the app.",
+        "برنامه توکل قفل است — رمز همراه را در برنامه وارد کنید."
+      )
+    } else {
+      FocusGuardStore.text(
+        this,
+        "Tavakkol protection is on — turn Protection off in the app first.",
+        "محافظت توکل روشن است — ابتدا محافظت را در برنامه خاموش کنید."
+      )
+    }
 
   /**
    * Every visible label under [root], joined with spaces. Used only by the
