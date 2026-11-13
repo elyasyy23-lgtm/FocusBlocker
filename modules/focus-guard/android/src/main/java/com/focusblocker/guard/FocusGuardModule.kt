@@ -55,6 +55,8 @@ class FocusGuardModule : Module() {
       config.put("remoteEnabled", FocusGuardStore.remoteEnabled(ctx))
       config.put("remoteLastAt", FocusGuardStore.remoteLastAt(ctx).toDouble())
       config.put("remoteCount", FocusGuardStore.remoteCount(ctx))
+      config.put("delayMode", FocusGuardStore.delayMode(ctx))
+      config.put("musicMuted", FocusGuardStore.musicMuted(ctx))
       config.toString()
     }
 
@@ -232,6 +234,20 @@ class FocusGuardModule : Module() {
 
     AsyncFunction("getLanguage") {
       FocusGuardStore.language(requireContext())
+    }
+
+    /** v1.4.2: Delay Mode toggle. Persisted natively so it survives a kill. */
+    AsyncFunction("setDelayMode") { enabled: Boolean ->
+      val ctx = requireContext()
+      FocusGuardStore.setDelayMode(ctx, enabled)
+      true
+    }
+
+    /** v1.4.2: background-music mute preference (read by the JS player). */
+    AsyncFunction("setMusicMuted") { muted: Boolean ->
+      val ctx = requireContext()
+      FocusGuardStore.setMusicMuted(ctx, muted)
+      true
     }
 
     AsyncFunction("setLanguage") { language: String ->

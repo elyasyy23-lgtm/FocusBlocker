@@ -17,6 +17,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import * as FocusGuard from './modules/focus-guard';
 import { createTranslator } from './src/i18n';
 import { COLORS, textAlign } from './src/theme';
@@ -28,6 +29,25 @@ import HelpScreen from './src/screens/HelpScreen';
 import LockScreen from './src/screens/LockScreen';
 
 const BACKGROUND = require('./assets/background.jpg');
+
+// v1.4.2: calm loop behind the app, deliberately quiet (owner: 30 %).
+const BACKGROUND_MUSIC = require('./assets/background_music.mp3');
+const MUSIC_VOLUME = 0.3;
+
+/**
+ * v1.4.2 Delay Mode challenge. The English string IS the i18n key, so the
+ * Persian build shows the Persian text and the typed answer is compared
+ * against whichever language is on screen.
+ */
+const DELAY_CHALLENGE =
+  'I am standing here to protect myself, my mind, and my future. I know this urge is temporary, and if I wait a few minutes, it will pass. I am stronger than to ruin my peace and values for a fleeting moment of pleasure. I am striving for bigger dreams and a more deserving life. Every time I resist this urge, my willpower grows stronger. I choose to stay loyal to myself today, and I am writing this text with focus and calm to prove that I am in control of my life.';
+
+/** Whitespace-insensitive compare — the challenge is long, nothing else is forgiven. */
+function normalizeChallenge(value) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 function normalizeDomain(raw) {
   return String(raw || '')
@@ -112,6 +132,13 @@ export default function App() {
   const [clearingLogs, setClearingLogs] = useState(false);
   const [keepAliveBusy, setKeepAliveBusy] = useState(false);
   const [screen, setScreen] = useState('main');
+  const [appState, setAppState] = useState(AppState.currentState);
+
+  // v1.4.2 Delay Mode: the challenge lives behind a modal; nothing is written
+  // to the native store until the typed text matches exactly.
+  const [delayOpen, setDelayOpen] = useState(false);
+  const [delayTyped, setDelayTyped] = useState('');
+  const [delayError, setDelayError] = useState(null);
 
   // v1.3.1 strict lock: the app is gated on every foreground while a Partner
   // PIN exists. Nothing else in the app asks for it — Settings and the
@@ -136,6 +163,8 @@ export default function App() {
   const t = useMemo(() => createTranslator(lang), [lang]);
   const align = textAlign(lang);
   const isRtl = lang === 'fa';
+  // Localised challenge the user must retype (same sentence in both languages).
+  const challengeText = t(DELAY_CHALLENGE);
 
   const refresh = useCallback(async () => {
     try {
@@ -163,6 +192,7 @@ export default function App() {
   useEffect(() => {
     refresh();
     const subscription = AppState.addEventListener('change', (state) => {
+      setAppState(state);
       if (state === 'active') {
         refresh();
       } else {
@@ -172,6 +202,31 @@ export default function App() {
     });
     return () => subscription.remove();
   }, [refresh]);
+
+  // v1.4.2: background music. One player for the whole app, looping at 30 %.
+  // It pauses the moment the app leaves the foreground and stays silent while
+  // the mute switch in Settings is on.
+  const musicPlayer = useAudioPlayer(BACKGROUND_MUSIC);
+
+  useEffect(() => {
+    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    // Wait for the native prefs before deciding: a muted app must not blip.
+    if (!musicPlayer || loading) return;
+    try {
+      musicPlayer.loop = true;
+      musicPlayer.volume = MUSIC_VOLUME;
+      if (appState === 'active' && !config.musicMuted) {
+        musicPlayer.play();
+      } else {
+        musicPlayer.pause();
+      }
+    } catch (error) {
+      // A missing/invalid audio file must never break the guard screen.
+    }
+  }, [appState, config.musicMuted, loading, musicPlayer]);
 
   useEffect(() => {
     // Android 13+: without the notification permission the persistent guard
@@ -263,8 +318,11 @@ export default function App() {
    * v1.3.2: the Partner PIN only guards entering the app (LockScreen). The
    * system device-admin / app-info pages are guarded by the accessibility
    * service whenever Protection is ON — no PIN involved.
+   * v1.4.2: when Delay Mode is ON, switching OFF is gated behind typing a long
+   * challenge. A cancel, a wrong answer or closing the modal leaves Protection
+   * exactly as it was — ON.
    */
-  const toggleBlocking = async (value) => {
+  const applyEnabled = async (value) => {
     setToggling(true);
     setMessage(null);
     try {
@@ -275,6 +333,67 @@ export default function App() {
     } finally {
       setToggling(false);
     }
+  };
+
+  const toggleBlocking = (value) => {
+    if (!value && config.delayMode) {
+      setDelayTyped('');
+      setDelayError(null);
+      setDelayOpen(true);
+      return;
+    }
+    applyEnabled(value);
+  };
+
+  const toggleDelayMode = async (value) => {
+    try {
+      await FocusGuard.setDelayMode(value);
+      await refresh();
+      setMessage(
+        value
+          ? t('Delay Mode is on — turning Protection off now requires typing the full text.')
+          : t('Delay Mode is off — Protection can be switched off again directly.')
+      );
+    } catch (error) {
+      setMessage(error.message || t('Could not change Delay Mode.'));
+    }
+  };
+
+  const toggleMusicMuted = async (muted) => {
+    try {
+      await FocusGuard.setMusicMuted(muted);
+      await refresh();
+    } catch (error) {
+      setMessage(error.message || t('Could not change the music setting.'));
+    }
+  };
+
+  /** Paste guard: one change that adds a whole block of text is not typing. */
+  const handleDelayChange = (next) => {
+    if (next.length - delayTyped.length > 10) return;
+    if (next.length > challengeText.length + 40) return;
+    setDelayTyped(next);
+    if (delayError) setDelayError(null);
+  };
+
+  const cancelDelay = () => {
+    // Protection was never touched — it is still ON.
+    setDelayOpen(false);
+    setDelayTyped('');
+    setDelayError(null);
+  };
+
+  const confirmDelayOff = async () => {
+    if (normalizeChallenge(delayTyped) !== normalizeChallenge(challengeText)) {
+      setDelayError(
+        t('The text does not match yet. Keep typing — or cancel to keep Protection on.')
+      );
+      return;
+    }
+    setDelayOpen(false);
+    setDelayTyped('');
+    setDelayError(null);
+    await applyEnabled(false);
   };
 
   const unlockApp = async (pin) => {
@@ -525,6 +644,8 @@ export default function App() {
         onOpenHelp={() => setScreen('help')}
         onMessage={setMessage}
         message={message}
+        musicMuted={config.musicMuted}
+        onToggleMusicMuted={toggleMusicMuted}
       />
     );
   }
@@ -608,22 +729,42 @@ export default function App() {
                 {' · '}
                 {t('{{count}} block(s) so far', { count: config.blockCount })}
               </Text>
-              <View style={styles.switchRow}>
-                <View style={styles.switchLabel}>
+              <View style={[styles.switchGrid, isRtl && styles.switchGridRtl]}>
+                <View style={styles.switchCell}>
                   <Text style={[styles.switchTitle, { textAlign: align }]}>{t('Protection')}</Text>
                   <Text style={[styles.switchHint, { textAlign: align }]}>
                     {config.accessibilityEnabled
                       ? t('Accessibility service is running')
                       : t('Service is off — enable it below')}
                   </Text>
+                  <View style={styles.switchControl}>
+                    <Switch
+                      value={config.enabled}
+                      onValueChange={toggleBlocking}
+                      disabled={toggling || !FocusGuard.isAvailable}
+                      trackColor={{ false: COLORS.border, true: COLORS.accentSoft }}
+                      thumbColor={config.enabled ? COLORS.accent : '#5A6779'}
+                    />
+                  </View>
                 </View>
-                <Switch
-                  value={config.enabled}
-                  onValueChange={toggleBlocking}
-                  disabled={toggling || !FocusGuard.isAvailable}
-                  trackColor={{ false: COLORS.border, true: COLORS.accentSoft }}
-                  thumbColor={config.enabled ? COLORS.accent : '#5A6779'}
-                />
+
+                <View style={styles.switchCell}>
+                  <Text style={[styles.switchTitle, { textAlign: align }]}>{t('Delay Mode')}</Text>
+                  <Text style={[styles.switchHint, { textAlign: align }]}>
+                    {config.delayMode
+                      ? t('On — Protection can only be turned off by typing the full text')
+                      : t('Off — Protection turns off with one tap')}
+                  </Text>
+                  <View style={styles.switchControl}>
+                    <Switch
+                      value={config.delayMode}
+                      onValueChange={toggleDelayMode}
+                      disabled={!FocusGuard.isAvailable}
+                      trackColor={{ false: COLORS.border, true: COLORS.accentSoft }}
+                      thumbColor={config.delayMode ? COLORS.accent : '#5A6779'}
+                    />
+                  </View>
+                </View>
               </View>
             </View>
 
@@ -993,6 +1134,64 @@ export default function App() {
           </View>
         </View>
       </Modal>
+
+      {/* v1.4.2 Delay Mode: the only way to switch Protection off is to type
+          the whole text. Paste is blocked (contextMenuHidden + the change-size
+          guard), cancelling writes nothing. */}
+      <Modal
+        visible={delayOpen}
+        animationType="slide"
+        onRequestClose={cancelDelay}>
+        <View style={styles.delayRoot}>
+          <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+          <Text style={[styles.delayTitle, { textAlign: align }]}>{t('Delay Mode')}</Text>
+          <Text style={[styles.delaySub, { textAlign: align }]}>
+            {t(
+              'To turn Protection off, type the text below exactly as it is written — copying and pasting is not allowed. Close this window and Protection stays on.'
+            )}
+          </Text>
+          <ScrollView
+            style={styles.delayScroll}
+            contentContainerStyle={styles.delayScrollContent}
+            keyboardShouldPersistTaps="handled">
+            <View style={styles.challengeBox}>
+              <Text style={[styles.challengeText, { textAlign: align }]}>{challengeText}</Text>
+            </View>
+            <TextInput
+              value={delayTyped}
+              onChangeText={handleDelayChange}
+              multiline
+              contextMenuHidden
+              autoCorrect={false}
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder={t('Type the text here…')}
+              placeholderTextColor={COLORS.muted}
+              style={[styles.input, styles.delayInput, { textAlign: align }]}
+            />
+            <Text style={[styles.delayProgress, { textAlign: align }]}>
+              {t('{{typed}} of {{total}} characters', {
+                typed: delayTyped.length,
+                total: challengeText.length,
+              })}
+            </Text>
+            {delayError ? (
+              <Text style={[styles.delayError, { textAlign: align }]}>{delayError}</Text>
+            ) : null}
+            <ActionButton
+              label={t('Turn Protection off')}
+              onPress={confirmDelayOff}
+              busy={toggling}
+            />
+            <View style={styles.delayGap} />
+            <ActionButton
+              label={t('Cancel — keep Protection on')}
+              variant="secondary"
+              onPress={cancelDelay}
+            />
+          </ScrollView>
+        </View>
+      </Modal>
     </ImageBackground>
   );
 }
@@ -1132,9 +1331,86 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
   },
+  // v1.4.2: Protection + Delay Mode sit side by side in one row.
+  switchGrid: {
+    flexDirection: 'row',
+    marginTop: 18,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    gap: 14,
+  },
+  switchGridRtl: {
+    flexDirection: 'row-reverse',
+  },
+  switchCell: {
+    flex: 1,
+  },
+  switchControl: {
+    flexDirection: 'row',
+    marginTop: 10,
+  },
   switchLabel: {
     flex: 1,
     paddingRight: 12,
+  },
+  // v1.4.2 Delay Mode challenge screen
+  delayRoot: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    paddingTop: (StatusBar.currentHeight || 24) + 18,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  delayTitle: {
+    color: COLORS.text,
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  delaySub: {
+    color: COLORS.muted,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 8,
+  },
+  delayScroll: {
+    flex: 1,
+    marginTop: 14,
+  },
+  delayScrollContent: {
+    paddingBottom: 24,
+  },
+  challengeBox: {
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 14,
+  },
+  challengeText: {
+    color: COLORS.text,
+    fontSize: 14,
+    lineHeight: 24,
+  },
+  delayInput: {
+    marginTop: 14,
+    minHeight: 120,
+    lineHeight: 24,
+    textAlignVertical: 'top',
+  },
+  delayProgress: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  delayError: {
+    color: COLORS.danger,
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  delayGap: {
+    height: 10,
   },
   switchTitle: {
     color: COLORS.text,

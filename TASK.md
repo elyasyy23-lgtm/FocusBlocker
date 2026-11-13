@@ -67,16 +67,37 @@ Release live: `Tavakkol-release.apk` 31.1 MB
       arrived before the toggle was on is ignored; Help has no Support block; Share App sits at
       the top of Settings.
 
-NOW: v1.4.0 shipped + v1.4.1 shipped (download page + Share App → Pages URL).
+NOW: v1.4.2 code complete + verified locally — owner push pending (commands below).
 Docs page live: https://elyasyy23-lgtm.github.io/FocusBlocker/ (index.html, main /).
+
+## v1.4.2 — Delay Mode + background music (2026-11-13)
+
+- [x] `assets/background_music.mp3` copied from `/storage/emulated/0/Download/ssss.mp3` (3.2 MB).
+- [x] `expo-audio` installed (expo-av is gone in SDK 58); app.json blocks RECORD_AUDIO +
+      FOREGROUND_SERVICE_MEDIA_PLAYBACK.
+- [x] Native prefs `delay_mode` / `music_muted` + module getters/setters + bridge functions.
+- [x] Main screen: Protection + Delay Mode switches side by side; player loops at 30 % while the
+      app is active.
+- [x] Delay challenge modal: exact-text, paste blocked (contextMenuHidden + >10-char jump
+      rejected), cancel/wrong keeps Protection ON.
+- [x] Settings → «موسیقی پس‌زمینه» mute switch (persisted natively).
+- [x] i18n: both challenge texts + all new strings (220 keys / 252 translations).
+- [x] `index.html` → `releases/latest/download/Tavakkol-release.apk`, labels ۱.۴.۲.
+- [x] Version 1.4.2 / versionCode 14 (app.json, package.json, package-lock, buildInfo).
+- [x] Verify: check-i18n OK, `npm run verify` 642 modules + music asset, prebuild 1.4.2 (14),
+      `android/` + `dist/` wiped.
+- [ ] Push + tag v1.4.2 (owner) → CI builds `Tavakkol-release.apk`.
+- [ ] Owner on-device check: music plays/mutes and pauses when leaving the app; Delay Mode ON →
+      switching Protection off opens the typing screen; wrong text/cancel leaves it ON; correct
+      text turns it off; paste does nothing.
 
 ## Handover commands (owner)
 
 ```bash
 cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
 git add -A
-git commit -m "v1.4.0: remote deactivation via partner SMS, Help support block removed, Share App moved to About"
+git commit -m "v1.4.2: Delay Mode (type the challenge before Protection turns off) + background music"
 git push origin main
-git tag v1.4.0
-git push origin v1.4.0
+git tag v1.4.2
+git push origin v1.4.2
 ```

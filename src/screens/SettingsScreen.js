@@ -60,6 +60,9 @@ export default function SettingsScreen({
   onOpenHelp,
   onMessage,
   message,
+  // v1.4.2: background music (the player lives in App.js)
+  musicMuted,
+  onToggleMusicMuted,
 }) {
   const align = textAlign(lang);
   const [apps, setApps] = useState([]);
@@ -518,6 +521,26 @@ export default function SettingsScreen({
                 </Pressable>
               );
             })}
+          </View>
+        </Section>
+
+        <Section
+          title={t('Background Music')}
+          subtitle={t('A calm loop plays while the app is open. Turn it off any time.')}
+          lang={lang}>
+          <View style={[styles.remoteRow, lang === 'fa' && styles.headerRtl]}>
+            <View style={styles.remoteLabel}>
+              <Text style={[styles.remoteTitle, { textAlign: align }]}>{t('Music')}</Text>
+              <Text style={[styles.remoteHint, { textAlign: align }]}>
+                {musicMuted ? t('Muted') : t('Playing at 30% volume')}
+              </Text>
+            </View>
+            <Switch
+              value={!musicMuted}
+              onValueChange={(next) => onToggleMusicMuted(!next)}
+              trackColor={{ false: COLORS.border, true: COLORS.accentSoft }}
+              thumbColor={!musicMuted ? COLORS.accent : '#5A6779'}
+            />
           </View>
         </Section>
 

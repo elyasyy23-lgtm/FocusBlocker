@@ -37,6 +37,12 @@ internal object FocusGuardStore {
   private const val KEY_REMOTE_LAST_HASH = "remote_last_hash"
   private const val KEY_REMOTE_LAST_AT = "remote_last_at"
   private const val KEY_REMOTE_COUNT = "remote_count"
+  // v1.4.2: Delay Mode (typing a long challenge before Protection may be
+  // switched off) and the background-music mute preference. Both live here so
+  // they survive a process kill and stay in one place with the rest of the
+  // guard state.
+  private const val KEY_DELAY_MODE = "delay_mode"
+  private const val KEY_MUSIC_MUTED = "music_muted"
   /**
    * v1.3.1: how long a correct Partner PIN keeps the SYSTEM pages (device admin,
    * app info) unguarded. Long enough for the partner to walk to Settings and
@@ -401,6 +407,25 @@ internal object FocusGuardStore {
       .remove(KEY_LAST_BLOCK_REASON)
       .remove(KEY_LAST_BLOCK_AT)
       .apply()
+  }
+
+  // ---------------------------------------------------------------------
+  // Delay Mode + music preference (v1.4.2). Delay Mode is only ever CONSULTED
+  // by the JS layer before it calls setEnabled(false) — the service itself
+  // never waits on anything, so a blocked keyword still closes an app
+  // instantly.
+  // ---------------------------------------------------------------------
+
+  fun delayMode(context: Context): Boolean = prefs(context).getBoolean(KEY_DELAY_MODE, false)
+
+  fun setDelayMode(context: Context, enabled: Boolean) {
+    prefs(context).edit().putBoolean(KEY_DELAY_MODE, enabled).apply()
+  }
+
+  fun musicMuted(context: Context): Boolean = prefs(context).getBoolean(KEY_MUSIC_MUTED, false)
+
+  fun setMusicMuted(context: Context, muted: Boolean) {
+    prefs(context).edit().putBoolean(KEY_MUSIC_MUTED, muted).apply()
   }
 
   // ---------------------------------------------------------------------

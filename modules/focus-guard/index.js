@@ -35,6 +35,8 @@ export const EMPTY_CONFIG = {
   remoteEnabled: false,
   remoteLastAt: 0,
   remoteCount: 0,
+  delayMode: false,
+  musicMuted: false,
 };
 
 /** Remote deactivation state (v1.4.0) — see getRemoteState(). */
@@ -219,6 +221,26 @@ export async function getRemoteState() {
 export async function setRemoteDeactivation({ enabled, number, code }) {
   if (!native) throw new Error('Native module missing — build a dev/release APK first.');
   return native.setRemoteDeactivation(Boolean(enabled), String(number || ''), String(code || ''));
+}
+
+// ---------------------------------------------------------------------------
+// Delay Mode + background music (v1.4.2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Delay Mode: when ON, switching Protection OFF requires typing a long
+ * challenge text. The value lives in SharedPreferences, so flipping it once
+ * survives restarts and force-stops.
+ */
+export async function setDelayMode(enabled) {
+  if (!native) return false;
+  return native.setDelayMode(Boolean(enabled));
+}
+
+/** Background-music mute flag (the player itself lives in App.js). */
+export async function setMusicMuted(muted) {
+  if (!native) return false;
+  return native.setMusicMuted(Boolean(muted));
 }
 
 export async function openAccessibilitySettings() {

@@ -322,6 +322,34 @@ const FA = {
     'پیامک همراه باید شامل دستور محرمانه باشد؛ همان پیامک محافظت را خودکار خاموش می‌کند.',
   'Remote stops so far: {{count}} · last at {{time}}':
     'خاموش‌سازی از راه دور تا اینجا: {{count}} بار · آخرین بار {{time}}',
+
+  // ------------------------------- v1.4.2: Delay Mode + background music
+  'Delay Mode': 'حالت تاخیر',
+  'On — Protection can only be turned off by typing the full text':
+    'روشن — محافظت فقط با تایپ کامل متن خاموش می‌شود',
+  'Off — Protection turns off with one tap': 'خاموش — محافظت با یک ضربه خاموش می‌شود',
+  'Delay Mode is on — turning Protection off now requires typing the full text.':
+    'حالت تاخیر روشن شد — از این پس خاموش کردن محافظت نیاز به تایپ کامل متن دارد.',
+  'Delay Mode is off — Protection can be switched off again directly.':
+    'حالت تاخیر خاموش شد — محافظت دوباره مستقیم خاموش می‌شود.',
+  'Could not change Delay Mode.': 'تغییر حالت تاخیر ممکن نشد.',
+  'Could not change the music setting.': 'تغییر تنظیم موسیقی ممکن نشد.',
+  'To turn Protection off, type the text below exactly as it is written — copying and pasting is not allowed. Close this window and Protection stays on.':
+    'برای خاموش کردن محافظت، متن زیر را دقیقاً همان‌طور که نوشته شده تایپ کنید — کپی کردن و چسباندن مجاز نیست. اگر این پنجره را ببندید، محافظت روشن می‌ماند.',
+  'The text does not match yet. Keep typing — or cancel to keep Protection on.':
+    'متن هنوز مطابقت ندارد. به تایپ ادامه دهید — یا انصراف بزنید تا محافظت روشن بماند.',
+  'Type the text here…': 'متن را اینجا تایپ کنید…',
+  '{{typed}} of {{total}} characters': '{{typed}} از {{total}} نویسه',
+  'Turn Protection off': 'خاموش کردن محافظت',
+  'Cancel — keep Protection on': 'انصراف — محافظت روشن بماند',
+  'Background Music': 'موسیقی پس‌زمینه',
+  'A calm loop plays while the app is open. Turn it off any time.':
+    'هنگام باز بودن برنامه یک موسیقی آرام به‌صورت تکرارشونده پخش می‌شود. هر زمان بخواهید می‌توانید خاموشش کنید.',
+  Music: 'موسیقی',
+  Muted: 'بی‌صدا',
+  'Playing at 30% volume': 'پخش با صدای ۳۰٪',
+  'I am standing here to protect myself, my mind, and my future. I know this urge is temporary, and if I wait a few minutes, it will pass. I am stronger than to ruin my peace and values for a fleeting moment of pleasure. I am striving for bigger dreams and a more deserving life. Every time I resist this urge, my willpower grows stronger. I choose to stay loyal to myself today, and I am writing this text with focus and calm to prove that I am in control of my life.':
+    'من اینجا ایستاده‌ام تا از خودم، ذهنم و آینده‌ام محافظت کنم. می‌دانم که این وسوسه گذرا است و اگر چند دقیقه صبر کنم، از بین می‌رود. من قوی‌تر از این هستم که به خاطر یک لحظه لذت کوتاه، آرامش و ارزش‌هایم را خراب کنم. من برای آرزوهای بزرگ‌تر و زندگی شایسته‌تری تلاش می‌کنم. هر بار که این وسوسه را رد می‌کنم، قدرت اراده‌ام بیشتر می‌شود. من انتخاب می‌کنم که امروز به خودم وفادار بمانم و این متن را با تمرکز و آرامش می‌نویسم تا ثابت کنم که کنترل زندگی‌ام را در دست دارم.',
 };
 
 const DICT = { fa: FA };

@@ -410,3 +410,31 @@ in-app DEBUG LOG so the next death shows its cause.
   43464356419 (main) and 43464381806 (tag) both SUCCESS, Release
   `Tavakkol-release.apk` 31 MB live. Verified: `npm run verify` green, bundle contains the new
   URL, live page returns 200 with the v1.4.1 link, icon asset 200.
+
+### v1.4.2: Delay Mode + background music (2026-11-13)
+
+- **Delay Mode** (`delay_mode` in SharedPreferences): second switch in the main hero next to
+  Protection (`styles.switchGrid` — two cells, RTL row-reverse). Turning Protection OFF while it
+  is ON opens a full-screen challenge modal (`styles.delayRoot`): the user must type the long
+  challenge text exactly. Paste is blocked twice — `contextMenuHidden` kills the paste menu, and
+  `handleDelayChange` rejects any single change that adds >10 chars. Cancel / wrong answer /
+  modal close never calls `setEnabled`, so Protection stays ON. Compare is whitespace-insensitive
+  (`normalizeChallenge`). `toggleBlocking` = gate, `applyEnabled` = the raw write.
+- The challenge lives in `App.js` as `DELAY_CHALLENGE` (English string = i18n key, Persian in
+  `src/i18n.js`), so both languages are typed in their own script.
+- **Background music** (`SRC assets/background_music.mp3`, 3.2 MB, from the owner's `ssss.mp3`):
+  `expo-audio` (expo-av no longer exists in SDK 58 — `expo-audio` is its replacement) +
+  `useAudioPlayer` in App.js, `loop = true`, `volume = 0.3`, plays only while AppState is
+  `active` and `config.musicMuted` is false. Mute switch in Settings → «موسیقی پس‌زمینه»
+  (`music_muted` pref). `app.json` blocks `RECORD_AUDIO` and
+  `FOREGROUND_SERVICE_MEDIA_PLAYBACK` (expo-audio injects them; we never record or play in the
+  background — the merged manifest shows `tools:node="remove"`).
+- Native additions: `FocusGuardStore.delayMode/setDelayMode` + `musicMuted/setMusicMuted`,
+  module `getConfig` fields `delayMode`/`musicMuted`, `AsyncFunction("setDelayMode")` /
+  `AsyncFunction("setMusicMuted")`, bridge `setDelayMode` / `setMusicMuted`.
+- `index.html` download button now uses `…/releases/latest/download/Tavakkol-release.apk` — no
+  URL bump per release any more; page version labels say ۱.۴.۲.
+- Version 1.4.2 / versionCode 14. Verify: `check-i18n` 220 UI strings / 252 translations,
+  `npm run verify` green (642 modules, music asset listed), `npm run prebuild:android` OK
+  (versionName 1.4.2 / versionCode 14), `android/` + `dist/` wiped. Kotlin still compiles only
+  in CI.

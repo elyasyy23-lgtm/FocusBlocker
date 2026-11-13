@@ -2,7 +2,7 @@
   "expo": {
     "name": "Tavakkol",
     "slug": "focusblocker",
-    "version": "1.4.1",
+    "version": "1.4.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,12 +13,16 @@
     },
     "android": {
       "package": "com.focusblocker.app",
-      "versionCode": 13,
+      "versionCode": 14,
       "adaptiveIcon": {
         "backgroundColor": "#0B0F14",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png"
-      }
+      },
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ]
     },
     "locales": {
       "fa": "./locales/fa.json"
@@ -32,6 +36,9 @@
         "projectId": "3ed68ab7-3693-4ba0-81d1-57aae9912a70"
       }
     },
-    "owner": "elyasyass"
+    "owner": "elyasyass",
+    "plugins": [
+      "expo-audio"
+    ]
   }
 }
