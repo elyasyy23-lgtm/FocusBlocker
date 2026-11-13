@@ -86,7 +86,11 @@ Docs page live: https://elyasyy23-lgtm.github.io/FocusBlocker/ (index.html, main
 - [x] Version 1.4.2 / versionCode 14 (app.json, package.json, package-lock, buildInfo).
 - [x] Verify: check-i18n OK, `npm run verify` 642 modules + music asset, prebuild 1.4.2 (14),
       `android/` + `dist/` wiped.
-- [ ] Push + tag v1.4.2 (owner) → CI builds `Tavakkol-release.apk`.
+- [x] In-app update checker: `version.json` in repo root (Pages), silent fetch once per launch,
+      semver compare, https-only URL, Persian prompt with «دانلود به‌روزرسانی» / «بعداً».
+- [x] Verify again: check-i18n 225 keys / 257 translations, `npm run verify` green, version
+      comparison self-tested (1.4.10 > 1.4.9, 1.4 == 1.4.0, "abc" → no prompt).
+- [ ] Push main (done by zyvo) + tag v1.4.2 (owner) → CI builds `Tavakkol-release.apk`.
 - [ ] Owner on-device check: music plays/mutes and pauses when leaving the app; Delay Mode ON →
       switching Protection off opens the typing screen; wrong text/cancel leaves it ON; correct
       text turns it off; paste does nothing.
@@ -95,9 +99,8 @@ Docs page live: https://elyasyy23-lgtm.github.io/FocusBlocker/ (index.html, main
 
 ```bash
 cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
-git add -A
-git commit -m "v1.4.2: Delay Mode (type the challenge before Protection turns off) + background music"
-git push origin main
+git pull --rebase origin main
+git push origin main          # already pushed by zyvo — this is a safety no-op
 git tag v1.4.2
 git push origin v1.4.2
 ```

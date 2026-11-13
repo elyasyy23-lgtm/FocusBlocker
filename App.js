@@ -5,6 +5,7 @@ import {
   BackHandler,
   FlatList,
   ImageBackground,
+  Linking,
   Modal,
   PermissionsAndroid,
   Platform,
@@ -23,7 +24,7 @@ import { createTranslator } from './src/i18n';
 import { COLORS, textAlign } from './src/theme';
 import { ActionButton, Chip, GiftNote, Section, StatusPill } from './src/components/ui';
 import { DEFAULT_KEYWORDS } from './src/defaults';
-import { VERSION_LABEL } from './src/buildInfo';
+import { VERSION, VERSION_LABEL } from './src/buildInfo';
 import SettingsScreen from './src/screens/SettingsScreen';
 import HelpScreen from './src/screens/HelpScreen';
 import LockScreen from './src/screens/LockScreen';
@@ -47,6 +48,34 @@ function normalizeChallenge(value) {
   return String(value || '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+// v1.4.2: the update check reads this tiny JSON from the GitHub Pages site.
+const UPDATE_MANIFEST_URL = 'https://elyasyy23-lgtm.github.io/FocusBlocker/version.json';
+
+/** "1.4.10" → [1, 4, 10]; anything unparsable → null (never a false update). */
+function parseVersion(value) {
+  const raw = String(value || '')
+    .trim()
+    .replace(/^v/i, '');
+  if (!raw) return null;
+  const parts = raw.split('.').map((part) => parseInt(part, 10));
+  if (parts.length === 0 || parts.some((part) => !Number.isFinite(part))) return null;
+  return parts;
+}
+
+function isNewerVersion(latest, current) {
+  const next = parseVersion(latest);
+  const now = parseVersion(current);
+  if (!next || !now) return false;
+  const length = Math.max(next.length, now.length);
+  for (let index = 0; index < length; index += 1) {
+    const a = next[index] || 0;
+    const b = now[index] || 0;
+    if (a > b) return true;
+    if (a < b) return false;
+  }
+  return false;
 }
 
 function normalizeDomain(raw) {
@@ -140,6 +169,11 @@ export default function App() {
   const [delayTyped, setDelayTyped] = useState('');
   const [delayError, setDelayError] = useState(null);
 
+  // v1.4.2: update checker — `null` while unknown, `{ latest, url }` when a
+  // strictly newer version is published on the Pages site.
+  const [updateInfo, setUpdateInfo] = useState(null);
+  const updateCheckedRef = useRef(false);
+
   // v1.3.1 strict lock: the app is gated on every foreground while a Partner
   // PIN exists. Nothing else in the app asks for it — Settings and the
   // Protection switch stay free (owner decision, 2026-11-12).
@@ -227,6 +261,47 @@ export default function App() {
       // A missing/invalid audio file must never break the guard screen.
     }
   }, [appState, config.musicMuted, loading, musicPlayer]);
+
+  useEffect(() => {
+    // v1.4.2: silent update check, once per app launch. Any failure (offline,
+    // Pages hiccup, malformed JSON) is swallowed — a guard app must never open
+    // with an error just because the update server was unreachable.
+    if (updateCheckedRef.current) return undefined;
+    updateCheckedRef.current = true;
+    let cancelled = false;
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = setTimeout(() => {
+      if (controller) controller.abort();
+    }, 8000);
+
+    (async () => {
+      try {
+        // Cache-buster: Pages/carriers love serving a stale JSON otherwise.
+        const response = await fetch(`${UPDATE_MANIFEST_URL}?t=${Date.now()}`, {
+          signal: controller ? controller.signal : undefined,
+          headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        const latest = String((data && data.latestVersion) || '');
+        const url = String((data && data.downloadUrl) || '');
+        // Only an https link ever leaves the app — the manifest cannot point
+        // the browser at an http/intent URL.
+        if (!/^https:\/\//i.test(url)) return;
+        if (!isNewerVersion(latest, VERSION)) return;
+        if (!cancelled) setUpdateInfo({ latest, url });
+      } catch (error) {
+        // Silent by design.
+      } finally {
+        clearTimeout(timer);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, []);
 
   useEffect(() => {
     // Android 13+: without the notification permission the persistent guard
@@ -394,6 +469,19 @@ export default function App() {
     setDelayTyped('');
     setDelayError(null);
     await applyEnabled(false);
+  };
+
+  /** Update modal → browser. The native bridge is tried first, then Linking. */
+  const openUpdateDownload = async () => {
+    const url = updateInfo ? updateInfo.url : null;
+    setUpdateInfo(null);
+    if (!url) return;
+    try {
+      const opened = await FocusGuard.openUrl(url);
+      if (!opened) await Linking.openURL(url);
+    } catch (error) {
+      Linking.openURL(url).catch(() => {});
+    }
   };
 
   const unlockApp = async (pin) => {
@@ -1192,6 +1280,40 @@ export default function App() {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* v1.4.2 update prompt: only shown when version.json on the Pages site
+          reports a strictly newer version than this build. */}
+      <Modal
+        visible={Boolean(updateInfo)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setUpdateInfo(null)}>
+        <View style={styles.updateBackdrop}>
+          <View style={styles.updateCard}>
+            <Text style={[styles.updateTitle, { textAlign: align }]}>
+              {t('New version ready')}
+            </Text>
+            <Text style={[styles.updateBody, { textAlign: align }]}>
+              {t(
+                'A new version of the app is ready! Please update to get the latest features.'
+              )}
+            </Text>
+            <Text style={[styles.updateMeta, { textAlign: align }]}>
+              {t('Installed {{current}} · available {{latest}}', {
+                current: VERSION,
+                latest: updateInfo ? updateInfo.latest : '',
+              })}
+            </Text>
+            <ActionButton label={t('Download Update')} onPress={openUpdateDownload} />
+            <View style={styles.delayGap} />
+            <ActionButton
+              label={t('Later')}
+              variant="secondary"
+              onPress={() => setUpdateInfo(null)}
+            />
+          </View>
+        </View>
+      </Modal>
     </ImageBackground>
   );
 }
@@ -1411,6 +1533,42 @@ const styles = StyleSheet.create({
   },
   delayGap: {
     height: 10,
+  },
+  // v1.4.2 update prompt
+  updateBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(4,8,12,0.78)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 22,
+  },
+  updateCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: COLORS.background,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 20,
+  },
+  updateTitle: {
+    color: COLORS.accent,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+  },
+  updateBody: {
+    color: COLORS.text,
+    fontSize: 16,
+    lineHeight: 26,
+    marginTop: 10,
+  },
+  updateMeta: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 10,
+    marginBottom: 16,
   },
   switchTitle: {
     color: COLORS.text,

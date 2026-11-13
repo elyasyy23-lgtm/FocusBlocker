@@ -438,3 +438,21 @@ in-app DEBUG LOG so the next death shows its cause.
   `npm run verify` green (642 modules, music asset listed), `npm run prebuild:android` OK
   (versionName 1.4.2 / versionCode 14), `android/` + `dist/` wiped. Kotlin still compiles only
   in CI.
+
+### v1.4.2: in-app update checker (2026-11-13)
+
+- `version.json` sits in the repo root next to `index.html`, so Pages serves it at
+  https://elyasyy23-lgtm.github.io/FocusBlocker/version.json —
+  `{"latestVersion": "...", "downloadUrl": "..."}`. **To announce a release, edit only
+  `latestVersion`** (the download URL is the stable `releases/latest/...` link).
+- App.js checks it ONCE per launch (`updateCheckedRef`, 8 s AbortController timeout, fetch with
+  `?t=Date.now()` cache-buster + no-cache headers). Every failure is silent — offline must never
+  produce an error screen.
+- Comparison: `parseVersion` + `isNewerVersion` (dot-separated numeric, missing parts = 0, any
+  non-numeric version → never an update). Self-tested: 1.4.10 > 1.4.9, 1.4 == 1.4.0, "abc" → no.
+- Only an `https://` `downloadUrl` is accepted (the manifest cannot hand the browser an
+  http/intent URL).
+- Prompt = transparent centred card modal (`styles.updateBackdrop/updateCard`), Persian text from
+  the owner: «نسخه جدید برنامه آماده است! …» with buttons «دانلود بهروزرسانی» / «بعداً».
+  Download tries `FocusGuard.openUrl` first (native, handles custom schemes) then `Linking.openURL`.
+- i18n now 225 UI strings / 257 translations; bundle green (contains the version.json URL).

@@ -348,6 +348,13 @@ const FA = {
   Music: 'موسیقی',
   Muted: 'بی‌صدا',
   'Playing at 30% volume': 'پخش با صدای ۳۰٪',
+  // ------------------------------- v1.4.2: in-app update checker
+  'New version ready': 'نسخهٔ جدید آماده است',
+  'A new version of the app is ready! Please update to get the latest features.':
+    'نسخه جدید برنامه آماده است! لطفاً برای دریافت آخرین امکانات، برنامه را به‌روزرسانی کنید.',
+  'Download Update': 'دانلود به‌روزرسانی',
+  Later: 'بعداً',
+  'Installed {{current}} · available {{latest}}': 'نصب‌شده {{current}} · موجود {{latest}}',
   'I am standing here to protect myself, my mind, and my future. I know this urge is temporary, and if I wait a few minutes, it will pass. I am stronger than to ruin my peace and values for a fleeting moment of pleasure. I am striving for bigger dreams and a more deserving life. Every time I resist this urge, my willpower grows stronger. I choose to stay loyal to myself today, and I am writing this text with focus and calm to prove that I am in control of my life.':
     'من اینجا ایستاده‌ام تا از خودم، ذهنم و آینده‌ام محافظت کنم. می‌دانم که این وسوسه گذرا است و اگر چند دقیقه صبر کنم، از بین می‌رود. من قوی‌تر از این هستم که به خاطر یک لحظه لذت کوتاه، آرامش و ارزش‌هایم را خراب کنم. من برای آرزوهای بزرگ‌تر و زندگی شایسته‌تری تلاش می‌کنم. هر بار که این وسوسه را رد می‌کنم، قدرت اراده‌ام بیشتر می‌شود. من انتخاب می‌کنم که امروز به خودم وفادار بمانم و این متن را با تمرکز و آرامش می‌نویسم تا ثابت کنم که کنترل زندگی‌ام را در دست دارم.',
 };
