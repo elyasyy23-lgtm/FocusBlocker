@@ -389,3 +389,24 @@ in-app DEBUG LOG so the next death shows its cause.
 - v1.4.0 SHIPPED 2026-11-13: commit `020afbe` → main + tag `v1.4.0`; CI 43454906903 (main)
   SUCCESS (Gradle compiled the new `RemoteSmsReceiver.kt`; Termux cannot compile Kotlin),
   tag run 43454928951 builds the Release `Tavakkol-release.apk`.
+
+### v1.4.1 + GitHub Pages download site (2026-11-13)
+
+- `index.html` in the repo ROOT = the public Persian RTL download page, served by GitHub Pages
+  (branch `main`, folder `/`). `assets/web-icon.png` = 320px copy of the icon for the page
+  (the 1024px `assets/icon.png` is 780 KB — do not use it in HTML). `.nojekyll` present.
+- Page: cream + deep-green palette, Vazirmatn (Google Fonts, Tahoma fallback), split hero with
+  the real icon, bento features, 3 install steps, Android 13 "restricted setting" note,
+  Rubika @yasmajyd + releases footer. Download button points at the CURRENT release APK
+  (`…/releases/download/v1.4.1/Tavakkol-release.apk`) — bump that URL with every release, or
+  switch it to `…/releases/latest/download/Tavakkol-release.apk` to stop doing that.
+- Pages was enabled via API: `POST /repos/{owner}/{repo}/pages` with
+  `{"source":{"branch":"main","path":"/"}}` → https://elyasyy23-lgtm.github.io/FocusBlocker/
+  (https_enforced, build status checked via `/pages/builds/latest`).
+- **Share App now shares the Pages URL**: `APP_SHARE_URL` in `src/defaults.js`
+  (`https://elyasyy23-lgtm.github.io/FocusBlocker/`) — it was declared but unused before;
+  `SettingsScreen.shareApp` imports it now (no more hardcoded GitHub link).
+- Version 1.4.1 / versionCode 13. Push `3b260fa` + `c9bdea0` → main, tag `v1.4.1`; CI
+  43464356419 (main) and 43464381806 (tag) both SUCCESS, Release
+  `Tavakkol-release.apk` 31 MB live. Verified: `npm run verify` green, bundle contains the new
+  URL, live page returns 200 with the v1.4.1 link, icon asset 200.

@@ -62,12 +62,13 @@ Release live: `Tavakkol-release.apk` 31.1 MB
       updated.
 - [x] Pushed 2026-11-13: commit `020afbe` → main + tag `v1.4.0`. CI run 43454906903 (main) SUCCESS
       (Gradle compiled `RemoteSmsReceiver.kt`); tag/release run 43454928951 was still building.
-- [ ] Owner on-device check: toggle refuses to turn on without SMS permission; a partner SMS
+- [ ] Owner on-device check (v1.4.1 includes the new Share link): toggle refuses to turn on without SMS permission; a partner SMS
       with the code turns Protection off ONCE (second identical delivery ignored); an SMS that
       arrived before the toggle was on is ignored; Help has no Support block; Share App sits at
       the top of Settings.
 
-NOW: pushed and building — main run green, tag v1.4.0 release run finishing. On-device check pending.
+NOW: v1.4.0 shipped + v1.4.1 shipped (download page + Share App → Pages URL).
+Docs page live: https://elyasyy23-lgtm.github.io/FocusBlocker/ (index.html, main /).
 
 ## Handover commands (owner)
 
