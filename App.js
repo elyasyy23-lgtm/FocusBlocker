@@ -397,25 +397,56 @@ export default function App() {
    * challenge. A cancel, a wrong answer or closing the modal leaves Protection
    * exactly as it was — ON.
    */
-  const applyEnabled = async (value) => {
+  const applyEnabled = async (value, { afterChallenge = false } = {}) => {
     setToggling(true);
     setMessage(null);
     try {
-      await FocusGuard.setEnabled(value);
+      if (afterChallenge) {
+        // The challenge was typed — this is the one native path allowed to
+        // write Protection OFF while Delay Mode is on.
+        await FocusGuard.disableProtectionAfterChallenge();
+      } else {
+        await FocusGuard.setEnabled(value);
+      }
       await refresh();
     } catch (error) {
+      // The native layer refused an OFF write because Delay Mode is on. Never a
+      // silent failure — open the challenge instead of leaving Protection on
+      // with no explanation.
+      if (!value && /Delay Mode/i.test(String(error && error.message))) {
+        setDelayTyped('');
+        setDelayError(null);
+        setDelayOpen(true);
+        return;
+      }
       setMessage(error.message || t('Could not change the blocker state.'));
     } finally {
       setToggling(false);
     }
   };
 
-  const toggleBlocking = (value) => {
-    if (!value && config.delayMode) {
-      setDelayTyped('');
-      setDelayError(null);
-      setDelayOpen(true);
-      return;
+  /**
+   * v1.4.3 gate. Delay Mode is a NATIVE fact, so it is read live from the store
+   * at the moment of the tap — a stale `config` render can never let Protection
+   * slip off. While Delay Mode is on, the OFF direction only opens the challenge
+   * modal and writes nothing to the store.
+   */
+  const toggleBlocking = async (value) => {
+    if (!value) {
+      let delayOn = config.delayMode;
+      try {
+        const live = await FocusGuard.getConfig();
+        delayOn = Boolean(live.delayMode);
+      } catch (error) {
+        // Native hiccup — fall back to the last known value rather than risk
+        // switching Protection off without the challenge.
+      }
+      if (delayOn) {
+        setDelayTyped('');
+        setDelayError(null);
+        setDelayOpen(true);
+        return;
+      }
     }
     applyEnabled(value);
   };
@@ -468,7 +499,7 @@ export default function App() {
     setDelayOpen(false);
     setDelayTyped('');
     setDelayError(null);
-    await applyEnabled(false);
+    await applyEnabled(false, { afterChallenge: true });
   };
 
   /** Update modal → browser. The native bridge is tried first, then Linking. */

@@ -67,7 +67,7 @@ Release live: `Tavakkol-release.apk` 31.1 MB
       arrived before the toggle was on is ignored; Help has no Support block; Share App sits at
       the top of Settings.
 
-NOW: v1.4.2 code complete + verified locally — owner push pending (commands below).
+NOW: v1.4.3 code complete + verified locally — owner push pending (commands below).
 Docs page live: https://elyasyy23-lgtm.github.io/FocusBlocker/ (index.html, main /).
 
 ## v1.4.2 — Delay Mode + background music (2026-11-13)
@@ -95,12 +95,38 @@ Docs page live: https://elyasyy23-lgtm.github.io/FocusBlocker/ (index.html, main
       switching Protection off opens the typing screen; wrong text/cancel leaves it ON; correct
       text turns it off; paste does nothing.
 
+## v1.4.3 — Delay Mode gate hardening (2026-11-14)
+
+Bug (owner): v1.4.2 with Delay Mode ON still turned Protection off with one tap —
+the long-text modal never appeared. Root cause: the gate trusted JS state
+(`config.delayMode`), so any staleness could let the OFF write through. Fix makes
+the NATIVE layer the source of truth.
+
+- [x] `FocusGuardModule.kt`: `setEnabled(false)` now REFUSES while `delayMode` is on
+      (throws); new `setEnabledAfterDelayChallenge` = the only OFF writer; shared
+      private `applyEnabled(ctx, enabled)` helper.
+- [x] `modules/focus-guard/index.js`: `disableProtectionAfterChallenge()` bridge.
+- [x] `App.js`: `toggleBlocking` is async and reads the LIVE `delayMode` from native
+      before opening the modal; `applyEnabled(value, {afterChallenge})` uses the
+      bypass after the challenge; a native refusal auto-opens the modal (never a
+      silent failure). `confirmDelayOff` → `applyEnabled(false, {afterChallenge:true})`.
+- [x] Version 1.4.3 / versionCode 15 (app.json, package.json, package-lock, buildInfo),
+      `version.json` latestVersion → 1.4.3, `index.html` labels → ۱.۴.۳.
+- [x] Verify: check-i18n 225/257 OK; `npm run verify` green (642 modules; compiled
+      gate confirmed = live getConfig read + `setEnabledAfterDelayChallenge`);
+      prebuild versionName 1.4.3 / versionCode 15; `android/` + `dist/` wiped.
+- [ ] Owner push + tag v1.4.3 → CI builds `Tavakkol-release.apk`.
+- [ ] Owner on-device check: Delay Mode ON → tapping Protection OFF opens the modal
+      every time (even after restart); wrong text/cancel keeps it ON; correct text
+      turns it off; the protection switch snaps back on its own if the write is
+      refused.
+
 ## Handover commands (owner)
 
 ```bash
 cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
-git pull --rebase origin main
-git push origin main          # already pushed by zyvo — this is a safety no-op
-git tag v1.4.2
-git push origin v1.4.2
+git fetch origin && git rebase origin/main
+git push origin main
+git tag v1.4.3
+git push origin v1.4.3
 ```

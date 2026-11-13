@@ -24,6 +24,18 @@ class FocusGuardModule : Module() {
   private fun requireContext(): Context =
     appContext.reactContext ?: throw IllegalStateException("React context is not available")
 
+  /**
+   * The single writer for the Protection flag (v1.4.3). `setEnabled` refuses the
+   * OFF direction while Delay Mode is on; `setEnabledAfterDelayChallenge` is the
+   * only caller allowed to force it off.
+   */
+  private fun applyEnabled(context: Context, enabled: Boolean) {
+    FocusGuardStore.setEnabled(context, enabled)
+    // Switching Protection OFF ends the strict lock — guards stop instantly.
+    if (!enabled) FocusGuardStore.clearUnlockWindow(context)
+    FocusAccessibilityService.reload()
+  }
+
   /** Minutes left on the partner's unlock window, 0 when it is closed. */
   private fun unlockMinutesLeft(context: Context): Int {
     val left = FocusGuardStore.unlockUntil(context) - System.currentTimeMillis()
@@ -74,12 +86,27 @@ class FocusGuardModule : Module() {
       true
     }
 
+    /**
+     * v1.4.3: the native layer is the SOURCE OF TRUTH for Delay Mode. Even if the
+     * JS gate is skipped or its React state is stale, Protection can never be
+     * switched off here while Delay Mode is on — the write is refused. The only
+     * way through is `setEnabledAfterDelayChallenge`, which the UI calls after
+     * the challenge text has been typed and verified.
+     */
     AsyncFunction("setEnabled") { enabled: Boolean ->
       val ctx = requireContext()
-      FocusGuardStore.setEnabled(ctx, enabled)
-      // Switching Protection OFF ends the strict lock — guards stop instantly.
-      if (!enabled) FocusGuardStore.clearUnlockWindow(ctx)
-      FocusAccessibilityService.reload()
+      if (!enabled && FocusGuardStore.delayMode(ctx)) {
+        throw IllegalStateException(
+          "Delay Mode is on — type the challenge text to turn Protection off."
+        )
+      }
+      applyEnabled(ctx, enabled)
+      true
+    }
+
+    /** The post-challenge path — the challenge was typed, so the write is allowed. */
+    AsyncFunction("setEnabledAfterDelayChallenge") {
+      applyEnabled(requireContext(), false)
       true
     }
 

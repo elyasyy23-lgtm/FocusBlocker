@@ -456,3 +456,30 @@ in-app DEBUG LOG so the next death shows its cause.
   the owner: «نسخه جدید برنامه آماده است! …» with buttons «دانلود بهروزرسانی» / «بعداً».
   Download tries `FocusGuard.openUrl` first (native, handles custom schemes) then `Linking.openURL`.
 - i18n now 225 UI strings / 257 translations; bundle green (contains the version.json URL).
+
+### v1.4.3: Delay Mode gate hardened (2026-11-14)
+
+Owner bug: with Delay Mode ON, one tap still turned Protection off — the challenge
+modal never appeared. The v1.4.2 gate read `config.delayMode` from React state, so
+any staleness let the OFF write through. Fix = NATIVE is the source of truth:
+
+- `FocusGuardModule.kt`: `setEnabled(false)` REFUSES while `delayMode` is on
+  (throws `IllegalStateException("Delay Mode is on — type the challenge text to
+  turn Protection off.")`); `setEnabledAfterDelayChallenge` is the ONLY OFF writer;
+  both go through a shared private `applyEnabled(ctx, enabled)` (set + clearUnlock
+  Window + reload). The SMS remote receiver still calls `FocusGuardStore.setEnabled`
+  directly — the partner kill switch is unaffected.
+- `modules/focus-guard/index.js`: `disableProtectionAfterChallenge()` bridge.
+- `App.js`: `toggleBlocking` is `async` and reads the LIVE `delayMode` from
+  `FocusGuard.getConfig()` at tap time (falls back to the cached value on a native
+  hiccup) before opening the modal; `applyEnabled(value, { afterChallenge })` calls
+  the bypass when the challenge passed; if the native write is refused the catch
+  auto-opens the modal instead of showing a silent error. `confirmDelayOff` →
+  `applyEnabled(false, { afterChallenge: true })`.
+- Version 1.4.3 / versionCode 15 (app.json, package.json, package-lock, buildInfo),
+  `version.json` latestVersion 1.4.3, `index.html` labels ۱.۴.۳.
+- Verified: check-i18n 225/257 OK; `npm run verify` 642 modules (compiled gate
+  confirmed in the plain-JS bundle); prebuild versionName 1.4.3 / versionCode 15;
+  `android/` + `dist/` wiped. Kotlin still compiles only in CI.
+- Lesson: any "gate" that protects a state change MUST read the authoritative value
+  fresh (or enforce natively) — never trust a React render's copy of it.

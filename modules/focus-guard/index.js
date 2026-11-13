@@ -84,6 +84,16 @@ export async function setEnabled(enabled) {
   return native.setEnabled(enabled);
 }
 
+/**
+ * v1.4.3: the ONLY way to switch Protection off while Delay Mode is on. The
+ * native `setEnabled(false)` refuses that direction; this call is the bypass the
+ * UI uses after the challenge text has been typed and verified.
+ */
+export async function disableProtectionAfterChallenge() {
+  if (!native) throw new Error('Native module missing — build a dev/release APK first.');
+  return native.setEnabledAfterDelayChallenge();
+}
+
 // ---------------------------------------------------------------------------
 // Excluded apps + language (v1.2.0)
 // ---------------------------------------------------------------------------
