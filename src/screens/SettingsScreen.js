@@ -24,6 +24,7 @@ import { COLORS, textAlign } from '../theme';
 import { LANGUAGES } from '../i18n';
 import { VERSION_LABEL } from '../buildInfo';
 import {
+  APP_SHARE_URL,
   DEVELOPER_RUBIKA_SCHEME,
   DEVELOPER_RUBIKA_URL,
   DONATION_NETWORK,
@@ -185,7 +186,7 @@ export default function SettingsScreen({
       await Share.share({
         message: `${t(
           'Tavakkol — a free guard for your phone. Blocked words and sites close themselves while you type.'
-        )}\n\n${t('Tavakkol')} v${VERSION_LABEL}\nhttps://github.com/elyasyy23-lgtm/FocusBlocker/releases/latest`,
+        )}\n\n${t('Tavakkol')} v${VERSION_LABEL}\n${APP_SHARE_URL}`,
       });
     } catch (error) {
       onMessage(t('Could not open the share sheet.'));

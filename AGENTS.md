@@ -386,3 +386,6 @@ in-app DEBUG LOG so the next death shows its cause.
   `npm run prebuild:android` OK → versionName 1.4.0 / versionCode 12; module manifest parses
   (RECEIVE_SMS + receiver). Termux still cannot compile Kotlin — the first CI run is the
   compiler.
+- v1.4.0 SHIPPED 2026-11-13: commit `020afbe` → main + tag `v1.4.0`; CI 43454906903 (main)
+  SUCCESS (Gradle compiled the new `RemoteSmsReceiver.kt`; Termux cannot compile Kotlin),
+  tag run 43454928951 builds the Release `Tavakkol-release.apk`.
