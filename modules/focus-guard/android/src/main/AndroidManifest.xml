@@ -14,6 +14,9 @@
        reboot (alarms and the app process are gone at that point), and the
        persisted JobScheduler job needs it too. -->
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <!-- v1.4.0: remote deactivation via SMS. Requested at runtime when the owner
+       switches the feature on; without the grant the receiver never fires. -->
+  <uses-permission android:name="android.permission.RECEIVE_SMS" />
 
   <!-- v1.1.4: Android 11+ package visibility. resolveActivity() only sees
        packages listed here, and the "Open Autostart settings" deep link is
@@ -99,6 +102,19 @@
         <action android:name="android.intent.action.QUICKBOOT_POWERON" />
         <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
         <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+      </intent-filter>
+    </receiver>
+
+    <!-- v1.4.0 remote deactivation: the partner's SMS turns Protection off.
+         BROADCAST_SMS as the receiver permission means only the system (which
+         holds it) can trigger us. The receiver itself returns immediately
+         while the feature is switched off in Settings. -->
+    <receiver
+      android:name="com.focusblocker.guard.RemoteSmsReceiver"
+      android:exported="true"
+      android:permission="android.permission.BROADCAST_SMS">
+      <intent-filter>
+        <action android:name="android.provider.Telephony.SMS_RECEIVED" />
       </intent-filter>
     </receiver>
 

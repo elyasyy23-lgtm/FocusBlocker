@@ -28,6 +28,15 @@ internal object FocusGuardStore {
   private const val KEY_PIN_HASH = "partner_pin_hash"
   private const val KEY_PIN_SALT = "partner_pin_salt"
   private const val KEY_UNLOCK_UNTIL = "strict_unlock_until"
+  // v1.4.0 remote deactivation (partner SMS). OFF by default: the receiver
+  // returns before it even looks at the message.
+  private const val KEY_REMOTE_ENABLED = "remote_enabled"
+  private const val KEY_REMOTE_NUMBER = "remote_number"
+  private const val KEY_REMOTE_CODE = "remote_code"
+  private const val KEY_REMOTE_SINCE = "remote_since"
+  private const val KEY_REMOTE_LAST_HASH = "remote_last_hash"
+  private const val KEY_REMOTE_LAST_AT = "remote_last_at"
+  private const val KEY_REMOTE_COUNT = "remote_count"
   /**
    * v1.3.1: how long a correct Partner PIN keeps the SYSTEM pages (device admin,
    * app info) unguarded. Long enough for the partner to walk to Settings and
@@ -271,6 +280,94 @@ internal object FocusGuardStore {
       diff = diff or (left[index].code xor right[index].code)
     }
     return diff == 0
+  }
+
+  // ---------------------------------------------------------------------
+  // Remote deactivation via SMS (v1.4.0)
+  //
+  // The partner's phone can turn Protection off with one SMS. The receiver
+  // itself lives in RemoteSmsReceiver; it works while React Native is dead,
+  // so all of the state has to sit here in SharedPreferences.
+  //
+  // `remote_since` is written every time the toggle is switched ON. A message
+  // with a timestamp at or before that moment is never acted on, which is what
+  // makes the feature "new SMS only" — switching it on cannot re-run an old
+  // message that is still in an inbox backup or re-delivered by the system.
+  // ---------------------------------------------------------------------
+
+  fun remoteEnabled(context: Context): Boolean =
+    prefs(context).getBoolean(KEY_REMOTE_ENABLED, false)
+
+  fun setRemoteEnabled(context: Context, enabled: Boolean) {
+    val editor = prefs(context).edit().putBoolean(KEY_REMOTE_ENABLED, enabled)
+    if (enabled) {
+      // A fresh window starts now and the previous dedupe hash is dropped, so
+      // exactly one already-handled message can never block a new one.
+      editor.putLong(KEY_REMOTE_SINCE, System.currentTimeMillis())
+      editor.putString(KEY_REMOTE_LAST_HASH, "")
+    } else {
+      editor.putLong(KEY_REMOTE_SINCE, 0L)
+    }
+    editor.apply()
+  }
+
+  fun remoteNumber(context: Context): String =
+    prefs(context).getString(KEY_REMOTE_NUMBER, "") ?: ""
+
+  fun setRemoteNumber(context: Context, number: String) {
+    prefs(context).edit().putString(KEY_REMOTE_NUMBER, number.trim()).apply()
+  }
+
+  fun remoteCode(context: Context): String =
+    prefs(context).getString(KEY_REMOTE_CODE, "") ?: ""
+
+  fun setRemoteCode(context: Context, code: String) {
+    prefs(context).edit().putString(KEY_REMOTE_CODE, code.trim()).apply()
+  }
+
+  fun remoteSince(context: Context): Long = prefs(context).getLong(KEY_REMOTE_SINCE, 0L)
+
+  fun remoteLastHash(context: Context): String =
+    prefs(context).getString(KEY_REMOTE_LAST_HASH, "") ?: ""
+
+  fun remoteLastAt(context: Context): Long = prefs(context).getLong(KEY_REMOTE_LAST_AT, 0L)
+
+  fun remoteCount(context: Context): Int = prefs(context).getInt(KEY_REMOTE_COUNT, 0)
+
+  /**
+   * One-time processing latch: remembers the last accepted message and bumps
+   * the counter. Callers must check [remoteLastHash] first — this is the write
+   * side only, so a re-delivered broadcast short-circuits before it gets here.
+   */
+  fun recordRemoteDeactivation(context: Context, hash: String) {
+    val preferences = prefs(context)
+    preferences.edit()
+      .putString(KEY_REMOTE_LAST_HASH, hash)
+      .putLong(KEY_REMOTE_LAST_AT, System.currentTimeMillis())
+      .putInt(KEY_REMOTE_COUNT, preferences.getInt(KEY_REMOTE_COUNT, 0) + 1)
+      .apply()
+  }
+
+  /** ASCII digits only — "+98 912-345 6789" becomes "989123456789". */
+  fun normalizeDigits(raw: String): String {
+    val builder = StringBuilder(raw.length)
+    raw.forEach { character ->
+      builder.append(foldDigit(character))
+    }
+    return builder.toString().filter { it.isDigit() }
+  }
+
+  /** Persian (۰-۹) and Arabic-Indic (٠-٩) digits folded to ASCII. */
+  fun foldDigits(raw: String): String {
+    val builder = StringBuilder(raw.length)
+    raw.forEach { character -> builder.append(foldDigit(character)) }
+    return builder.toString()
+  }
+
+  private fun foldDigit(character: Char): Char = when (character) {
+    in '\u06F0'..'\u06F9' -> '0' + (character - '\u06F0') // ۰-۹
+    in '\u0660'..'\u0669' -> '0' + (character - '\u0660') // ٠-٩
+    else -> character
   }
 
   fun setEnabled(context: Context, enabled: Boolean) {

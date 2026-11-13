@@ -507,7 +507,6 @@ export default function App() {
         t={t}
         lang={lang}
         onBack={() => setScreen('settings')}
-        onOpenSettings={() => setScreen('settings')}
       />
     );
   }

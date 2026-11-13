@@ -8,16 +8,19 @@ import {
   Text,
   View,
 } from 'react-native';
-import { ActionButton, GiftNote, Section } from '../components/ui';
+import { GiftNote } from '../components/ui';
 import { COLORS, textAlign } from '../theme';
 
 const BACKGROUND = require('../../assets/background.jpg');
 
 /**
  * Help screen (v1.3.0) — the five setup steps written in plain words, plus the
- * support note. English strings are the i18n keys (see src/i18n.js); the
+ * prayer note. English strings are the i18n keys (see src/i18n.js); the
  * numbers and the description are rendered separately so each step reads as a
  * card instead of a wall of text. Wording is the owner's copy — keep it exact.
+ *
+ * v1.4.0: the "Support" block at the bottom is GONE (owner request) — support
+ * lives only in Settings now, so this screen teaches and nothing else.
  */
 const STEPS = [
   {
@@ -46,7 +49,7 @@ const STEPS = [
   },
 ];
 
-export default function HelpScreen({ t, lang, onBack, onOpenSettings }) {
+export default function HelpScreen({ t, lang, onBack }) {
   const align = textAlign(lang);
   const isRtl = lang === 'fa';
 
@@ -88,22 +91,6 @@ export default function HelpScreen({ t, lang, onBack, onOpenSettings }) {
             <Text style={[styles.stepBody, { textAlign: align }]}>{t(step.body)}</Text>
           </View>
         ))}
-
-        <Section title={t('Support')} lang={lang}>
-          <Text style={[styles.body, { textAlign: align }]}>
-            {t(
-              "If you wish to support the development of this app, you can use the 'Donate' button in Settings."
-            )}
-          </Text>
-          <Text style={[styles.body, { textAlign: align }]}>
-            {t('International supporters can use the Crypto Wallet option. Thank you!')}
-          </Text>
-          <ActionButton
-            label={t('Open Settings')}
-            variant="secondary"
-            onPress={onOpenSettings}
-          />
-        </Section>
 
         <View style={styles.noteWrap}>
           <GiftNote lang={lang} text={t('This app is completely free. Please remember us in your prayers.')} />

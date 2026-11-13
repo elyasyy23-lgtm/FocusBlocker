@@ -293,6 +293,35 @@ const FA = {
   Save: 'ذخیره',
   'Could not copy the wallet address.': 'کپی کردن آدرس کیف پول ممکن نشد.',
   'The donation wallet address is not set yet.': 'آدرس کیف پول برای حمایت هنوز تنظیم نشده است.',
+
+  // ------------------------------------------- v1.4.0: About + Remote Control
+  'About Tavakkol': 'دربارهٔ توکل',
+  'A free, ad-free guard for your own phone.': 'محافظی رایگان و بدون تبلیغ برای گوشی خودتان.',
+  'Remote Control': 'کنترل از راه دور',
+  'A trusted phone can turn Protection off with one SMS. The message is used only once, and messages that arrived before the switch was turned on are ignored.':
+    'یک گوشی مورد اعتماد می‌تواند با یک پیامک محافظت را خاموش کند. هر پیامک فقط یک بار بررسی می‌شود و پیامک‌هایی که پیش از روشن شدن کلید رسیده‌اند نادیده گرفته می‌شوند.',
+  'Enable Remote Deactivation': 'فعال‌سازی خاموش‌سازی از راه دور',
+  'On — waiting for the partner SMS': 'روشن — در انتظار پیامک همراه',
+  'Off — incoming SMS are ignored': 'خاموش — پیامک‌های دریافتی نادیده گرفته می‌شوند',
+  'Partner Phone Number': 'شمارهٔ تلفن همراه',
+  'Secret Command': 'دستور محرمانه',
+  'For example: TURN OFF': 'برای نمونه: TURN OFF',
+  'Save remote settings': 'ذخیرهٔ تنظیمات کنترل از راه دور',
+  'SMS permission is required for remote deactivation.':
+    'برای خاموش‌سازی از راه دور، اجازهٔ خواندن پیامک لازم است.',
+  'SMS permission granted.': 'اجازهٔ پیامک داده شده است.',
+  'SMS permission is not granted yet — the switch stays off.':
+    'اجازهٔ پیامک هنوز داده نشده — کلید روشن نمی‌شود.',
+  'Allow SMS access': 'اجازهٔ دسترسی به پیامک',
+  'Remote deactivation is on. A partner SMS turns Protection off.':
+    'خاموش‌سازی از راه دور روشن شد. پیامک همراه محافظت را خاموش می‌کند.',
+  'Remote settings saved. Remote deactivation is off.':
+    'تنظیمات کنترل از راه دور ذخیره شد. خاموش‌سازی از راه دور خاموش است.',
+  'Could not save the remote settings.': 'ذخیرهٔ تنظیمات کنترل از راه دور ممکن نشد.',
+  'The partner SMS contains the secret command and turns Protection off by itself.':
+    'پیامک همراه باید شامل دستور محرمانه باشد؛ همان پیامک محافظت را خودکار خاموش می‌کند.',
+  'Remote stops so far: {{count}} · last at {{time}}':
+    'خاموش‌سازی از راه دور تا اینجا: {{count}} بار · آخرین بار {{time}}',
 };
 
 const DICT = { fa: FA };

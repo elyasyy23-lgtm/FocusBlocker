@@ -32,6 +32,18 @@ export const EMPTY_CONFIG = {
   pinSet: false,
   strictLocked: false,
   unlockMinutesLeft: 0,
+  remoteEnabled: false,
+  remoteLastAt: 0,
+  remoteCount: 0,
+};
+
+/** Remote deactivation state (v1.4.0) — see getRemoteState(). */
+export const EMPTY_REMOTE = {
+  enabled: false,
+  number: '',
+  code: '',
+  lastAt: 0,
+  count: 0,
 };
 
 function parseConfig(raw) {
@@ -177,6 +189,36 @@ export async function getStrictState() {
   } catch (error) {
     return { pinSet: false, locked: false, unlockMinutesLeft: 0 };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Remote deactivation via SMS (v1.4.0)
+// ---------------------------------------------------------------------------
+
+/** { enabled, number, code, lastAt, count } — the receiver's live view. */
+export async function getRemoteState() {
+  if (!native) return { ...EMPTY_REMOTE };
+  try {
+    const parsed = JSON.parse(await native.getRemoteState());
+    return {
+      enabled: Boolean(parsed.enabled),
+      number: String(parsed.number || ''),
+      code: String(parsed.code || ''),
+      lastAt: Number(parsed.lastAt) || 0,
+      count: Number(parsed.count) || 0,
+    };
+  } catch (error) {
+    return { ...EMPTY_REMOTE };
+  }
+}
+
+/**
+ * Saves the partner number + code and flips the feature. Switching it ON starts
+ * a new listening window, so only SMS that arrive afterwards are processed.
+ */
+export async function setRemoteDeactivation({ enabled, number, code }) {
+  if (!native) throw new Error('Native module missing — build a dev/release APK first.');
+  return native.setRemoteDeactivation(Boolean(enabled), String(number || ''), String(code || ''));
 }
 
 export async function openAccessibilitySettings() {

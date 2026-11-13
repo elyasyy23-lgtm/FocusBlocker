@@ -4,11 +4,14 @@ import {
   ImageBackground,
   Linking,
   Modal,
+  PermissionsAndroid,
+  Platform,
   Pressable,
   ScrollView,
   Share,
   StatusBar,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -33,12 +36,16 @@ const BACKGROUND = require('../../assets/background.jpg');
 /**
  * Settings screen (v1.2.0) — opened with the gear on the main screen.
  *
- * Three jobs, all of them in this file:
+ * Jobs, all in this file:
  *  1. language switch (English / Persian) — the choice lives in native prefs so
  *     the accessibility service and the notifications follow it too;
  *  2. Excluded Apps — every launchable app with a checkbox; a checked app is
  *     never inspected by the guard (the package list is passed to Kotlin);
- *  3. the support block: Share App, Contact Developer and the owner's message.
+ *  3. Partner PIN — the app-lock PIN, set/changed/removed here;
+ *  4. Remote Control (v1.4.0) — a partner phone can turn Protection off with one
+ *     SMS (native receiver `RemoteSmsReceiver`, config in SharedPreferences);
+ *  5. About Tavakkol (v1.4.0) — the Share App button moved here from "More";
+ *  6. the support block: the owner's message, ZarinPal and the crypto wallet.
  */
 export default function SettingsScreen({
   t,
@@ -75,6 +82,21 @@ export default function SettingsScreen({
     error: null,
     busy: false,
   });
+  // v1.4.0: remote deactivation via SMS. `remote` is what the native receiver
+  // actually holds (SharedPreferences), the two text fields are the draft.
+  const [remote, setRemote] = useState({
+    enabled: false,
+    number: '',
+    code: '',
+    lastAt: 0,
+    count: 0,
+  });
+  const [remoteNumber, setRemoteNumber] = useState('');
+  const [remoteCode, setRemoteCode] = useState('');
+  const [remoteBusy, setRemoteBusy] = useState(false);
+  // Optimistic: no Android permission dialog exists outside Android, and the
+  // toggle simply refuses to turn on when the grant is missing.
+  const [smsGranted, setSmsGranted] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -83,6 +105,28 @@ export default function SettingsScreen({
         if (alive) setPinSet(Boolean(state.pinSet));
       })
       .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const state = await FocusGuard.getRemoteState();
+      if (!alive) return;
+      setRemote(state);
+      setRemoteNumber(state.number);
+      setRemoteCode(state.code);
+      if (Platform.OS === 'android') {
+        try {
+          const granted = await PermissionsAndroid.check('android.permission.RECEIVE_SMS');
+          if (alive) setSmsGranted(Boolean(granted));
+        } catch (error) {
+          // A failed check is not a denial — let the toggle ask for the grant.
+        }
+      }
+    })();
     return () => {
       alive = false;
     };
@@ -325,6 +369,61 @@ export default function SettingsScreen({
     };
   };
 
+  // -------------------------------------------------------------------
+  // Remote deactivation via SMS (v1.4.0)
+  // -------------------------------------------------------------------
+
+  const requestSmsPermission = useCallback(async () => {
+    if (Platform.OS !== 'android') return true;
+    try {
+      const result = await PermissionsAndroid.request('android.permission.RECEIVE_SMS');
+      const granted = result === PermissionsAndroid.RESULTS.GRANTED;
+      setSmsGranted(granted);
+      if (!granted) onMessage(t('SMS permission is required for remote deactivation.'));
+      return granted;
+    } catch (error) {
+      onMessage(t('SMS permission is required for remote deactivation.'));
+      return false;
+    }
+  }, [onMessage, t]);
+
+  // One path for both the switch and the save button: the native side stores
+  // number + code and flips the flag; switching ON also opens a fresh listening
+  // window, so only SMS that arrive afterwards are ever acted on.
+  const applyRemote = useCallback(
+    async (enabled) => {
+      if (!isAvailable) {
+        onMessage(t('Native build required'));
+        return;
+      }
+      if (enabled && !(await requestSmsPermission())) return;
+      setRemoteBusy(true);
+      try {
+        await FocusGuard.setRemoteDeactivation({
+          enabled,
+          number: remoteNumber,
+          code: remoteCode,
+        });
+        const state = await FocusGuard.getRemoteState();
+        setRemote(state);
+        setRemoteNumber(state.number);
+        setRemoteCode(state.code);
+        onMessage(
+          enabled
+            ? t('Remote deactivation is on. A partner SMS turns Protection off.')
+            : t('Remote settings saved. Remote deactivation is off.')
+        );
+      } catch (error) {
+        onMessage(error.message || t('Could not save the remote settings.'));
+      } finally {
+        setRemoteBusy(false);
+      }
+    },
+    [isAvailable, onMessage, remoteCode, remoteNumber, requestSmsPermission, t]
+  );
+
+  const remoteDirty = remoteNumber.trim() !== remote.number || remoteCode.trim() !== remote.code;
+
   const openDonate = useCallback((mode) => {
     setCopied(false);
     setDonateMode(mode);
@@ -374,6 +473,20 @@ export default function SettingsScreen({
             <Text style={[styles.subtitle, { textAlign: align }]}>{t('Tavakkol')}</Text>
           </View>
         </View>
+
+        <Section
+          title={t('About Tavakkol')}
+          subtitle={t('A free, ad-free guard for your own phone.')}
+          lang={lang}>
+          <Text style={[styles.body, { textAlign: align }]}>
+            {t('Version {{version}}', { version: VERSION_LABEL })}
+          </Text>
+          <ActionButton
+            label={t('Share App')}
+            onPress={shareApp}
+            busy={sharing}
+          />
+        </Section>
 
         <Section
           title={t('Language')}
@@ -528,6 +641,87 @@ export default function SettingsScreen({
         </Section>
 
         <Section
+          title={t('Remote Control')}
+          subtitle={t(
+            'A trusted phone can turn Protection off with one SMS. The message is used only once, and messages that arrived before the switch was turned on are ignored.'
+          )}
+          lang={lang}>
+          <View style={[styles.remoteRow, lang === 'fa' && styles.headerRtl]}>
+            <View style={styles.remoteLabel}>
+              <Text style={[styles.remoteTitle, { textAlign: align }]}>
+                {t('Enable Remote Deactivation')}
+              </Text>
+              <Text style={[styles.remoteHint, { textAlign: align }]}>
+                {remote.enabled
+                  ? t('On — waiting for the partner SMS')
+                  : t('Off — incoming SMS are ignored')}
+              </Text>
+            </View>
+            <Switch
+              value={remote.enabled}
+              onValueChange={(next) => applyRemote(next)}
+              disabled={remoteBusy || !isAvailable}
+              trackColor={{ false: COLORS.border, true: COLORS.accentSoft }}
+              thumbColor={remote.enabled ? COLORS.accent : '#5A6779'}
+            />
+          </View>
+
+          <Text style={[styles.fieldLabel, { textAlign: align }]}>{t('Partner Phone Number')}</Text>
+          <TextInput
+            value={remoteNumber}
+            onChangeText={setRemoteNumber}
+            placeholder="09xxxxxxxxx"
+            placeholderTextColor="#5A6779"
+            keyboardType="phone-pad"
+            autoCorrect={false}
+            style={[styles.input, { textAlign: align }]}
+          />
+
+          <Text style={[styles.fieldLabel, { textAlign: align }]}>{t('Secret Command')}</Text>
+          <TextInput
+            value={remoteCode}
+            onChangeText={setRemoteCode}
+            placeholder={t('For example: TURN OFF')}
+            placeholderTextColor="#5A6779"
+            autoCapitalize="characters"
+            autoCorrect={false}
+            style={[styles.input, { textAlign: align }]}
+          />
+
+          <ActionButton
+            label={t('Save remote settings')}
+            onPress={() => applyRemote(remote.enabled)}
+            busy={remoteBusy}
+            saved={remoteDirty ? false : true}
+            disabled={!isAvailable}
+          />
+
+          <Text style={[styles.hint, { textAlign: align }]}>
+            {smsGranted
+              ? t('SMS permission granted.')
+              : t('SMS permission is not granted yet — the switch stays off.')}
+          </Text>
+          {!smsGranted ? (
+            <ActionButton
+              label={t('Allow SMS access')}
+              variant="secondary"
+              onPress={requestSmsPermission}
+            />
+          ) : null}
+          <Text style={[styles.hint, { textAlign: align }]}>
+            {t('The partner SMS contains the secret command and turns Protection off by itself.')}
+          </Text>
+          {remote.lastAt > 0 ? (
+            <Text style={[styles.hint, { textAlign: align }]}>
+              {t('Remote stops so far: {{count}} · last at {{time}}', {
+                count: remote.count,
+                time: new Date(remote.lastAt).toLocaleString(lang === 'fa' ? 'fa-IR' : 'en-GB'),
+              })}
+            </Text>
+          ) : null}
+        </Section>
+
+        <Section
           title={t('Help')}
           subtitle={t('Five short steps — from the first keyword to the partner PIN.')}
           lang={lang}>
@@ -555,12 +749,6 @@ export default function SettingsScreen({
           <Text style={[styles.body, { textAlign: align }]}>
             {t('If you encounter any problems, please contact the developer.')}
           </Text>
-          <ActionButton
-            label={t('Share App')}
-            variant="secondary"
-            onPress={shareApp}
-            busy={sharing}
-          />
           <ActionButton
             label={t('Contact Developer')}
             variant="secondary"
@@ -756,6 +944,33 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
     minHeight: 48,
+  },
+  remoteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 6,
+  },
+  remoteLabel: {
+    flex: 1,
+  },
+  remoteTitle: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  remoteHint: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 3,
+  },
+  fieldLabel: {
+    color: COLORS.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    marginTop: 12,
+    marginBottom: 6,
   },
   excludedMeta: {
     flexDirection: 'row',

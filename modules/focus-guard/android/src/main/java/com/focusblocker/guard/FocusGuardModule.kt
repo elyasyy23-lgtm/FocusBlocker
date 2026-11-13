@@ -52,6 +52,9 @@ class FocusGuardModule : Module() {
       config.put("pinSet", FocusGuardStore.hasPin(ctx))
       config.put("strictLocked", FocusGuardStore.strictLocked(ctx))
       config.put("unlockMinutesLeft", unlockMinutesLeft(ctx))
+      config.put("remoteEnabled", FocusGuardStore.remoteEnabled(ctx))
+      config.put("remoteLastAt", FocusGuardStore.remoteLastAt(ctx).toDouble())
+      config.put("remoteCount", FocusGuardStore.remoteCount(ctx))
       config.toString()
     }
 
@@ -113,6 +116,58 @@ class FocusGuardModule : Module() {
         .put("locked", FocusGuardStore.strictLocked(ctx))
         .put("unlockMinutesLeft", unlockMinutesLeft(ctx))
         .toString()
+    }
+
+    // -------------------------------------------------------------------
+    // Remote deactivation via SMS (v1.4.0)
+    // -------------------------------------------------------------------
+
+    AsyncFunction("getRemoteState") {
+      val ctx = requireContext()
+      JSONObject()
+        .put("enabled", FocusGuardStore.remoteEnabled(ctx))
+        .put("number", FocusGuardStore.remoteNumber(ctx))
+        .put("code", FocusGuardStore.remoteCode(ctx))
+        .put("lastAt", FocusGuardStore.remoteLastAt(ctx).toDouble())
+        .put("count", FocusGuardStore.remoteCount(ctx))
+        .toString()
+    }
+
+    /**
+     * Stores the partner number + code and switches the feature on or off.
+     * Switching ON starts a fresh window (`remote_since` = now) — messages that
+     * arrived earlier are never acted on, which is the "new SMS only" contract.
+     * Only a 10+ digit number and a 4+ character code are accepted, because an
+     * empty pair would let any message through — but that check runs ONLY when
+     * turning the feature on: switching it off must always be possible, even
+     * when the fields were never filled (a lock-in on your own kill switch is
+     * the worst possible bug in this feature).
+     */
+    AsyncFunction("setRemoteDeactivation") { enabled: Boolean, number: String, code: String ->
+      val ctx = requireContext()
+      val digits = FocusGuardStore.normalizeDigits(number)
+      val trimmedCode = code.trim()
+      if (enabled) {
+        if (digits.length < 10) {
+          throw IllegalArgumentException("Enter the partner phone number with at least 10 digits")
+        }
+        if (trimmedCode.length < 4) {
+          throw IllegalArgumentException("The unlock code must be at least 4 characters")
+        }
+      }
+      if (number.isNotBlank()) {
+        FocusGuardStore.setRemoteNumber(ctx, number.replace(Regex("[^0-9+]"), ""))
+      }
+      if (trimmedCode.isNotEmpty()) {
+        FocusGuardStore.setRemoteCode(ctx, trimmedCode)
+      }
+      FocusGuardStore.setRemoteEnabled(ctx, enabled)
+      FocusGuardStore.logEvent(
+        ctx,
+        if (enabled) "remote_enabled" else "remote_disabled",
+        text = "partner number ends with ${digits.takeLast(4)}, code length ${trimmedCode.length}"
+      )
+      true
     }
 
     // -------------------------------------------------------------------

@@ -348,3 +348,41 @@ in-app DEBUG LOG so the next death shows its cause.
 - Git: remote `https://github.com/elyasyy23-lgtm/FocusBlocker.git`, default branch `main`
   (local work started on `master` and was pushed to `main`). PAT for `elyasyy23-lgtm` lives in
   `~/.git-credentials`.
+
+### v1.4.0 (2026-11-13) — remote deactivation via SMS · Help cleanup · Share App → About
+
+- **Remote deactivation (new)**: a partner phone turns Protection off with one SMS.
+  - `FocusGuardStore.kt` keys: `remote_enabled` (default **false**), `remote_number`,
+    `remote_code`, `remote_since`, `remote_last_hash`, `remote_last_at`, `remote_count`;
+    helpers `normalizeDigits` (digits only) + `foldDigits` (Persian/Arabic digits → ASCII).
+    `setRemoteEnabled` stamps `remote_since = now` on ON and drops the old hash; on OFF it
+    clears `remote_since`.
+  - `RemoteSmsReceiver.kt` (new) — SMS_RECEIVED receiver. Order of gates: OFF → return
+    immediately (nothing parsed/stored); config empty → log `remote_config_missing`;
+    `timestampMillis <= remote_since` → `remote_sms_ignored` (this is the "old SMS on boot are
+    never processed" rule); sender last-10-digits match; code match = case-insensitive
+    `contains` after digit folding; SHA-256(sender|body|stamp) dedupe latch → each message
+    exactly once. Match → `setEnabled(false)` + `clearUnlockWindow()` + `reload()` +
+    `remote_deactivated` log + HIGH-importance notification (channel `focus_guard_alert`, id 43).
+  - Module manifest: `RECEIVE_SMS` permission + `<receiver … android:exported="true"
+    android:permission="android.permission.BROADCAST_SMS">` with the SMS_RECEIVED filter.
+  - `FocusGuardModule.kt`: `getRemoteState` (JSON) + `setRemoteDeactivation(enabled, number,
+    code)` — validates 10+ digits / 4+ chars **only when enabling**, so the kill switch can
+    always be turned off even with empty fields. `getConfig` also returns remoteEnabled /
+    remoteLastAt / remoteCount.
+  - `modules/focus-guard/index.js`: `EMPTY_REMOTE`, `getRemoteState()`, `setRemoteDeactivation()`.
+  - `SettingsScreen.js` «کنترل از راه دور»: `Switch` (native prefs are the truth), partner number
+    (`phone-pad`), secret command, Save button (green when stored / white when edited — same
+    three-state `saved` contract as the keyword lists), live RECEIVE_SMS permission row +
+    "Allow SMS access", last-trigger line. The toggle requests the permission itself and
+    refuses to turn on when denied.
+- Help screen: the "Support" section is GONE (`onOpenSettings` prop removed from
+  HelpScreen + App.js); the prayer `GiftNote` stays.
+- Share App moved from "More" to a new «دربارهٔ توکل» / About Tavakkol section at the TOP of
+  Settings (primary button); Contact Developer stays alone in "More".
+- Version 1.4.0 / versionCode 12 (app.json, package.json, package-lock root, buildInfo).
+- Verify: `node scripts/check-i18n.js` = 202 UI strings / 233 translations; `npm run verify`
+  green (631 modules, 1.1 MB bundle, contains `getRemoteState`/`setRemoteDeactivation`);
+  `npm run prebuild:android` OK → versionName 1.4.0 / versionCode 12; module manifest parses
+  (RECEIVE_SMS + receiver). Termux still cannot compile Kotlin — the first CI run is the
+  compiler.
