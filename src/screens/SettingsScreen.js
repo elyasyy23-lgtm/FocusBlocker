@@ -584,7 +584,9 @@ export default function SettingsScreen({
               {donateMode === 'iran' ? t('Support from inside Iran') : t('Support from outside Iran')}
             </Text>
             <Text style={[styles.body, { textAlign: align }]}>
-              {t('Thank you for supporting Tavakkol. Every donation keeps it free.')}
+              {t(
+              'Thank you for supporting Tavakkol with your donation. Every contribution, however small, keeps us going.'
+            )}
             </Text>
 
             {donateMode === 'iran' ? (

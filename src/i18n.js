@@ -184,6 +184,8 @@ const FA = {
   'Version {{version}}': 'نسخهٔ {{version}}',
   Back: 'بازگشت',
   'Could not open the link.': 'باز کردن لینک ممکن نشد.',
+  'Try again in {{seconds}}s…': '{{seconds}} ثانیه دیگر تلاش کنید',
+  'Too many wrong attempts.': 'تلاش‌های نادرست زیاد شد.',
   'Could not open the share sheet.': 'باز کردن پنجرهٔ اشتراک‌گذاری ممکن نشد.',
   'Tavakkol — a free guard for your phone. Blocked words and sites close themselves while you type.':
     'توکل — محافظ رایگان گوشی. کلمه‌ها و سایت‌های مسدود همان لحظه که تایپ می‌کنید بسته می‌شوند.',
@@ -226,6 +228,8 @@ const FA = {
   Donate: 'حمایت مالی',
   'Thank you for supporting Tavakkol. Every donation keeps it free.':
     'از حمایت شما از توکل سپاسگزاریم. هر کمک، این برنامه را رایگان نگه می‌دارد.',
+  'Thank you for supporting Tavakkol with your donation. Every contribution, however small, keeps us going.':
+    'از اینکه با حمایت خود، به ادامه توسعه برنامه توکل کمک می‌کنید سپاسگزاریم. هر کمک شما، هر چقدر هم کوچک، باعث دلگرمی ماست.',
   'Copy wallet address': 'کپی کردن آدرس کیف پول',
   Copied: 'کپی شد',
 
@@ -300,6 +304,19 @@ export function format(template, values) {
     const value = values[name];
     return value === undefined || value === null ? match : String(value);
   });
+}
+
+const FA_DIGITS = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+
+/**
+ * Localizes a number for display (v1.3.3): the lock-screen countdown must read
+ * «۳۰ ثانیه دیگر تلاش کنید» in Persian, not «30». Use it for every number that
+ * is concatenated into a translated string.
+ */
+export function formatNumber(value, lang) {
+  const text = String(value);
+  if (lang !== 'fa') return text;
+  return text.replace(/\d/g, (digit) => FA_DIGITS[Number(digit)]);
 }
 
 /** Returns a translator bound to [lang]. */

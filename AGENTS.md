@@ -40,7 +40,7 @@ Docs: https://docs.expo.dev/eas/index.md
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
 
-## Project: Tavakkol (state as of 2026-11-13, v1.3.2)
+## Project: Tavakkol (state as of 2026-11-13, v1.3.3)
 
 Android-only self-control app, English UI, Expo SDK 58 / RN 0.88.1 / React 19.3.
 v1.1.2 died again ~a day after install (never verified on-device); v1.1.3 adds an
@@ -273,6 +273,14 @@ in-app DEBUG LOG so the next death shows its cause.
   PIN only reports itself after 700 ms of no typing, then clears the field; at the 8-digit cap
   it reports immediately). `onSubmit` returns a boolean, `PinPad` is called with
   `showOk={false}`.
+  v1.3.3 lockout: `MAX_ATTEMPTS = 3` wrong PINs → the whole keypad is disabled for
+  `LOCKOUT_MS = 30_000` with a live countdown (`Try again in {{seconds}}s…`, Persian digits via
+  `formatNumber(value, lang)` from src/i18n.js). The counter lives in a MODULE-LEVEL
+  `guardState {failures, lockedUntil}` — the gate is unmounted whenever the app backgrounds, so
+  component state would hand out free retries. One failure is counted per COMPLETED wrong entry
+  (the 700 ms pause or the 8-digit cap), never per keystroke, otherwise a 6-digit PIN would burn
+  three attempts while being typed. Success and the end of the countdown both reset it.
+  Honest limit: process memory only — a force-stop or reboot clears the lockout.
   SCOPE (owner decision 2026-11-12): the PIN guards ONLY entering the app — the Protection
   switch needs no PIN, Settings needs no PIN. The PIN is set/changed/removed in Settings'
   "Partner PIN" section (`src/screens/SettingsScreen.js`).
@@ -303,6 +311,10 @@ in-app DEBUG LOG so the next death shows its cause.
   `src/defaults.js` is EMPTY until the owner pastes the link (sheet then says the link is not
   set yet — never a placeholder destination). Share App + Contact Developer moved OUT of
   Support into a new "More" section.
+  v1.3.3: the sheet body is the owner's new wording («از اینکه با حمایت خود، به ادامه توسعه
+  برنامه توکل کمک می‌کنید سپاسگزاریم…»), the wallet is filled
+  (`TANP1ibS4DsF2C1p1rBGAZ5MrGZyS5sUmU`, checksum-verified TRC20), and Contact Developer opens
+  Rubika **@yasmajyd** (`DEVELOPER_RUBIKA_ID` drives both the scheme and the https URL).
 - **Device-admin guard** — see the Strict-lock section above (Protection-ON gate, activity-name
   detection, repeated Back → Home, PIN-aware toast).
 - Verify: `node scripts/check-i18n.js` = 183 UI strings / 210 translations; `npm run verify`

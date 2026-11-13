@@ -18,8 +18,12 @@ export const DEFAULT_KEYWORDS = [
 /** Public download page — what the "Share App" button sends. */
 export const APP_SHARE_URL = 'https://github.com/elyasyy23-lgtm/FocusBlocker/releases/latest';
 
-/** Rubika ID of the developer. Change it to your own Rubika username. */
-export const DEVELOPER_RUBIKA_ID = 'TavakkolSupport';
+/**
+ * Rubika ID of the developer (v1.3.3: @yasmajyd). The http link and the custom
+ * scheme are both derived from it, so this one string is the only place to
+ * change the support contact.
+ */
+export const DEVELOPER_RUBIKA_ID = 'yasmajyd';
 
 export const DEVELOPER_RUBIKA_URL = `https://rubika.ir/${DEVELOPER_RUBIKA_ID}`;
 

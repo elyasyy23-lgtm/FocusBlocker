@@ -26,13 +26,16 @@ a full Settings screen, and an English/Persian interface:
    PIN, excluded apps) in both languages, reachable from the "?" button on the main screen.
 8. **Support Us** — the app is free and ad-free; two donation routes (inside Iran via ZarinPal,
    outside Iran via a crypto wallet) open from Settings, plus Share App / Contact Developer in
-   the "More" section below. Both destinations are configured in `src/defaults.js`
-   (`DONATION_ZARINPAL_URL`, `DONATION_WALLET`) and are empty until you paste your own — the app
-   then says "not set yet" rather than showing a fake address.
+   the "More" section below. Destinations are configured in `src/defaults.js`
+   (`DONATION_ZARINPAL_URL`, `DONATION_WALLET`); the crypto wallet is filled, the ZarinPal link
+   stays empty until the owner pastes it (the sheet then says "not set yet" rather than showing a
+   fake address). Contact Developer opens Rubika at **@yasmajyd** (`DEVELOPER_RUBIKA_ID`).
 9. **Partner PIN (v1.3.1/v1.3.2)** — a 4-8 digit PIN is set in Settings and handed to a partner.
    From then on the app is gated behind that PIN every time it opens (Settings and the
    Protection switch never ask for it). There is **no Unlock button**: the correct PIN opens the
-   app the moment the last digit is typed. The PIN is stored only as `SHA-256(salt + pin)`.
+   app the moment the last digit is typed. **v1.3.3 lockout**: three wrong PINs disable the whole
+   keypad for 30 seconds while the screen counts down ("Try again in 30s…" / «۳۰ ثانیه دیگر
+   تلاش کنید»), then the counter resets. The PIN is stored only as `SHA-256(salt + pin)`.
 10. **System-page guard (v1.3.2)** — while **Protection is on**, the accessibility service leaves
    the system *Device admin apps* page (`com.android.settings`) and Tavakkol's own app-info page
    (force-stop / uninstall) immediately with `GLOBAL_ACTION_BACK` — detected from the Settings

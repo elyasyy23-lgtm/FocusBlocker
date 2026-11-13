@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import PinPad from '../components/PinPad';
 import { COLORS, textAlign } from '../theme';
+import { formatNumber } from '../i18n';
 
 /**
  * Full-screen gate shown every time the app comes back to the foreground while
@@ -16,18 +17,37 @@ import { COLORS, textAlign } from '../theme';
  *
  * The PIN never leaves the device: it is hashed in the native module and
  * compared there.
+ *
+ * v1.3.3 — lockout timer: three wrong PINs disable the whole keypad for 30
+ * seconds and the screen shows a live countdown. The counter lives in a
+ * module-level object, not in state, because this gate is unmounted and
+ * remounted every time the app goes to the background — without that, sending
+ * the app to the background would hand out free retries. A full process kill
+ * still resets it; Android offers no tamper-proof timer to a normal app without
+ * shared storage, and this is a self-control tool, not a security product.
  */
 const PIN_MIN_LENGTH = 4;
 const PIN_MAX_LENGTH = 8;
 const WRONG_PIN_DELAY_MS = 700;
+/** v1.3.3: three wrong PINs → MAX_ATTEMPTS, then LOCKOUT_MS of dead keypad. */
+const MAX_ATTEMPTS = 3;
+const LOCKOUT_MS = 30 * 1000;
+
+const guardState = { failures: 0, lockedUntil: 0 };
+
+function secondsUntil(until) {
+  return Math.max(0, Math.ceil((until - Date.now()) / 1000));
+}
 
 export default function LockScreen({ t, lang, busy = false, onSubmit }) {
   const align = textAlign(lang);
   const [pin, setPin] = useState('');
   const [error, setError] = useState(null);
   const [checking, setChecking] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(() => secondsUntil(guardState.lockedUntil));
   const errorTimer = useRef(null);
   const inFlight = useRef(false);
+  const locked = secondsLeft > 0;
 
   useEffect(
     () => () => {
@@ -36,12 +56,53 @@ export default function LockScreen({ t, lang, busy = false, onSubmit }) {
     []
   );
 
-  const showWrongPin = () => {
+  // The countdown: one timer while the lockout runs, cleared the moment it ends.
+  // Finishing it clears the wrong-attempt counter so the next three tries start
+  // from zero.
+  useEffect(() => {
+    if (!locked) return undefined;
+    let timer = null;
+    const tick = () => {
+      const left = secondsUntil(guardState.lockedUntil);
+      setSecondsLeft(left);
+      if (left <= 0) {
+        guardState.failures = 0;
+        guardState.lockedUntil = 0;
+        setError(null);
+        if (timer) clearInterval(timer);
+        timer = null;
+      }
+    };
+    tick();
+    timer = setInterval(tick, 500);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [locked]);
+
+  /**
+   * One completed wrong entry (not one keystroke — a 6-digit PIN would otherwise
+   * burn three attempts while the user is still typing it). The third failure in
+   * a row starts the 30-second lockout and resets the counter, so the user gets
+   * a fresh three tries when the countdown ends.
+   */
+  const registerFailure = () => {
     if (errorTimer.current) clearTimeout(errorTimer.current);
     errorTimer.current = null;
-    setError(t('Wrong PIN. Try again.'));
     setPin('');
+    const next = guardState.failures + 1;
+    if (next >= MAX_ATTEMPTS) {
+      guardState.failures = 0;
+      guardState.lockedUntil = Date.now() + LOCKOUT_MS;
+      setSecondsLeft(secondsUntil(guardState.lockedUntil));
+      setError(null);
+      return;
+    }
+    guardState.failures = next;
+    setError(t('Wrong PIN. Try again.'));
   };
+
+  const showWrongPin = registerFailure;
 
   const attempt = async (value) => {
     if (inFlight.current) return;
@@ -52,6 +113,8 @@ export default function LockScreen({ t, lang, busy = false, onSubmit }) {
       if (ok) {
         if (errorTimer.current) clearTimeout(errorTimer.current);
         errorTimer.current = null;
+        guardState.failures = 0;
+        guardState.lockedUntil = 0;
         return;
       }
       if (value.length >= PIN_MAX_LENGTH) {
@@ -68,6 +131,7 @@ export default function LockScreen({ t, lang, busy = false, onSubmit }) {
   };
 
   const change = (next) => {
+    if (locked) return;
     setError(null);
     if (errorTimer.current) {
       clearTimeout(errorTimer.current);
@@ -93,7 +157,7 @@ export default function LockScreen({ t, lang, busy = false, onSubmit }) {
           value={pin}
           onChange={change}
           onComplete={() => {}}
-          disabled={busy || checking}
+          disabled={busy || checking || locked}
           showOk={false}
         />
       </View>
@@ -104,7 +168,16 @@ export default function LockScreen({ t, lang, busy = false, onSubmit }) {
         </View>
       ) : null}
 
-      {error ? (
+      {locked ? (
+        <View style={styles.lockout}>
+          <Text style={[styles.lockoutText, { textAlign: align }]}>
+            {t('Try again in {{seconds}}s…', { seconds: formatNumber(secondsLeft, lang) })}
+          </Text>
+          <Text style={[styles.lockoutReason, { textAlign: align }]}>
+            {t('Too many wrong attempts.')}
+          </Text>
+        </View>
+      ) : error ? (
         <Text style={styles.error}>{error}</Text>
       ) : (
         <Text style={[styles.hint, { textAlign: align }]}>
@@ -170,5 +243,21 @@ const styles = StyleSheet.create({
     color: COLORS.pageMuted,
     fontSize: 12,
     marginTop: 8,
+  },
+  lockout: {
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  lockoutText: {
+    color: COLORS.pageError,
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 2,
+    fontVariant: ['tabular-nums'],
+  },
+  lockoutReason: {
+    color: COLORS.pageMuted,
+    fontSize: 12,
+    marginTop: 4,
   },
 });
