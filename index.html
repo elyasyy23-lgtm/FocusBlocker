@@ -20,14 +20,19 @@
 <meta name="twitter:description" content="محافظ شخصی رایگان برای گوشی اندروید: کلمات و سایت‌های پورن همان لحظه بسته می‌شوند. بدون تبلیغ و بدون اینترنت.">
 <meta name="twitter:image" content="https://elyasyy23-lgtm.github.io/FocusBlocker/assets/web-icon.png">
 <meta name="theme-color" content="#0F172A">
-<!-- Google Analytics 4 (2026-11-14, owner request). Measurement ID G-CVCKBEBCV1.
-     async → never blocks the page; this is the only third-party request on the site. -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-CVCKBEBCV1"></script>
+
+<!-- Traffic stats: Umami Cloud (free Hobby plan, cookieless). The website id is a
+     public identifier, safe to keep in the page. Google Analytics was removed so the
+     «بدون جمع‌آوری اطلاعات» promise in the footer stays true. -->
 <script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-CVCKBEBCV1');
+  var TAVAKKOL_UMAMI_ID = 'a9e61d4a-7e53-45e4-9078-f6af538b6c68';
+  if (TAVAKKOL_UMAMI_ID) {
+    var umami = document.createElement('script');
+    umami.async = true;
+    umami.src = 'https://cloud.umami.is/script.js';
+    umami.setAttribute('data-website-id', TAVAKKOL_UMAMI_ID);
+    document.head.appendChild(umami);
+  }
 </script>
 <script type="application/ld+json">
 {
@@ -244,6 +249,14 @@
   }
   .foot a{color:var(--accent-deep);font-weight:700;text-decoration:none;border-bottom:1px solid rgba(11,61,36,.25);padding-bottom:1px}
   .foot a:hover{border-color:var(--accent-deep)}
+  .foot-meta{opacity:.7;font-size:.8rem;margin-top:18px}
+  .stats-link{
+    display:inline-flex;align-items:center;gap:6px;margin-inline-start:12px;
+    padding:3px 10px;border:1px solid var(--line);border-radius:999px;
+    color:var(--muted);font-weight:700;border-bottom:1px solid var(--line);
+  }
+  .stats-link:hover{color:var(--accent-deep);border-color:var(--accent-deep)}
+  .stats-link::before{content:"↗";font-size:.9em}
   .wordmark{
     font-size:clamp(2.6rem,13vw,7rem);font-weight:900;line-height:1;
     letter-spacing:-.05em;color:transparent;-webkit-text-stroke:1.5px rgba(16,26,20,.12);
@@ -797,9 +810,11 @@
       </span>
     </div>
     <p class="wordmark">توکل</p>
-    <p class="foot" style="opacity:.7;font-size:.8rem;margin-top:18px">
-      آخرین به‌روزرسانی: آبان ۱۴۰۵ · نسخهٔ ۱.۴.۱۵
+    <p class="foot foot-meta">
+      <span>آخرین به‌روزرسانی: آبان ۱۴۰۵ · نسخهٔ ۱.۴.۱۵</span>
+      <a class="stats-link" id="statsLink" href="https://cloud.umami.is/share/E5qW7nnc43EoLYez" target="_blank" rel="noopener">آمار بازدید</a>
     </p>
+
   </footer>
 
 </div>
