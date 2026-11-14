@@ -926,3 +926,33 @@ in the **US** region). Footer «آمار بازدید» is a visible pill next t
 footer promise «بدون جمع‌آوری اطلاعات» stays true — do not re-add gtag without being asked.
 Verified live: page contains the ID, `cloud.umami.is/script.js` 200 (9,246 B), share page 200,
 no `googletagmanager` anywhere.
+
+## Site language switcher — Persian ↔ English (2026-11-14, SHIPPED `87560d6`)
+
+The landing page is bilingual. **Persian markup is the source of truth**; English lives in one
+dictionary and is applied in place — the app itself is unaffected (no APK change, version stays
+1.4.15 / code 25).
+
+- Markup: every translatable node has `data-i18n` (innerHTML), `data-i18n-title` / `-aria` / `-alt`
+  (attributes). `<title>`/meta got ids (`page-title`, `meta-description`, `og-title`,
+  `og-description`, `tw-title`, `tw-description`, `og-site-name`) and are driven by a `metaEls`
+  array — that is why a naive "unused EN key" scan flags `meta.*` (they ARE used).
+- Header: `.head-left` (flex) = `.brand` + `.lang` pill group (`data-lang="fa"` فارسی / `en` EN,
+  `aria-pressed` marks the active one); `.ver` sits on the opposite side. Mobile
+  `@media (max-width:420px)` shrinks the pills and hides the brand tagline.
+- `<head>` bootstrap sets `window.TAVAKKOL_LANG` + `html.lang-en` + `lang/dir` BEFORE paint (no RTL
+  flash). Persisted in `localStorage['tavakkol_lang']`.
+- End-of-body script: `EN` dictionary (template literals, HTML allowed) + `apply(lang)`; Persian
+  originals cached once in `faText`/`faAttr`/`faMeta` Maps so switching back is lossless;
+  dispatches `CustomEvent('tavakkol:lang')`, which the stats script uses to re-render the download /
+  online counters in `fa-IR` vs `en-US` digits (`fmt()`).
+- CSS: all layout rules are logical (`margin-inline-*`, `text-align:start`) so `dir=ltr` needs no
+  extra rules; `html.lang-en` swaps the display font stack and the step-number counters from
+  `counter(step,persian)` to decimal.
+- JSON-LD stays Persian (`inLanguage: fa-IR`) — do not add a second competing block.
+- Verified: key coverage clean (88 `data-i18n` keys, all defined), 4 inline scripts pass
+  `node --check`, 3 JSON-LD blocks parse, tag balance clean, and a **linkedom DOM test** clicks
+  EN → asserts `dir=ltr` + title/h1/meta/alt/aria-pressed, then FA → asserts a byte-for-byte
+  Persian restore. Tooling recipe: skill `site-bilingual-toggle`; `linkedom` lives in `$TMPDIR/domtest`.
+- `hero.cta` now says ۳۷ مگابایت / 37 MB (the release APK is 37,024,231 B; the old 31 MB was stale).
+
