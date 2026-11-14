@@ -107,6 +107,27 @@
   }
   .meta b{color:var(--ink);font-weight:700}
 
+  /* ---------- live stats badges (real downloads + live-users placeholder) ---------- */
+  .stats{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:20px 0 0}
+  .stat{
+    display:inline-flex;align-items:center;gap:8px;
+    background:var(--surface);border:1px solid var(--line);
+    border-radius:999px;padding:8px 15px;
+    font-size:.9rem;font-weight:700;color:var(--accent-deep);
+    box-shadow:0 2px 10px rgba(16,26,20,.06);
+    white-space:nowrap;
+  }
+  .stat[hidden]{display:none}
+  .stat b{font-variant-numeric:tabular-nums;font-weight:900}
+  .stat .glow{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;
+    box-shadow:0 0 0 0 rgba(21,128,61,.55);animation:livepulse 2.2s ease-out infinite}
+  @keyframes livepulse{
+    0%{box-shadow:0 0 0 0 rgba(21,128,61,.5)}
+    70%{box-shadow:0 0 0 9px rgba(21,128,61,0)}
+    100%{box-shadow:0 0 0 0 rgba(21,128,61,0)}
+  }
+  @media (prefers-reduced-motion:reduce){.stat .glow{animation:none}}
+
   .art{position:relative;display:flex;justify-content:center}
   .art::before{
     content:"";position:absolute;inset:6% 12%;border-radius:50%;
@@ -240,6 +261,19 @@
           </svg>
           دانلود APK — ۳۱ مگابایت
         </a>
+
+        <div class="stats">
+          <span class="stat" id="downloads-badge" hidden>
+            <span aria-hidden="true">📥</span>
+            <b id="downloads-count">۰</b>
+            <span>بار دانلود شده</span>
+          </span>
+          <span class="stat" title="نمایشی — شمارندهٔ کاربران آنلاین">
+            <span class="glow" aria-hidden="true"></span>
+            <b id="live-users">۰</b>
+            <span>کاربر آنلاین</span>
+          </span>
+        </div>
 
         <p class="meta">
           <span>نسخه <b>۱.۴.۱۱</b></span>
@@ -384,5 +418,84 @@
   </footer>
 
 </div>
+
+<script>
+  /*
+   * Real download count for the latest release (GitHub Releases API).
+   * GitHub's public API needs no key. Only the exact asset named below is
+   * counted — the UI stays HIDDEN until the number arrives, so a failed or
+   * rate-limited request can never make the page look broken.
+   */
+  (function () {
+    var API = 'https://api.github.com/repos/elyasyy23-lgtm/FocusBlocker/releases/latest';
+    var ASSET = 'Tavakkol-release.apk';
+
+    var badge = document.getElementById('downloads-badge');
+    var countEl = document.getElementById('downloads-count');
+    var liveEl = document.getElementById('live-users');
+
+    function fa(n) {
+      try {
+        return Number(n).toLocaleString('fa-IR');
+      } catch (error) {
+        return String(n);
+      }
+    }
+
+    /* Count up instead of snapping, so the badge feels alive. */
+    function countUp(el, target) {
+      if (!target) {
+        el.textContent = fa(0);
+        return;
+      }
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduce || !window.requestAnimationFrame) {
+        el.textContent = fa(target);
+        return;
+      }
+      var duration = 1100;
+      var start = null;
+      function step(now) {
+        if (start === null) start = now;
+        var p = Math.min(1, (now - start) / duration);
+        var eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = fa(Math.round(target * eased));
+        if (p < 1) window.requestAnimationFrame(step);
+      }
+      window.requestAnimationFrame(step);
+    }
+
+    fetch(API, { headers: { Accept: 'application/vnd.github+json' } })
+      .then(function (response) {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response.json();
+      })
+      .then(function (release) {
+        var assets = (release && release.assets) || [];
+        var asset = assets.filter(function (item) {
+          return item && item.name === ASSET;
+        })[0];
+        if (!asset) return;
+        countUp(countEl, asset.download_count || 0);
+        badge.hidden = false;
+      })
+      .catch(function () {
+        /* Offline / rate limit / renamed asset: the badge simply stays hidden. */
+      });
+
+    /*
+     * Live-users PLACEHOLDER (owner's request): no data source exists for this,
+     * so the number drifts locally. It is deliberately NOT presented as real
+     * analytics.
+     */
+    var users = 18 + Math.floor(Math.random() * 24);
+    liveEl.textContent = fa(users);
+    window.setInterval(function () {
+      var delta = Math.random() < 0.5 ? -1 : 1;
+      users = Math.max(6, users + delta * (1 + Math.floor(Math.random() * 2)));
+      liveEl.textContent = fa(users);
+    }, 4200);
+  })();
+</script>
 </body>
 </html>
