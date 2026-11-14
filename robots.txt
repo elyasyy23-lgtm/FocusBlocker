@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://elyasyy23-lgtm.github.io/FocusBlocker/sitemap.xml

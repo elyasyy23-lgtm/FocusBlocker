@@ -678,7 +678,7 @@ the keyword/domain boxes stay read-only.
 - The API asset name is the only contract: if the CI release ever renames the APK, update `ASSET`
   in the inline script or the badge silently stays hidden (by design).
 
-## v1.4.12 — adult lock own card · device-admin fixes (2026-11-14, code complete, NOT pushed)
+## v1.4.12 — adult lock own card · device-admin fixes (2026-11-14, SHIPPED)
 
 - Home layout: the adult lock is NO LONGER the third cell of `switchGrid`. It has its own
   `adultCard` directly below the Protection card and above the «کلمات مسدود» section: row with
@@ -695,3 +695,8 @@ the keyword/domain boxes stay read-only.
 - i18n 234 / 291 (3 added, 6 dead keys removed). Version 1.4.12 / code 22.
 - Verified: check-i18n, `npm run verify` (1.2 MB bundle), prebuild 1.4.12 (22), XML parse.
   Kotlin compiles only in CI.
+- SHIPPED 2026-11-14: commit `fe87d45` → main + tag `v1.4.12`; CI 43598941927 (main) +
+  43598946401 (tag) both SUCCESS → Release `Tavakkol v1.4.12`, `Tavakkol-release.apk`
+  37,023,319 bytes (`releases/latest/...` 302 → v1.4.12). Pending owner on-device check: the
+  adult card standing alone under the Protection card (counts inside it, frozen while Protection
+  ON) and the «تنظیمات مدیر» button always opening a real screen.

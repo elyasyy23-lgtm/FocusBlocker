@@ -480,7 +480,7 @@ GOAL: `index.html` shows the real number of APK downloads from GitHub, plus the 
 - Note: `download_count` is per release asset — a new upload next release starts at 0, and the
   asset name `Tavakkol-release.apk` is the only contract (`ASSET` in the inline script).
 
-## v1.4.12 — adult lock own card · device Admin fixes (code complete + verified, NOT pushed)
+## v1.4.12 — adult lock own card · device Admin fixes (SHIPPED)
 
 GOAL: (1) the adult lock leaves the Protection/Delay-Mode grid and gets its own card below the
 Protection card, before the keyword section — hint text stays inside it and it still freezes while
@@ -517,7 +517,11 @@ fix the system-settings intent so the button always lands somewhere useful; (3) 
       versionName 1.4.12 / versionCode 22, app_name Tavakkol; three XML files parse; Kotlin
       brace/paren balance checked; `android/` + `dist/` wiped.
 
-NOW: waiting for the owner to run the push/tag block below (Kotlin compiles only in CI).
+- [x] SHIPPED 2026-11-14: commit `fe87d45` → main + tag `v1.4.12`; CI 43598941927 (main) +
+      43598946401 (tag) both SUCCESS (Gradle compiled the new ladder) → Release `Tavakkol v1.4.12`,
+      `Tavakkol-release.apk` 37,023,319 bytes, `releases/latest/...` 302 → v1.4.12.
+
+NOW: nothing pending — owner on-device check of the new card + the device-admin button.
 
 ```bash
 cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
