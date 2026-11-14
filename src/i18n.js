@@ -424,6 +424,13 @@ const FA = {
     'برای اینکه حذف توکل ممکن شود، همین‌جا آن را غیرفعال کنید.',
   'No device-admin screen answered on this phone. Open Settings → Security → Device admin apps and pick Tavakkol.':
     'هیچ صفحهٔ مدیر دستگاهی روی این گوشی باز نشد. خودتان این مسیر را بروید: تنظیمات ← امنیت ← برنامه‌های مدیر دستگاه و توکل را انتخاب کنید.',
+  'This phone did not open the Device admin list. Open it by hand:':
+    'این گوشی فهرست مدیر دستگاه را باز نکرد. خودتان این مسیر را بروید:',
+  'Settings → Security → Device admin apps':
+    'تنظیمات ← امنیت ← برنامه‌های مدیر دستگاه',
+  'MIUI/HyperOS sometimes hides this entry. If it is missing, search “device admin” in Settings.':
+    'MIUI/HyperOS گاهی این گزینه را پنهان می‌کند. اگر نبود، در تنظیمات عبارت «مدیر دستگاه» را جست‌وجو کنید.',
+  'Hide this guide': 'بستن راهنما',
   'Turn Protection off before changing the adult content lock.':
     'پیش از تغییر قفل محتوای بزرگسالان، محافظت را خاموش کنید.',
 };

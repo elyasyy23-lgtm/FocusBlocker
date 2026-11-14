@@ -781,7 +781,7 @@ the keyword/domain boxes stay read-only.
 - Resulting page: ~1,238 visible words, 1 `<h1>` / 4 `<h2>` / 13 `<h3>`, 0 broken anchors, tags
   balanced, no third-party font host. Sitemap `lastmod` stays 2026-11-14 (same day).
 
-## v1.4.13 (2026-11-14, code complete + verified, NOT pushed — owner runs push/tag)
+## v1.4.13 (2026-11-14, SHIPPED)
 
 **Device-admin button still dead on HyperOS** (owner: no error in Debug Log, tapping «تنظیمات مدیر»
 changed nothing). Root problem was diagnosability, not just routing: v1.4.12 returned only a label
@@ -815,3 +815,42 @@ finishes looked identical to "nothing happened".
   braces/parens balanced (Kotlin compiles only in CI).
 - If MIUI STILL opens nothing while the log shows `admin_intent_ok`, the ROM accepted the intent and
   killed the screen: the next step is a JS-visible in-app instructions card, not another intent.
+
+SHIPPED 2026-11-14: commit `ce34b23` → main + tag `v1.4.13` (owner pasted the push block, zyvo ran
+it). CI runs **43605311057** (main) and **43605315288** (tag) both SUCCESS — `Build release APK`
+step green, so the new Kotlin compiled first try. Release `Tavakkol v1.4.13` live:
+`Tavakkol-release.apk` 37,025,867 bytes; `releases/latest/...` 302 → v1.4.13; Pages `version.json`
+serves `latestVersion: 1.4.13`. Pending owner on-device check: tap «تنظیمات مدیر» once, then read
+Home → Debug Log (`admin_button_clicked` + `admin_intent_ok|skip|fail` + `admin_intent_result`).
+
+## v1.4.14 (2026-11-14, code complete + verified, NOT pushed — owner runs push/tag)
+
+**Plain list intent fired first + visible text guide.** Owner asked for the exact
+`Intent("android.settings.DEVICE_ADMIN_SETTINGS")` (the Device admin APPS LIST, not the "Add admin"
+screen) to be tried on its own, with a caught crash and a text fallback.
+
+- `FocusGuardModule.kt` `openDeviceAdminSettings` rewritten: **attempt 1 = bare
+  `Intent("android.settings.DEVICE_ADMIN_SETTINGS")`, no extras** (v1.4.13 attached
+  `EXTRA_DEVICE_ADMIN`, which makes MIUI jump to the details page instead of the list), logged as
+  `admin_list_intent` (before) → `admin_list_intent_ok` / `admin_list_intent_fail` (after), returns
+  `opened='admin'`. Then the fallbacks (`component`, two AOSP admin activities, security, settings)
+  each fire-and-catch.
+- **ROOT CAUSE of v1.4.13's silence:** the `resolveActivity()` skip gate. On Android 11+ that call
+  returns **null for `com.android.settings` intents** unless the package/intent is declared in
+  `<queries>` — every candidate was skipped with only `admin_intent_skip` lines, i.e. a dead button.
+  Gate removed (fire + catch is the only honest test); the resolve call is now used for the log text
+  only, wrapped in `runCatching`.
+- Module manifest `<queries>` gains `<package android:name="com.android.settings" />` + an intent
+  entry for `android.settings.DEVICE_ADMIN_SETTINGS` so the logged target is real.
+- `SettingsScreen.js`: new `adminGuide` state + card under the button — shown when the result is
+  `none`, `security` or `settings` (i.e. the list really did not open): title, the manual path
+  «تنظیمات ← امنیت ← برنامه‌های مدیر دستگاه», a MIUI-hides-it hint (search "device admin") and a
+  «بستن راهنما» button. `debugLog.js` colors for `admin_list_intent{,_ok,_fail}`.
+- i18n 241 strings / 298 translations (4 new). Version 1.4.14 / code 24 (app.json, package.json,
+  package-lock, buildInfo), `version.json` 1.4.14, index.html ۱.۴.۱۴ (3 spots).
+- Verified: check-i18n OK, `npm run verify` green (bundle contains `adminGuide` + `admin_list_intent`),
+  prebuild 1.4.14, manifest XML parses, Kotlin braces/parens balanced (compiles only in CI),
+  `android/` + `dist/` wiped.
+
+Expected Debug Log order after a tap: `admin_button_clicked` → `admin_list_intent` →
+`admin_list_intent_ok` (or `_fail` then `admin_intent_ok …` / `admin_intent_none`).

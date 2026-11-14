@@ -323,12 +323,15 @@ class FocusGuardModule : Module() {
      * ('none' when even the Settings home page refuses to launch).
      */
     /**
-     * v1.4.13 (owner bug: on HyperOS/MIUI this button did nothing at all, with no
-     * error in the debug log): every attempt is now logged with the activity it
-     * resolves to — or the exception it threw — and the ladder gained the
-     * explicit AOSP admin activity as well as the activation/detail dialog.
-     * Returns the screen that opened plus its component, so the JS hint can be
-     * exact instead of guessing.
+     * v1.4.14 (owner request): the plain «Device admin apps» list screen
+     * (`android.settings.DEVICE_ADMIN_SETTINGS`) is fired FIRST, exactly as
+     * written — no extras, because EXTRA_DEVICE_ADMIN makes MIUI jump straight
+     * to the details page instead of the list. The v1.4.13 `resolveActivity`
+     * gate is gone: on Android 11+ that call returns null for Settings unless
+     * the package is declared in <queries>, which would silently skip every
+     * candidate. Firing and catching is the only honest test on a ROM we cannot
+     * inspect. Every attempt is logged, and the caller gets the screen that
+     * actually opened (or "none" → the JS layer shows the text guide).
      */
     AsyncFunction("openDeviceAdminSettings") {
       val ctx = requireContext()
@@ -338,6 +341,30 @@ class FocusGuardModule : Module() {
         "active=$active sdk=${Build.VERSION.SDK_INT} ${Build.MANUFACTURER}/${Build.BRAND}"
       )
 
+      // ---- 1) the list screen, exactly as requested -------------------------
+      val listIntent = Intent("android.settings.DEVICE_ADMIN_SETTINGS")
+      val listTarget = runCatching { resolveTarget(ctx, listIntent) }.getOrNull()
+      FocusGuardStore.logEvent(
+        ctx, "admin_list_intent", null,
+        "firing android.settings.DEVICE_ADMIN_SETTINGS → " + (listTarget ?: "target hidden")
+      )
+      try {
+        listIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        ctx.startActivity(listIntent)
+        FocusGuardStore.logEvent(ctx, "admin_list_intent_ok", null, listTarget ?: "started")
+        return@AsyncFunction mapOf(
+          "opened" to "admin",
+          "target" to (listTarget ?: ""),
+          "active" to active
+        )
+      } catch (error: Throwable) {
+        FocusGuardStore.logEvent(
+          ctx, "admin_list_intent_fail", null,
+          error.javaClass.simpleName + ": " + error.message
+        )
+      }
+
+      // ---- 2) fallbacks ----------------------------------------------------
       val addAdmin = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
         putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent(ctx))
         putExtra(
@@ -352,58 +379,38 @@ class FocusGuardModule : Module() {
         )
       }
 
-      val adminList = Intent("android.settings.DEVICE_ADMIN_SETTINGS").apply {
-        // Some ROMs (MIUI) only land on the right row when the component is sent.
-        putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent(ctx))
-      }
-
-      val candidates = ArrayList<Pair<String, Intent>>()
-      if (active) {
-        // Already active: the details screen is what the user wants (Deactivate lives there).
-        candidates.add("component" to addAdmin)
-        candidates.add("admin" to adminList)
-      } else {
-        candidates.add("admin" to adminList)
-        candidates.add("component" to addAdmin)
-      }
-      // MIUI hides the entry from the Settings UI but usually keeps the class.
-      candidates.add(
+      val candidates = listOf(
+        "component" to addAdmin,
         "admin_activity" to Intent().setComponent(
           ComponentName("com.android.settings", "com.android.settings.Settings\$DeviceAdminSettingsActivity")
-        )
-      )
-      candidates.add(
+        ),
         "admin_activity_legacy" to Intent().setComponent(
           ComponentName("com.android.settings", "com.android.settings.DeviceAdminSettings")
-        )
+        ),
+        "security" to Intent(Settings.ACTION_SECURITY_SETTINGS),
+        "settings" to Intent(Settings.ACTION_SETTINGS)
       )
-      candidates.add("security" to Intent(Settings.ACTION_SECURITY_SETTINGS))
-      candidates.add("settings" to Intent(Settings.ACTION_SETTINGS))
 
       for ((label, intent) in candidates) {
-        val target = resolveTarget(ctx, intent)
-        if (target == null) {
-          FocusGuardStore.logEvent(ctx, "admin_intent_skip", null, "$label → no activity")
-          continue
-        }
+        val target = runCatching { resolveTarget(ctx, intent) }.getOrNull()
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
           ctx.startActivity(intent)
-          FocusGuardStore.logEvent(ctx, "admin_intent_ok", null, "$label → $target")
+          FocusGuardStore.logEvent(ctx, "admin_intent_ok", null, label + " → " + (target ?: "started"))
           return@AsyncFunction mapOf(
             "opened" to label,
-            "target" to target,
+            "target" to (target ?: ""),
             "active" to active
           )
         } catch (error: Throwable) {
           FocusGuardStore.logEvent(
             ctx, "admin_intent_fail", null,
-            "$label → ${error.javaClass.simpleName}: ${error.message}"
+            label + " → " + error.javaClass.simpleName + ": " + error.message
           )
         }
       }
 
-      FocusGuardStore.logEvent(ctx, "admin_intent_none", null, "${candidates.size} intents failed")
+      FocusGuardStore.logEvent(ctx, "admin_intent_none", null, "${candidates.size + 1} intents failed")
       mapOf("opened" to "none", "target" to "", "active" to active)
     }
 

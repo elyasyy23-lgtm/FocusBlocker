@@ -66,6 +66,8 @@ export default function SettingsScreen({
   // in v1.4.7 (owner request) — this screen only reads the health line.
   const [health, setHealth] = useState(null);
   const [keepAliveBusy, setKeepAliveBusy] = useState(false);
+  /** v1.4.14: shown when no device-admin screen answers — the text guide. */
+  const [adminGuide, setAdminGuide] = useState(false);
 
   // v1.3.1: the Partner PIN is set/removed here.
   const [pinSet, setPinSet] = useState(false);
@@ -426,6 +428,12 @@ export default function SettingsScreen({
       );
     }
 
+    // v1.4.14: the plain list intent is tried first; anything short of a real
+    // admin screen (or a fallback the user can navigate from) arms the guide.
+    setAdminGuide(
+      result.opened === 'none' || result.opened === 'security' || result.opened === 'settings'
+    );
+
     if (result.opened === 'component') {
       onMessage(
         result.active
@@ -580,6 +588,24 @@ export default function SettingsScreen({
             onPress={openDeviceAdminSettings}
             disabled={!isAvailable}
           />
+          {adminGuide ? (
+            <View style={styles.adminGuide}>
+              <Text style={[styles.adminGuideTitle, { textAlign: align }]}>
+                {t('This phone did not open the Device admin list. Open it by hand:')}
+              </Text>
+              <Text style={[styles.adminGuidePath, { textAlign: align }]}>
+                {t('Settings → Security → Device admin apps')}
+              </Text>
+              <Text style={[styles.adminGuideHint, { textAlign: align }]}>
+                {t('MIUI/HyperOS sometimes hides this entry. If it is missing, search “device admin” in Settings.')}
+              </Text>
+              <ActionButton
+                label={t('Hide this guide')}
+                variant="secondary"
+                onPress={() => setAdminGuide(false)}
+              />
+            </View>
+          ) : null}
         </Section>
 
         <Section
@@ -960,6 +986,30 @@ export default function SettingsScreen({
 }
 
 const styles = StyleSheet.create({
+  adminGuide: {
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surfaceAlt,
+    gap: 8,
+  },
+  adminGuideTitle: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  adminGuidePath: {
+    color: COLORS.accent,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  adminGuideHint: {
+    color: COLORS.muted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
   root: {
     flex: 1,
     backgroundColor: COLORS.background,

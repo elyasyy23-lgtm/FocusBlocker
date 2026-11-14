@@ -31,6 +31,13 @@
       <action android:name="android.intent.action.MAIN" />
       <category android:name="android.intent.category.LAUNCHER" />
     </intent>
+    <!-- v1.4.14: Settings intents are resolved for the debug log. Without these
+         entries resolveActivity() returns null for com.android.settings on
+         Android 11+, which is what made the v1.4.13 ladder look dead. -->
+    <package android:name="com.android.settings" />
+    <intent>
+      <action android:name="android.settings.DEVICE_ADMIN_SETTINGS" />
+    </intent>
     <package android:name="com.miui.securitycenter" />
     <package android:name="com.huawei.systemmanager" />
     <package android:name="com.coloros.safecenter" />
