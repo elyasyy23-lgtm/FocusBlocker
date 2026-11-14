@@ -700,3 +700,55 @@ the keyword/domain boxes stay read-only.
   37,023,319 bytes (`releases/latest/...` 302 → v1.4.12). Pending owner on-device check: the
   adult card standing alone under the Protection card (counts inside it, frozen while Protection
   ON) and the «تنظیمات مدیر» button always opening a real screen.
+
+## Site SEO (2026-11-14, shipped `3b19dda`)
+
+- `index.html` head now carries the Persian search copy (owner's verbatim text): `<title>` =
+  «توکل | برنامه رایگان برای رهایی از محتوای بزرگسالان و ترک پورن», the matching
+  `<meta name="description">`, `<meta name="keywords">` (Google ignores it — kept for Bing/others),
+  `<meta name="robots" content="index, follow">`, `<link rel="canonical">`, full OG/Twitter tags
+  with absolute `og:image`, and a JSON-LD `SoftwareApplication` block (free offer + `downloadUrl`).
+- `sitemap.xml` (single URL, `lastmod`, weekly) and `robots.txt` (allow-all + `Sitemap:` line) sit
+  in the repo root, so Pages serves them at `/sitemap.xml` and `/robots.txt`. Update `lastmod`
+  when the page changes in a meaningful way.
+- Ranking reality: keywords meta does nothing on Google; the title/description/JSON-LD + the on-page
+  Persian text are what can rank, and `*.github.io` subdomains are weak — a custom domain is the
+  real upgrade if search traffic matters.
+
+### Search Console verification (pending, owner action)
+
+- The owner is registering the site in Google Search Console (URL-prefix property
+  `https://elyasyy23-lgtm.github.io/FocusBlocker/`). If Google hands over an HTML verification
+  file (`googleXXXXXXXXXXXX.html`), drop it in the repo ROOT exactly as named (Pages serves `/`),
+  commit, push `main`, wait ~1 min, then confirm `https://elyasyy23-lgtm.github.io/FocusBlocker/
+  googleXXXXXXXXXXXX.html` returns 200 before tapping "Verify". Alternative if a file is awkward:
+  the HTML tag method (`<meta name="google-site-verification" ...>`) in `index.html` head — both
+  are permanent, do not delete afterwards.
+- Sitemap to submit after verification: `https://elyasyy23-lgtm.github.io/FocusBlocker/sitemap.xml`.
+- On-page audit 2026-11-14: 1 `<h1>`, 2 `<h2>`, 6 `<h3>`, 2 images (all with alt), ~346 visible
+  words — thin for competitive terms like «ترک پورن». No FAQ/HowTo structured data, no in-page
+  anchors, Google Fonts loaded from the network. These were the known gaps for the next SEO pass.
+
+## Site content + performance pass (2026-11-14)
+
+- `index.html` now has a jump-pill nav under the hero (`.jump` → `#features`, `#install`, `#guide`,
+  `#faq`), an `id` on the features and install sections, smooth scrolling with a
+  `prefers-reduced-motion` opt-out and `section[id]{scroll-margin-top:24px}`.
+- New `#guide` «راهنمای ترک پورن» section: intro (`.intro`) + 7 numbered steps in `ol.plan`
+  (CSS counters, `counter(step,persian)` → Persian digits, 38px green badges, becomes a stacked
+  block under 820px) + amber `.tip` box about pacing. Plain honest copy — no medical promises.
+- New `#faq` section: 8 `<details class="qa">` items (free? offline? images? how to turn off?
+  privacy? Android 13 restriction? uninstall? battery?), `+`/`−` marker via `summary::after`,
+  `::-webkit-details-marker` removed.
+- Structured data: `HowTo` (3 install steps, `totalTime PT2M`) + `FAQPage` (same 8 Q&A) as separate
+  `application/ld+json` blocks beside the existing `SoftwareApplication`. All three parse; the FAQ
+  answers duplicate the visible text on purpose.
+- Fonts self-hosted: `assets/fonts/Vazirmatn-{Regular,Bold,Black}.woff2` (~50 KB each) with
+  `@font-face` + `font-display:swap`; the three `fonts.googleapis.com` / `fonts.gstatic.com`
+  requests are GONE. Only Regular is preloaded; the icon gets
+  `<link rel="preload" as="image" fetchpriority="high">` and the hero `<img>` `fetchpriority="high"`.
+  `900` covers headings, `700` also serves `800`, so no synthetic-bold Persian.
+- Dead CSS tokens `--space-1..4` removed (7 classes / 19 vars audited: no unused class left).
+- Footer carries «آخرین به‌روزرسانی: آبان ۱۴۰۵ · نسخهٔ ۱.۴.۱۲» as a freshness signal.
+- Resulting page: ~1,238 visible words, 1 `<h1>` / 4 `<h2>` / 13 `<h3>`, 0 broken anchors, tags
+  balanced, no third-party font host. Sitemap `lastmod` stays 2026-11-14 (same day).

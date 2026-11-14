@@ -36,10 +36,23 @@
 }
 </script>
 <link rel="icon" href="assets/web-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="preload" href="assets/fonts/Vazirmatn-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/web-icon.png" as="image" fetchpriority="high">
 <style>
+  /* Self-hosted Vazirmatn (v1.4.12 speed pass): no third-party request, no
+     render-blocking stylesheet, and only the three weights the page uses. */
+  @font-face{
+    font-family:'Vazirmatn';font-style:normal;font-weight:400;font-display:swap;
+    src:url('assets/fonts/Vazirmatn-Regular.woff2') format('woff2');
+  }
+  @font-face{
+    font-family:'Vazirmatn';font-style:normal;font-weight:700;font-display:swap;
+    src:url('assets/fonts/Vazirmatn-Bold.woff2') format('woff2');
+  }
+  @font-face{
+    font-family:'Vazirmatn';font-style:normal;font-weight:900;font-display:swap;
+    src:url('assets/fonts/Vazirmatn-Black.woff2') format('woff2');
+  }
   :root{
     --bg:#F6F3EA;
     --bg-2:#EFEBDF;
@@ -52,8 +65,7 @@
     --line:#E2DCCB;
     --radius:26px;
     --radius-sm:14px;
-    --space-1:4px; --space-2:8px; --space-3:16px;
-    --space-4:24px; --space-5:48px; --space-6:88px;
+    --space-5:48px; --space-6:88px;
     --container:1080px;
     --display:'Vazirmatn','Noto Naskh Arabic',Tahoma,system-ui,sans-serif;
   }
@@ -229,6 +241,57 @@
     margin:28px 0 0;user-select:none;
   }
 
+  /* ---------- in-page navigation ---------- */
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} }
+  section[id]{scroll-margin-top:24px}
+
+  /* ---------- jump nav (v1.4.12 content pass) ---------- */
+  .jump{display:flex;flex-wrap:wrap;gap:8px;padding:0 0 var(--space-5)}
+  .jump a{
+    font-size:.85rem;font-weight:700;text-decoration:none;color:var(--accent-deep);
+    background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 14px;
+    transition:background .2s ease, border-color .2s ease;
+  }
+  .jump a:hover{background:var(--accent-soft);border-color:rgba(21,128,61,.45)}
+
+  /* ---------- guide (راهنمای ترک) ---------- */
+  .guide{padding-bottom:var(--space-6)}
+  .plan{list-style:none;counter-reset:step;margin:24px 0 0;padding:0;display:grid;gap:16px}
+  .plan li{counter-increment:step;position:relative;padding-inline-start:54px}
+  .plan li::before{
+    content:counter(step,persian);position:absolute;inset-inline-start:0;top:2px;
+    width:38px;height:38px;border-radius:12px;display:grid;place-items:center;
+    background:var(--accent-soft);color:var(--accent-deep);font-weight:900;font-size:.95rem;
+    border:1px solid rgba(21,128,61,.18);
+  }
+  .plan h3{margin:0 0 6px;font-size:1.02rem;font-weight:800;letter-spacing:-.01em}
+  .plan p{margin:0;color:var(--muted);font-size:.95rem;line-height:1.85}
+  .intro{font-size:1.02rem;line-height:1.9;color:var(--muted);margin:0;max-width:64ch}
+  .tip{
+    margin:24px 0 0;background:#FFF6E6;border:1px solid #F0DDB4;border-radius:var(--radius-sm);
+    padding:16px 18px;color:#6B4A12;font-size:.92rem;line-height:1.8;
+  }
+  .tip b{color:#5A3D0D}
+
+  /* ---------- FAQ ---------- */
+  .faq{padding-bottom:var(--space-6)}
+  .qa{
+    margin-top:12px;background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--radius-sm);padding:0 18px;
+  }
+  .qa summary{
+    cursor:pointer;list-style:none;padding:16px 0;font-weight:800;font-size:.97rem;
+    position:relative;padding-inline-end:28px;
+  }
+  .qa summary::-webkit-details-marker{display:none}
+  .qa summary::after{
+    content:"+";position:absolute;inset-inline-end:0;top:50%;transform:translateY(-50%);
+    color:var(--accent);font-weight:900;font-size:1.2rem;line-height:1;
+  }
+  .qa[open] summary::after{content:"−"}
+  .qa p{margin:0 0 16px;color:var(--muted);font-size:.93rem;line-height:1.8}
+
   /* ---------- reveal ---------- */
   .reveal{opacity:0;transform:translateY(18px);animation:rise .7s cubic-bezier(.16,1,.3,1) forwards}
   .reveal:nth-child(2){animation-delay:.08s}
@@ -248,6 +311,9 @@
     .c-wide,.c-narrow,.c-third,.c-big{grid-column:span 2}
     .c-big{flex-direction:column;align-items:flex-start}
     .section-head{flex-direction:column;align-items:flex-start;gap:6px}
+    .plan li{padding-inline-start:0}
+    .plan li::before{position:static;margin-bottom:8px}
+    .qa{padding:0 14px}
   }
   @media (max-width:420px){
     body{font-size:16px}
@@ -255,13 +321,122 @@
     .meta{font-size:.8rem}
   }
 </style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "inLanguage": "fa",
+  "name": "نصب توکل — محافظ محتوای بزرگسالان روی اندروید",
+  "description": "نصب APK توکل و فعال‌سازی سرویس دسترسی‌پذیری در کمتر از دو دقیقه، بدون حساب کاربری.",
+  "totalTime": "PT2M",
+  "tool": [
+    {
+      "@type": "HowToTool",
+      "name": "گوشی اندروید"
+    }
+  ],
+  "step": [
+    {
+      "@type": "HowToStep",
+      "position": 1,
+      "name": "فایل را دانلود کن",
+      "text": "روی دکمهٔ دانلود در بالای صفحه بزن؛ فایل APK در پوشهٔ دانلود ذخیره می‌شود."
+    },
+    {
+      "@type": "HowToStep",
+      "position": 2,
+      "name": "اجازهٔ نصب بده",
+      "text": "اگر اندروید هشدار داد، برای مرورگر یا فایل‌منیجر «نصب از منابع نامشخص» را روشن کن."
+    },
+    {
+      "@type": "HowToStep",
+      "position": 3,
+      "name": "سرویس دسترسی‌پذیری را روشن کن",
+      "text": "در برنامه روی «باز کردن تنظیمات دسترسی‌پذیری» بزن و سرویس «نگهبان توکل» را فعال کن."
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "inLanguage": "fa",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "توکل واقعاً رایگان است؟",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "بله. نه اشتراک دارد، نه تبلیغ، نه حساب کاربری. همهٔ امکانات از روز اول باز است و لازم نیست چیزی خریداری کنی."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "توکل به اینترنت نیاز دارد؟",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "نه. فهرست کلمه‌ها و سایت‌ها و همهٔ بررسی‌ها روی خود گوشی انجام می‌شود. برنامه حتی در حالت پرواز هم کار می‌کند."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "آیا عکس و ویدیو را هم تشخیص می‌دهد؟",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "نه، و این را صادقانه می‌گوییم: توکل متنِ تایپ‌شده و آدرس سایت‌ها را مسدود می‌کند، نه محتوای تصویری داخل اپ‌ها را. برای پوششِ کامل‌تر، آن را همراه با فیلترِ DNS یا تنظیمات خانوادگی گوشی استفاده کن."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "چطور محافظت را خاموش کنم؟",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "در حالت عادی با یک ضربه روی کلید محافظت. اگر رمز همراه را فعال کرده باشی، برای خاموش کردن باید رمز را وارد کنی. اگر «حالت تأخیر» روشن باشد، باید یک متن بلند را دقیق تایپ کنی و کپی‌کردن هم کار نمی‌کند. برای وقتی که به رمز دسترسی نداری، خاموش‌سازی با پیامک از شمارهٔ ثبت‌شده وجود دارد."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "چه اطلاعاتی از من جمع می‌شود؟",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "هیچ. برنامه هیچ آماری نمی‌فرستد، هیچ سروری ندارد و کلمه‌های شخصی‌ات از گوشی بیرون نمی‌رود. می‌توانی با قطع اینترنت هم امتحانش کنی."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "روی اندروید ۱۳ و بالاتر سرویس قفل می‌شود، چه کنم؟",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "اندروید از نسخهٔ ۱۳ دسترسی‌پذیریِ برنامه‌های نصب‌شده از بیرون فروشگاه را محدود می‌کند. راه حل در خود برنامه آمده: برنامه را باز کن، «تنظیمات محدودشده» را تأیید کن و بعد دوباره سرویس را روشن کن. اگر سرویس بعد از چند ساعت خاموش شد، Autostart و «بدون محدودیت» را در تنظیمات گوشی برای توکل فعال کن."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "اگر بخواهم برنامه را حذف کنم؟",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "اول محافظت را خاموش کن، بعد مدیر دستگاه را در تنظیمات گوشی غیرفعال کن؛ آن‌وقت حذف مثل هر برنامهٔ دیگری انجام می‌شود. این قفل جلوی حذفِ تصادفی و حذف توسط دیگران را می‌گیرد، نه حذفِ آگاهانهٔ خودت."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "باتری گوشی را چقدر مصرف می‌کند؟",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "بسیار کم. بررسی‌ها فقط وقتی انجام می‌شود که در حال تایپ هستی یا آدرس صفحه‌ای خوانده می‌شود؛ هیچ پردازش پس‌زمینهٔ سنگین یا اتصال شبکه‌ای وجود ندارد."
+      }
+    }
+  ]
+}
+</script>
 </head>
 <body>
 <div class="wrap">
 
   <header>
     <div class="brand">
-      <img src="assets/web-icon.png" alt="نشان برنامه توکل" width="34" height="34">
+      <img src="assets/web-icon.png" alt="نشان برنامه توکل" width="34" height="34" decoding="async">
       <div>
         <span>توکل</span><br>
         <small>نگهبانِ گوشی خودت</small>
@@ -308,11 +483,18 @@
       </div>
 
       <div class="art reveal">
-        <img src="assets/web-icon.png" alt="آیکون برنامه توکل" width="320" height="320">
+        <img src="assets/web-icon.png" alt="آیکون برنامه توکل" width="320" height="320" fetchpriority="high" decoding="async">
       </div>
     </section>
 
-    <section>
+    <nav class="jump" aria-label="پرش سریع">
+      <a href="#features">امکانات</a>
+      <a href="#install">نصب</a>
+      <a href="#guide">راهنمای ترک</a>
+      <a href="#faq">سؤال‌های پرتکرار</a>
+    </nav>
+
+    <section id="features">
       <div class="section-head reveal">
         <h2>توکل چه کاری برایت می‌کند؟</h2>
         <p>یک محافظ ساده، بی‌سروصدا و کاملاً روی گوشی خودت.</p>
@@ -387,7 +569,7 @@
       </div>
     </section>
 
-    <section class="steps">
+    <section class="steps" id="install">
       <div class="section-head reveal">
         <h2>نصب در سه قدم</h2>
         <p>کمتر از دو دقیقه، بدون نیاز به حساب کاربری.</p>
@@ -427,6 +609,172 @@
         </span>
       </p>
     </section>
+
+    <section class="guide" id="guide">
+      <div class="section-head reveal">
+        <h2>راهنمای ترک پورن: از تصمیم تا عادت تازه</h2>
+        <p>فیلتر فقط در را می‌بندد؛ این هفت قدم کاری است که خودت انجام می‌دهی.</p>
+      </div>
+
+      <div class="reveal">
+        <p class="intro">
+          ترک پورن با یک تصمیم شروع می‌شود، اما با تغییر محیط ادامه پیدا می‌کند. بیشتر کسانی که
+          وسط راه برمی‌گردند ارادهٔ کم ندارند؛ محیطشان دست‌نخورده مانده است. این راهنما همان مسیری
+          است که تجربهٔ کسانی که ترک کرده‌اند و پژوهش‌های مربوط به تغییر عادت روی آن توافق دارند:
+          محرک را بشناس، دسترسی را سخت کن، جایگزین بساز و روزهای سخت را با یک برنامهٔ مشخص رد کن.
+          توکل ابزارِ همین مسیر است، نه جایگزینِ آن.
+        </p>
+
+        <ol class="plan">
+          <li>
+            <h3>محرک‌ها را روی کاغذ بیاور</h3>
+            <p>
+              دو هفته یادداشت کن چه زمانی، کجا و با چه حالی سراغ پورن می‌روی. بیشتر الگوها تکراری‌اند:
+              تنهایی شب، بی‌خوابی، بی‌کاری، استرس کاری یا یک دعوای ساده. وقتی الگو را ببینی
+              می‌توانی جلوی موقعیت را بگیری — نه جلوی خودت را.
+            </p>
+          </li>
+          <li>
+            <h3>دسترسی را سخت کن</h3>
+            <p>
+              یک فیلتر تنها کافی نیست، اما بدون آن شروع کردن سخت‌تر است. کلمه‌ها و سایت‌های محرک را
+              یک بار وارد کن، مرورگر دوم را حذف کن، اپ‌های ذخیرهٔ ویدیو را پاک کن و بگذار یک نفر
+              دیگر رمز گوشی را بداند. هدف این نیست که دیوارِ شکست‌ناپذیر بسازی؛ هدف این است که
+              فاصلهٔ بینِ وسوسه و دسترسی از سه ثانیه به سه دقیقه برسد. همان چند دقیقه، در بیشتر
+              موارد کافی است تا موج اول بگذرد.
+            </p>
+          </li>
+          <li>
+            <h3>جایگزین بساز، نه فقط ممنوعیت</h3>
+            <p>
+              مغز برای هر عادت یک جای خالی می‌خواهد؛ اگر جای پورن را خالی بگذاری، دیر یا زود پر
+              می‌شود. یک کار کوچک و تکرارشدنی انتخاب کن: بیست دقیقه پیاده‌روی، شنا، باشگاه، کتاب
+              صوتی، آشپزی یا حتی دوش آب سرد. مهم این است که در همان ساعتی باشد که قبلاً عادت قدیم
+              سراغت می‌آمد.
+            </p>
+          </li>
+          <li>
+            <h3>شب را از نو بچین</h3>
+            <p>
+              بیشترِ شکست‌ها شب اتفاق می‌افتد، وقتی خسته‌ای و گوشی کنار تخت است. گوشی را بیرون از
+              اتاق بگذار و با ساعت زنگ‌دار بیدار شو. ساعت خواب ثابت خستگی را کم می‌کند و خستگی
+              یکی از قوی‌ترین محرک‌هاست. اگر نیمه‌شب بیدار شدی، بلند شو، آب بخور و جای دیگری
+              بنشین؛ در تخت نمان.
+            </p>
+          </li>
+          <li>
+            <h3>لحظهٔ وسوسه را با قاعدهٔ بیست دقیقه رد کن</h3>
+            <p>
+              وقتی فشار آمد، به خودت بگو بیست دقیقه صبر می‌کنم. در این بیست دقیقه جای خود را عوض
+              کن، نفس عمیق بکش، آب بنوش یا با کسی حرف بزن. وسوسه موج است: بالا می‌آید، اوج می‌گیرد
+              و می‌خوابد. توکل دقیقاً همین‌جا کار می‌کند: سایت یا کلمه بسته می‌شود و مغز فرصت
+              نمی‌کند تصمیم قدیمی را اجرا کند.
+            </p>
+          </li>
+          <li>
+            <h3>پیشرفت را ببین، عود را فاجعه ندان</h3>
+            <p>
+              روزهای پاک را علامت بزن — روی تقویم یا در یادداشت گوشی. دیدن زنجیرهٔ روزها انگیزه
+              می‌دهد. اگر یک بار برگشتی، معنی‌اش این نیست که از صفر شروع کرده‌ای؛ معنی‌اش این است
+              که یک داده به دست آورده‌ای: آن اتفاق کجا و کی افتاد. زنجیره را از همان‌جا ادامه بده.
+              کسی که در سه ماه دو بار برگشته، هنوز سه ماه جلوتر از کسی است که شروع نکرده.
+            </p>
+          </li>
+          <li>
+            <h3>کسی را وارد ماجرا کن</h3>
+            <p>
+              تنهایی سخت‌ترین حالت است. یک دوست، همسر یا عضو خانواده را انتخاب کن و به او اجازه بده
+              سؤال بپرسد. رمز همراه در توکل برای همین ساخته شده: کسی آن را نگه می‌دارد و به‌سادگی
+              نمی‌گذارد محافظت خاموش شود. اگر این مسیر برایت سنگین شده یا احساس می‌کنی از کنترل
+              خارج است، مشاورهٔ تخصصی را جدی بگیر؛ کمک گرفتن بخشی از برنامه است، نه شکست آن.
+            </p>
+          </li>
+        </ol>
+
+        <p class="tip">
+          <b>ترتیب مهم است:</b> همهٔ این هفت قدم را یک‌جا اجرا نکن. هفتهٔ اول فقط شناختن محرک‌ها و
+          سخت کردن دسترسی؛ هفتهٔ دوم جایگزین و نظم شب؛ از هفتهٔ سوم ثبت پیشرفت و وارد کردن یک همراه.
+          آهسته شروع کردن، ترک را ممکن می‌کند.
+        </p>
+      </div>
+    </section>
+
+    <section class="faq" id="faq">
+      <div class="section-head reveal">
+        <h2>سؤال‌های پرتکرار</h2>
+        <p>چیزهایی که قبل از نصب بیشتر پرسیده می‌شود.</p>
+      </div>
+
+      <details class="qa reveal">
+        <summary>توکل واقعاً رایگان است؟</summary>
+        <p>
+          بله. نه اشتراک دارد، نه تبلیغ، نه حساب کاربری. همهٔ امکانات از روز اول باز است و لازم نیست
+          چیزی خریداری کنی.
+        </p>
+      </details>
+
+      <details class="qa reveal">
+        <summary>توکل به اینترنت نیاز دارد؟</summary>
+        <p>
+          نه. فهرست کلمه‌ها و سایت‌ها و همهٔ بررسی‌ها روی خود گوشی انجام می‌شود. برنامه حتی در حالت
+          پرواز هم کار می‌کند.
+        </p>
+      </details>
+
+      <details class="qa reveal">
+        <summary>آیا عکس و ویدیو را هم تشخیص می‌دهد؟</summary>
+        <p>
+          نه، و این را صادقانه می‌گوییم: توکل متنِ تایپ‌شده و آدرس سایت‌ها را مسدود می‌کند، نه
+          محتوای تصویری داخل اپ‌ها را. برای پوششِ کامل‌تر، آن را همراه با فیلترِ DNS یا تنظیمات
+          خانوادگی گوشی استفاده کن.
+        </p>
+      </details>
+
+      <details class="qa reveal">
+        <summary>چطور محافظت را خاموش کنم؟</summary>
+        <p>
+          در حالت عادی با یک ضربه روی کلید محافظت. اگر رمز همراه را فعال کرده باشی، برای خاموش کردن
+          باید رمز را وارد کنی. اگر «حالت تأخیر» روشن باشد، باید یک متن بلند را دقیق تایپ کنی و
+          کپی‌کردن هم کار نمی‌کند. برای وقتی که به رمز دسترسی نداری، خاموش‌سازی با پیامک از شمارهٔ
+          ثبت‌شده وجود دارد.
+        </p>
+      </details>
+
+      <details class="qa reveal">
+        <summary>چه اطلاعاتی از من جمع می‌شود؟</summary>
+        <p>
+          هیچ. برنامه هیچ آماری نمی‌فرستد، هیچ سروری ندارد و کلمه‌های شخصی‌ات از گوشی بیرون نمی‌رود.
+          می‌توانی با قطع اینترنت هم امتحانش کنی.
+        </p>
+      </details>
+
+      <details class="qa reveal">
+        <summary>روی اندروید ۱۳ و بالاتر سرویس قفل می‌شود، چه کنم؟</summary>
+        <p>
+          اندروید از نسخهٔ ۱۳ دسترسی‌پذیریِ برنامه‌های نصب‌شده از بیرون فروشگاه را محدود می‌کند. راه
+          حل در خود برنامه آمده: برنامه را باز کن، «تنظیمات محدودشده» را تأیید کن و بعد دوباره سرویس
+          را روشن کن. اگر سرویس بعد از چند ساعت خاموش شد، Autostart و «بدون محدودیت» را در تنظیمات
+          گوشی برای توکل فعال کن.
+        </p>
+      </details>
+
+      <details class="qa reveal">
+        <summary>اگر بخواهم برنامه را حذف کنم؟</summary>
+        <p>
+          اول محافظت را خاموش کن، بعد مدیر دستگاه را در تنظیمات گوشی غیرفعال کن؛ آن‌وقت حذف مثل هر
+          برنامهٔ دیگری انجام می‌شود. این قفل جلوی حذفِ تصادفی و حذف توسط دیگران را می‌گیرد، نه
+          حذفِ آگاهانهٔ خودت.
+        </p>
+      </details>
+
+      <details class="qa reveal">
+        <summary>باتری گوشی را چقدر مصرف می‌کند؟</summary>
+        <p>
+          بسیار کم. بررسی‌ها فقط وقتی انجام می‌شود که در حال تایپ هستی یا آدرس صفحه‌ای خوانده
+          می‌شود؛ هیچ پردازش پس‌زمینهٔ سنگین یا اتصال شبکه‌ای وجود ندارد.
+        </p>
+      </details>
+    </section>
   </main>
 
   <footer>
@@ -440,6 +788,9 @@
       </span>
     </div>
     <p class="wordmark">توکل</p>
+    <p class="foot" style="opacity:.7;font-size:.8rem;margin-top:18px">
+      آخرین به‌روزرسانی: آبان ۱۴۰۵ · نسخهٔ ۱.۴.۱۲
+    </p>
   </footer>
 
 </div>
