@@ -656,4 +656,10 @@ the keyword/domain boxes stay read-only.
   `EMPTY_CONFIG.language = 'fa'`, `App.js` initial `lang` state `'fa'`.
 - i18n 234 strings / 294 translations. Version 1.4.11 / versionCode 21; `version.json` 1.4.11;
   `index.html` ۱.۴.۱۱. Verified: check-i18n OK, `npm run verify` green, prebuild 1.4.11 (21).
-- NOT pushed: owner runs commit/push/tag (`git tag v1.4.11`).
+- GOTCHA (cost two CI runs): `Settings.ACTION_DEVICE_ADMIN_SETTINGS` does NOT exist — the
+  device-admin list is launched with the literal `Intent("android.settings.DEVICE_ADMIN_SETTINGS")`
+  (fallback `Settings.ACTION_SECURITY_SETTINGS`).
+- SHIPPED 2026-11-14: commits `4ded987` + fix `27d1638` → main + tag `v1.4.11` (tag moved after the
+  Kotlin failure); CI 43594355253 (main) + 43594360920 (tag) both SUCCESS → Release
+  `Tavakkol v1.4.11`, `Tavakkol-release.apk` 37,024,127 bytes (`releases/latest/...` 302).
+  Pending owner on-device check.

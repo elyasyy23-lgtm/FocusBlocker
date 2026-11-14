@@ -432,7 +432,15 @@ Steps:
 - [x] Verify: check-i18n OK (234/294); `npm run verify` green (bundle has `openDeviceAdminSettings`,
       `onToggleAdultLock`, the lock hint); `npm run prebuild:android` → versionName 1.4.11 /
       versionCode 21; Kotlin brace/quote balance checked; `android/` + `dist/` wiped.
-- [ ] Owner push + tag v1.4.11 → CI builds `Tavakkol-release.apk`.
+- [x] SHIPPED 2026-11-14: commit `4ded987` → main + tag `v1.4.11`; BOTH runs FAILED in Kotlin:
+      `Settings.ACTION_DEVICE_ADMIN_SETTINGS` does not exist (no such constant) →
+      `Unresolved reference` at FocusGuardModule.kt:318. Fixed with the AOSP action string
+      `Intent("android.settings.DEVICE_ADMIN_SETTINGS")` (+ security-settings fallback), commit
+      `27d1638`; tag deleted + re-pushed on the fix. CI runs 43594355253 (main) + 43594360920
+      (tag) both SUCCESS → Release `Tavakkol v1.4.11`, `Tavakkol-release.apk` 37,024,127 bytes live
+      at https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v1.4.11/Tavakkol-release.apk
+      (`releases/latest/...` 302 → v1.4.11). Lesson: there is no `Settings.ACTION_*` constant for
+      the device-admin list — use the literal action, or CI is the one that tells you.
 - [ ] Owner on-device check: device-admin button says «تنظیمات مدیر» and lands on the system admin
       list; Protection ON freezes the adult switch in both directions; fresh install opens in
       Persian, and switching to English in Settings survives a restart.
