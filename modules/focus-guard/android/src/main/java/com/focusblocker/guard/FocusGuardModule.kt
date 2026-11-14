@@ -263,10 +263,26 @@ class FocusGuardModule : Module() {
       FocusGuardStore.language(requireContext())
     }
 
-    /** v1.4.2: Delay Mode toggle. Persisted natively so it survives a kill. */
+    /**
+     * v1.4.2: Delay Mode toggle. Persisted natively so it survives a kill.
+     * v1.4.5: the OFF direction is refused while Delay Mode is on — turning the
+     * challenge OFF must cost the same as turning Protection off. The only way
+     * through is `setDelayModeAfterDelayChallenge` (used after the text matches).
+     */
     AsyncFunction("setDelayMode") { enabled: Boolean ->
       val ctx = requireContext()
+      if (!enabled && FocusGuardStore.delayMode(ctx)) {
+        throw IllegalStateException(
+          "Delay Mode is on — type the challenge text to turn Delay Mode off."
+        )
+      }
       FocusGuardStore.setDelayMode(ctx, enabled)
+      true
+    }
+
+    /** v1.4.5: the post-challenge path — the challenge was typed, so OFF is allowed. */
+    AsyncFunction("setDelayModeAfterDelayChallenge") {
+      FocusGuardStore.setDelayMode(requireContext(), false)
       true
     }
 

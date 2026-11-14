@@ -483,3 +483,44 @@ any staleness let the OFF write through. Fix = NATIVE is the source of truth:
   `android/` + `dist/` wiped. Kotlin still compiles only in CI.
 - Lesson: any "gate" that protects a state change MUST read the authoritative value
   fresh (or enforce natively) — never trust a React render's copy of it.
+
+### v1.4.5 — custom drawer · Settings lock · symmetric Delay Mode (2026-11-14)
+
+Owner's list: (1) a drawer nav (hamburger ☰, RTL): Home / Settings / Help + Share App /
+Contact Developer / Support Us; (2) while Protection is ON, Settings is COMPLETELY
+inaccessible (gear/drawer shows «برای ورود به تنظیمات، ابتدا محافظت را خاموش کنید.») and the
+Home lists are read-only — only turning Protection OFF grants access; (3) turning Delay Mode
+OFF must ALSO cost the typed challenge; (4) the SMS kill switch bypasses the challenge.
+
+- **NO react-navigation.** The drawer is a hand-built `src/components/Drawer.js` on RN
+  `Animated` + `PanResponder` — ZERO new native deps (no native rebuild) and full RTL control
+  (slides from the LEFT in EN, the RIGHT in FA; backdrop tap + swipe-to-close; the Settings row
+  shows 🔒 and calls `onBlockedSettings` while locked). The navigation packages
+  (@react-navigation/drawer, -native, react-native-gesture-handler, -reanimated, -worklets,
+  -safe-area-context, -screens) were UNINSTALLED (37 pkgs) and `index.js` reverted to plain
+  `registerRootComponent(App)`. `src/components/AppDrawerContent.js` deleted.
+- **New JS layout**: `src/screens/HomeScreen.js` (title + the two switches + keyword/domain
+  lists; read-only when Protection is ON) and `src/screens/SettingsScreen.js` (☰ header + ALL
+  advanced sections: accessibility, device admin, keep-alive, debug log, stats, partner PIN,
+  remote control, excluded apps, language, music). `HelpScreen.js` takes `onOpenDrawer`.
+  `src/components/DonateSheet.js` = the Support Us modal as a global drawer action.
+- **`App.js` is now a state hub**: `screen` = 'main' | 'settings' | 'help'; renders
+  Home/Settings/Help + `Drawer` + `DonateSheet` + the delay modal + the update modal. Hardware
+  Back closes the drawer first, then returns Home; if Protection turns ON while Settings is
+  open the app bounces to Home. `settingsLocked` and `readOnly` both derive from `config.enabled`.
+- **Symmetric Delay Mode (native truth)**: `FocusGuardModule.kt` — `setDelayMode(false)` now
+  REFUSES while delayMode is on (throws), `setDelayModeAfterDelayChallenge` is the only OFF
+  writer (bridge `disableDelayModeAfterDelayChallenge`). Mirrors the v1.4.3 Protection gate
+  (`setEnabled` refuses OFF while delayMode on; `setEnabledAfterDelayChallenge`). Both switches
+  read the LIVE native flag at tap time before opening the modal. SMS bypass preserved
+  (`RemoteSmsReceiver.kt` calls `FocusGuardStore.setEnabled` directly).
+- **i18n**: 9 new keys (Menu, Home, the settings-lock message, the Delay-Mode-off challenge
+  text, etc.) and `scripts/check-i18n.js` now ALSO scans `HomeScreen.js`, `Drawer.js`,
+  `DonateSheet.js` (224 UI strings / 266 translations).
+- Version 1.4.5 / versionCode 16 (app.json, package.json, package-lock, buildInfo);
+  `version.json` latestVersion 1.4.5; `index.html` labels ۱.۴.۵.
+- Verified: check-i18n OK; `npm run verify` green (645 modules; bundle contains
+  `disableDelayModeAfterDelayChallenge` and the lock string); `npm run prebuild:android` →
+  versionName 1.4.5 / versionCode 16, app_name Tavakkol (fa توکل); module manifest parses
+  (RECEIVE_SMS + receiver + keep-alive services); `android/` + `dist/` wiped. Kotlin compiles
+  only in CI. NOT pushed — owner runs the push/tag.

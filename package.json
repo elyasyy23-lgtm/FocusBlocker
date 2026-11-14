@@ -1,6 +1,6 @@
 {
   "name": "focusblocker",
-  "version": "1.4.3",
+  "version": "1.4.5",
   "main": "index.js",
   "dependencies": {
     "expo": "~58.0.23",

@@ -247,6 +247,16 @@ export async function setDelayMode(enabled) {
   return native.setDelayMode(Boolean(enabled));
 }
 
+/**
+ * v1.4.5: the ONLY way to switch Delay Mode OFF while it is on. The native
+ * `setDelayMode(false)` refuses that direction; this call is the bypass the UI
+ * uses after the challenge text has been typed and verified.
+ */
+export async function disableDelayModeAfterChallenge() {
+  if (!native) throw new Error('Native module missing — build a dev/release APK first.');
+  return native.setDelayModeAfterDelayChallenge();
+}
+
 /** Background-music mute flag (the player itself lives in App.js). */
 export async function setMusicMuted(muted) {
   if (!native) return false;

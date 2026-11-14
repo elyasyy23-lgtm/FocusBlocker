@@ -1,14 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   ImageBackground,
-  Linking,
   Modal,
   PermissionsAndroid,
   Platform,
   Pressable,
   ScrollView,
-  Share,
   StatusBar,
   StyleSheet,
   Switch,
@@ -16,67 +15,117 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import * as FocusGuard from '../../modules/focus-guard';
-import { ActionButton, Section } from '../components/ui';
+import { ActionButton, Section, StatusPill } from '../components/ui';
 import PinPad from '../components/PinPad';
 import { COLORS, textAlign } from '../theme';
 import { LANGUAGES } from '../i18n';
 import { VERSION_LABEL } from '../buildInfo';
-import {
-  APP_SHARE_URL,
-  DEVELOPER_RUBIKA_SCHEME,
-  DEVELOPER_RUBIKA_URL,
-  DONATION_NETWORK,
-  DONATION_WALLET,
-  DONATION_ZARINPAL_URL,
-} from '../defaults';
 
 const BACKGROUND = require('../../assets/background.jpg');
 
+const LOG_TYPE_COLORS = {
+  service_connected: '#7DD3FC',
+  service_unbound: '#F87171',
+  service_destroyed: '#F87171',
+  service_interrupted: '#FBBF24',
+  fgs_started: '#4ADE80',
+  fgs_failed: '#F87171',
+  fgs_fallback: '#FBBF24',
+  watchdog_started: '#4ADE80',
+  watchdog_wakeup: '#7DD3FC',
+  watchdog_task_removed: '#7DD3FC',
+  watchdog_destroyed: '#F87171',
+  watchdog_failed: '#F87171',
+  guard_missing: '#F87171',
+  guard_recovered: '#4ADE80',
+  guard_alert: '#FBBF24',
+  guard_alert_failed: '#F87171',
+  alarm_failed: '#FBBF24',
+  job_failed: '#FBBF24',
+  job_tick: '#7DD3FC',
+  autostart_opened: '#8C9AAB',
+  keyword_detected: '#FBBF24',
+  domain_detected: '#FBBF24',
+  block_triggered: '#F87171',
+  block_recheck_back: '#FBBF24',
+  block_recheck_home: '#FBBF24',
+  block_recheck_clear: '#7DD3FC',
+  scan_failed: '#FBBF24',
+};
+
+function logTypeColor(type) {
+  return LOG_TYPE_COLORS[type] || COLORS.muted;
+}
+
+function formatLogTime(value) {
+  if (!value) return '--:--:--';
+  const date = new Date(value);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(
+    date.getMinutes()
+  )}:${pad(date.getSeconds())}`;
+}
+
+function shortPackage(pkg) {
+  const parts = String(pkg || '').split('.');
+  return parts.slice(-2).join('.');
+}
+
+/** "42s ago" / "12min ago" / "never" — how long the watchdog has been silent. */
+function formatHeartbeat(ageMs, t) {
+  if (ageMs === null || ageMs === undefined || ageMs < 0) return t('never');
+  const seconds = Math.round(ageMs / 1000);
+  if (seconds < 90) return t('{{seconds}}s ago', { seconds });
+  return t('{{minutes}}min ago', { minutes: Math.round(seconds / 60) });
+}
+
 /**
- * Settings screen (v1.2.0) — opened with the gear on the main screen.
+ * Settings screen (v1.4.5) — everything advanced, reached from the drawer.
  *
- * Jobs, all in this file:
- *  1. language switch (English / Persian) — the choice lives in native prefs so
- *     the accessibility service and the notifications follow it too;
- *  2. Excluded Apps — every launchable app with a checkbox; a checked app is
- *     never inspected by the guard (the package list is passed to Kotlin);
- *  3. Partner PIN — the app-lock PIN, set/changed/removed here;
- *  4. Remote Control (v1.4.0) — a partner phone can turn Protection off with one
- *     SMS (native receiver `RemoteSmsReceiver`, config in SharedPreferences);
- *  5. About Tavakkol (v1.4.0) — the Share App button moved here from "More";
- *  6. the support block: the owner's message, ZarinPal and the crypto wallet.
+ * v1.4.5 moved the whole "system" half of the app here (accessibility service,
+ * device admin, keep-alive, stats and the debug log) so the Home screen shows
+ * only the two switches and the two lists. The screen is CLOSED entirely while
+ * Protection is ON — App.js never routes here in that state and the drawer row
+ * reports the reason instead.
  */
 export default function SettingsScreen({
   t,
   lang,
-  onBack,
+  onOpenDrawer,
   onChangeLanguage,
   excluded,
   onToggleExcluded,
   onClearExcluded,
   isAvailable,
-  onOpenHelp,
   onMessage,
   message,
   // v1.4.2: background music (the player lives in App.js)
   musicMuted,
   onToggleMusicMuted,
+  // v1.4.5: live config (statuses/stats) + a way to refresh it after a change
+  config,
+  onRefresh,
 }) {
   const align = textAlign(lang);
+  const isRtl = lang === 'fa';
+
   const [apps, setApps] = useState([]);
   const [loadingApps, setLoadingApps] = useState(true);
   const [query, setQuery] = useState('');
   const [busyPkg, setBusyPkg] = useState(null);
-  const [sharing, setSharing] = useState(false);
   // v1.3.2: only the first three apps are listed until "Show more" is tapped.
   const [showAllApps, setShowAllApps] = useState(false);
-  // v1.3.2: two donation routes — 'iran' (ZarinPal) and 'crypto' (wallet).
-  const [donateMode, setDonateMode] = useState(null);
-  const [copied, setCopied] = useState(false);
-  // v1.3.1: the Partner PIN is set/removed here — the Protection switch and
-  // this screen never ask for it, only the app lock does.
+
+  // v1.4.5: keep-alive health + debug log live here now.
+  const [health, setHealth] = useState(null);
+  const [logsOpen, setLogsOpen] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [clearingLogs, setClearingLogs] = useState(false);
+  const [keepAliveBusy, setKeepAliveBusy] = useState(false);
+
+  // v1.3.1: the Partner PIN is set/removed here.
   const [pinSet, setPinSet] = useState(false);
   const [pinDialog, setPinDialog] = useState({
     mode: null, // 'set' | 'change' | 'remove'
@@ -86,8 +135,8 @@ export default function SettingsScreen({
     error: null,
     busy: false,
   });
-  // v1.4.0: remote deactivation via SMS. `remote` is what the native receiver
-  // actually holds (SharedPreferences), the two text fields are the draft.
+
+  // v1.4.0: remote deactivation via SMS.
   const [remote, setRemote] = useState({
     enabled: false,
     number: '',
@@ -98,8 +147,6 @@ export default function SettingsScreen({
   const [remoteNumber, setRemoteNumber] = useState('');
   const [remoteCode, setRemoteCode] = useState('');
   const [remoteBusy, setRemoteBusy] = useState(false);
-  // Optimistic: no Android permission dialog exists outside Android, and the
-  // toggle simply refuses to turn on when the grant is missing.
   const [smsGranted, setSmsGranted] = useState(true);
 
   useEffect(() => {
@@ -153,6 +200,14 @@ export default function SettingsScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAvailable]);
 
+  // v1.4.5: health rides along on mount so the keep-alive + debug sections show
+  // live state without opening the log modal.
+  useEffect(() => {
+    FocusGuard.getServiceHealth()
+      .then(setHealth)
+      .catch(() => {});
+  }, []);
+
   const excludedSet = useMemo(() => new Set(excluded), [excluded]);
 
   const filtered = useMemo(() => {
@@ -164,8 +219,6 @@ export default function SettingsScreen({
     );
   }, [apps, query]);
 
-  // Three rows by default (owner request); a search always shows every match so
-  // the filter stays useful, and "Show more" reveals the whole list.
   const searching = query.trim().length > 0;
   const visibleApps = showAllApps || searching ? filtered : filtered.slice(0, 3);
   const hiddenCount = filtered.length - visibleApps.length;
@@ -182,35 +235,6 @@ export default function SettingsScreen({
     },
     [busyPkg, onToggleExcluded]
   );
-
-  const shareApp = useCallback(async () => {
-    setSharing(true);
-    try {
-      await Share.share({
-        message: `${t(
-          'Tavakkol — a free guard for your phone. Blocked words and sites close themselves while you type.'
-        )}\n\n${t('Tavakkol')} v${VERSION_LABEL}\n${APP_SHARE_URL}`,
-      });
-    } catch (error) {
-      onMessage(t('Could not open the share sheet.'));
-    } finally {
-      setSharing(false);
-    }
-  }, [onMessage, t]);
-
-  const contactDeveloper = useCallback(async () => {
-    // Rubika's own scheme first, then the plain web link (works even without
-    // the app installed, because rubika.ir answers in a browser).
-    const opened = (await FocusGuard.openUrl(DEVELOPER_RUBIKA_SCHEME)) ||
-      (await FocusGuard.openUrl(DEVELOPER_RUBIKA_URL));
-    if (!opened) {
-      try {
-        await Linking.openURL(DEVELOPER_RUBIKA_URL);
-      } catch (error) {
-        onMessage(t('Could not open the link.'));
-      }
-    }
-  }, [onMessage, t]);
 
   // -------------------------------------------------------------------
   // Partner PIN (v1.3.1) — set, change or remove the app-lock PIN.
@@ -391,9 +415,6 @@ export default function SettingsScreen({
     }
   }, [onMessage, t]);
 
-  // One path for both the switch and the save button: the native side stores
-  // number + code and flips the flag; switching ON also opens a fresh listening
-  // window, so only SMS that arrive afterwards are ever acted on.
   const applyRemote = useCallback(
     async (enabled) => {
       if (!isAvailable) {
@@ -428,33 +449,137 @@ export default function SettingsScreen({
 
   const remoteDirty = remoteNumber.trim() !== remote.number || remoteCode.trim() !== remote.code;
 
-  const openDonate = useCallback((mode) => {
-    setCopied(false);
-    setDonateMode(mode);
-  }, []);
+  // -------------------------------------------------------------------
+  // System sections moved here in v1.4.5 (accessibility / admin / keep-alive)
+  // -------------------------------------------------------------------
 
-  const closeDonate = useCallback(() => setDonateMode(null), []);
-
-  const openZarinpal = useCallback(async () => {
-    if (!DONATION_ZARINPAL_URL) return;
-    const opened = await FocusGuard.openUrl(DONATION_ZARINPAL_URL);
-    if (!opened) {
-      try {
-        await Linking.openURL(DONATION_ZARINPAL_URL);
-      } catch (error) {
-        onMessage(t('Could not open the link.'));
-      }
-    }
-  }, [onMessage, t]);
-
-  const copyWallet = useCallback(async () => {
+  const openAccessibility = async () => {
     try {
-      await Clipboard.setStringAsync(DONATION_WALLET);
-      setCopied(true);
+      await FocusGuard.openAccessibilitySettings();
+      onMessage(t('Find “Tavakkol guard (keywords + domains)” in the list and switch it on.'));
     } catch (error) {
-      onMessage(t('Could not copy the wallet address.'));
+      onMessage(error.message || t('Could not open Accessibility settings.'));
     }
-  }, [onMessage, t]);
+  };
+
+  const enableDeviceAdmin = async () => {
+    try {
+      await FocusGuard.requestDeviceAdmin();
+      onMessage(t('Confirm the system dialog to keep Tavakkol installed.'));
+      setTimeout(() => {
+        if (onRefresh) onRefresh();
+      }, 1200);
+    } catch (error) {
+      onMessage(error.message || t('Could not open the device admin dialog.'));
+    }
+  };
+
+  const runPanicLock = async () => {
+    try {
+      await FocusGuard.lockScreen();
+    } catch (error) {
+      onMessage(error.message || t('Locking the screen failed.'));
+    }
+  };
+
+  const clearCounter = async () => {
+    try {
+      await FocusGuard.resetBlockCount();
+      if (onRefresh) await onRefresh();
+      onMessage(t('Block counter reset.'));
+    } catch (error) {
+      onMessage(error.message || t('Could not reset the counter.'));
+    }
+  };
+
+  const loadLogs = async () => {
+    setLogsLoading(true);
+    try {
+      const [nextLogs, nextHealth] = await Promise.all([
+        FocusGuard.getDebugLogs(),
+        FocusGuard.getServiceHealth(),
+      ]);
+      setLogs(nextLogs);
+      setHealth(nextHealth);
+    } catch (error) {
+      onMessage(error.message || t('Could not read the debug log.'));
+      setLogsOpen(false);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const openLogs = async () => {
+    setLogsOpen(true);
+    await loadLogs();
+  };
+
+  const closeLogs = () => setLogsOpen(false);
+
+  const clearLogs = async () => {
+    setClearingLogs(true);
+    try {
+      await FocusGuard.clearDebugLogs();
+      setLogs([]);
+    } catch (error) {
+      onMessage(error.message || t('Could not clear the log.'));
+    } finally {
+      setClearingLogs(false);
+    }
+  };
+
+  const fixBattery = async () => {
+    try {
+      await FocusGuard.requestIgnoreBatteryOptimizations();
+      onMessage(t('Confirm the system dialog so Android stops killing the guard.'));
+      setTimeout(loadLogs, 1500);
+    } catch (error) {
+      onMessage(error.message || t('Could not open the battery dialog.'));
+    }
+  };
+
+  const startKeepAlive = async () => {
+    setKeepAliveBusy(true);
+    try {
+      await FocusGuard.ensureKeepAlive();
+      if (onRefresh) await onRefresh();
+      FocusGuard.getServiceHealth()
+        .then(setHealth)
+        .catch(() => {});
+      onMessage(
+        t('Keep-alive armed: watchdog started, 15-minute alarm and persisted job scheduled.')
+      );
+    } catch (error) {
+      onMessage(error.message || t('Could not start the keep-alive.'));
+    } finally {
+      setKeepAliveBusy(false);
+    }
+  };
+
+  const openAutostart = async () => {
+    try {
+      const result = await FocusGuard.openAutostartSettings();
+      onMessage(
+        result.opened === 'autostart'
+          ? t('Switch Autostart ON for Tavakkol on this screen, then come back.')
+          : t(
+              'Find “Autostart” (or “Battery usage / Allow background activity”) on this screen and allow Tavakkol.'
+            )
+      );
+    } catch (error) {
+      onMessage(error.message || t('Could not open the autostart screen.'));
+    }
+  };
+
+  const cfg = config || {
+    accessibilityEnabled: false,
+    deviceAdminActive: false,
+    blockCount: 0,
+    keywords: [],
+    domains: [],
+    lastBlockPackage: '',
+    lastBlockReason: '',
+  };
 
   return (
     <ImageBackground source={BACKGROUND} style={styles.root} resizeMode="cover">
@@ -464,13 +589,13 @@ export default function SettingsScreen({
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        <View style={[styles.header, lang === 'fa' && styles.headerRtl]}>
+        <View style={[styles.header, isRtl && styles.headerRtl]}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t('Back')}
-            onPress={onBack}
-            style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
-            <Text style={styles.backIcon}>{lang === 'fa' ? '›' : '‹'}</Text>
+            accessibilityLabel={t('Menu')}
+            onPress={onOpenDrawer}
+            style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}>
+            <Text style={styles.menuIcon}>☰</Text>
           </Pressable>
           <View style={styles.headerText}>
             <Text style={[styles.title, { textAlign: align }]}>{t('Settings')}</Text>
@@ -479,165 +604,180 @@ export default function SettingsScreen({
         </View>
 
         <Section
-          title={t('About Tavakkol')}
-          subtitle={t('A free, ad-free guard for your own phone.')}
+          title={t('{{n}}. {{title}}', { n: 1, title: t('Accessibility service') })}
+          subtitle={t(
+            'This is what lets the app read the screen and press Back. Android shows a warning — that warning is normal for any accessibility app.'
+          )}
           lang={lang}>
-          <Text style={[styles.body, { textAlign: align }]}>
-            {t('Version {{version}}', { version: VERSION_LABEL })}
-          </Text>
-          <ActionButton
-            label={t('Share App')}
-            onPress={shareApp}
-            busy={sharing}
-          />
-        </Section>
-
-        <Section
-          title={t('Language')}
-          subtitle={t('Choose the language of the app.')}
-          lang={lang}>
-          <View style={styles.langRow}>
-            {LANGUAGES.map((option) => {
-              const active = option.code === lang;
-              return (
-                <Pressable
-                  key={option.code}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: active }}
-                  onPress={() => onChangeLanguage(option.code)}
-                  style={({ pressed }) => [
-                    styles.langOption,
-                    active && styles.langOptionActive,
-                    pressed && styles.pressed,
-                  ]}>
-                  <Text
-                    style={[
-                      styles.langText,
-                      active && styles.langTextActive,
-                      { textAlign: 'center' },
-                    ]}>
-                    {option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Section>
-
-        <Section
-          title={t('Background Music')}
-          subtitle={t('A calm loop plays while the app is open. Turn it off any time.')}
-          lang={lang}>
-          <View style={[styles.remoteRow, lang === 'fa' && styles.headerRtl]}>
-            <View style={styles.remoteLabel}>
-              <Text style={[styles.remoteTitle, { textAlign: align }]}>{t('Music')}</Text>
-              <Text style={[styles.remoteHint, { textAlign: align }]}>
-                {musicMuted ? t('Muted') : t('Playing at 30% volume')}
+          <View style={styles.statusRow}>
+            <View style={styles.statusTextWrap}>
+              <Text style={[styles.statusTitle, { textAlign: align }]}>{t('Service status')}</Text>
+              <Text style={[styles.statusHint, { textAlign: align }]}>
+                {t('Settings → Accessibility → Installed apps')}
               </Text>
             </View>
-            <Switch
-              value={!musicMuted}
-              onValueChange={(next) => onToggleMusicMuted(!next)}
-              trackColor={{ false: COLORS.border, true: COLORS.accentSoft }}
-              thumbColor={!musicMuted ? COLORS.accent : '#5A6779'}
+            <StatusPill
+              active={cfg.accessibilityEnabled}
+              labels={[t('Enabled'), t('Disabled')]}
             />
           </View>
+          <ActionButton
+            label={t('Open Accessibility settings')}
+            variant="secondary"
+            onPress={openAccessibility}
+            disabled={!isAvailable}
+          />
         </Section>
 
         <Section
-          title={t('Excluded Apps')}
-          subtitle={t('Checked apps are never inspected — no keyword or domain block inside them.')}
-          lang={lang}>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder={t('Search apps')}
-            placeholderTextColor="#5A6779"
-            autoCapitalize="none"
-            autoCorrect={false}
-            style={[styles.input, { textAlign: align }]}
-          />
-
-          <View style={[styles.excludedMeta, lang === 'fa' && styles.headerRtl]}>
-            <Text style={styles.excludedCount}>
-              {t('{{count}} selected', { count: excluded.length })}
-            </Text>
-            {excluded.length > 0 ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={onClearExcluded}
-                style={({ pressed }) => [pressed && styles.pressed]}>
-                <Text style={styles.clearLink}>{t('Clear selection')}</Text>
-              </Pressable>
-            ) : null}
-          </View>
-
-          {loadingApps ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={COLORS.accent} size="small" />
-              <Text style={styles.loadingText}>{t('Loading apps…')}</Text>
-            </View>
-          ) : filtered.length === 0 ? (
-            <Text style={styles.emptyText}>{t('No app matches this search.')}</Text>
-          ) : (
-            visibleApps.map((app) => {
-              const checked = excludedSet.has(app.pkg);
-              const busy = busyPkg === app.pkg;
-              return (
-                <Pressable
-                  key={app.pkg}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked }}
-                  accessibilityLabel={app.label}
-                  onPress={() => toggleApp(app.pkg)}
-                  style={({ pressed }) => [
-                    styles.appRow,
-                    checked && styles.appRowChecked,
-                    lang === 'fa' && styles.headerRtl,
-                    pressed && styles.pressed,
-                  ]}>
-                  <View style={[styles.checkbox, checked && styles.checkboxOn]}>
-                    {busy ? (
-                      <ActivityIndicator color={COLORS.onAccent} size="small" />
-                    ) : checked ? (
-                      <Text style={styles.checkmark}>✓</Text>
-                    ) : null}
-                  </View>
-                  <View style={styles.appInfo}>
-                    <Text style={[styles.appLabel, { textAlign: align }]} numberOfLines={1}>
-                      {app.label}
-                    </Text>
-                    <Text style={[styles.appPkg, { textAlign: align }]} numberOfLines={1}>
-                      {app.pkg}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })
+          title={t('{{n}}. {{title}}', { n: 2, title: t('Device admin (anti-uninstall)') })}
+          subtitle={t(
+            'While device admin is active, Android refuses to uninstall Tavakkol. Deactivate it in Settings → Security → Device admin apps if you ever want the app gone.'
           )}
-
-          {hiddenCount > 0 ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setShowAllApps(true)}
-              style={({ pressed }) => [styles.showMore, pressed && styles.pressed]}>
-              <Text style={styles.showMoreText}>
-                {t('Show more ({{count}})', { count: hiddenCount })}
+          lang={lang}>
+          <View style={styles.statusRow}>
+            <View style={styles.statusTextWrap}>
+              <Text style={[styles.statusTitle, { textAlign: align }]}>{t('Device admin')}</Text>
+              <Text style={[styles.statusHint, { textAlign: align }]}>
+                {t('Uses the force-lock policy')}
               </Text>
-            </Pressable>
-          ) : null}
-          {showAllApps && !searching && filtered.length > 3 ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setShowAllApps(false)}
-              style={({ pressed }) => [styles.showMore, pressed && styles.pressed]}>
-              <Text style={styles.showMoreText}>{t('Show less')}</Text>
-            </Pressable>
-          ) : null}
+            </View>
+            <StatusPill
+              active={cfg.deviceAdminActive}
+              labels={[t('Active'), t('Inactive')]}
+            />
+          </View>
+          {cfg.deviceAdminActive ? (
+            <ActionButton
+              label={t('Panic lock screen')}
+              variant="secondary"
+              onPress={runPanicLock}
+            />
+          ) : (
+            <ActionButton
+              label={t('Activate device admin')}
+              variant="secondary"
+              onPress={enableDeviceAdmin}
+              disabled={!isAvailable}
+            />
+          )}
+        </Section>
 
+        <Section
+          title={t('{{n}}. {{title}}', { n: 3, title: t('Keep-alive') })}
+          subtitle={t(
+            'Android — and MIUI/HyperOS especially — kills background apps. Three independent restarters bring the guard back by themselves: a restartable foreground watchdog, a 15-minute alarm and a 15-minute job, plus a boot receiver.'
+          )}
+          lang={lang}>
+          <View style={styles.statusRow}>
+            <View style={styles.statusTextWrap}>
+              <Text style={[styles.statusTitle, { textAlign: align }]}>{t('Watchdog service')}</Text>
+              <Text style={[styles.statusHint, { textAlign: align }]}>
+                {health
+                  ? `${formatHeartbeat(health.heartbeatAgeMs, t)}${
+                      health.manufacturer ? ` · ${health.manufacturer}` : ''
+                    }`
+                  : t('checking…')}
+              </Text>
+            </View>
+            <StatusPill
+              active={Boolean(health && health.watchdogRunning)}
+              labels={[t('Up'), t('Down')]}
+            />
+          </View>
+          <ActionButton
+            label={t('Start keep-alive now')}
+            variant="secondary"
+            onPress={startKeepAlive}
+            busy={keepAliveBusy}
+            disabled={!isAvailable}
+          />
+          <ActionButton
+            label={
+              health && health.manufacturer
+                ? t('Open Autostart settings ({{manufacturer}})', {
+                    manufacturer: health.manufacturer,
+                  })
+                : t('Open Autostart settings')
+            }
+            variant="secondary"
+            onPress={openAutostart}
+            disabled={!isAvailable}
+          />
           <Text style={[styles.hint, { textAlign: align }]}>
-            {t('Excluded apps are saved instantly.')}
+            {t(
+              'One-time setup on Redmi / POCO / Xiaomi: 1) Autostart → Tavakkol ON, 2) Battery saver → No restrictions, 3) in Recents, pull Tavakkol down to lock it. Without Autostart even a foreground service gets killed within hours.'
+            )}
           </Text>
+        </Section>
+
+        <Section
+          title={t('{{n}}. {{title}}', { n: 4, title: t('Debug Log') })}
+          subtitle={t(
+            'Everything the background guard does — service starts and stops, foreground-service state, watchdog wake-ups, keyword/domain hits and blocks — recorded on this device, never uploaded. Survives crashes and restarts.'
+          )}
+          lang={lang}>
+          {health ? (
+            <Text
+              style={[
+                styles.healthLine,
+                health.serviceRunning && health.foregroundActive
+                  ? styles.healthOk
+                  : styles.healthWarn,
+                { textAlign: align },
+              ]}>
+              {`${t('Service {{state}}', {
+                state: health.serviceRunning ? t('running') : t('NOT running'),
+              })} · ${
+                health.foregroundActive
+                  ? t('foreground notification active')
+                  : t('NO foreground notification')
+              } · ${t('watchdog {{state}} ({{age}})', {
+                state: health.watchdogRunning ? t('up') : t('DOWN'),
+                age: formatHeartbeat(health.heartbeatAgeMs, t),
+              })} · ${
+                health.batteryOptimizationIgnored
+                  ? t('battery unrestricted')
+                  : t('battery RESTRICTED — Android may kill the guard')
+              }`}
+            </Text>
+          ) : null}
+          <ActionButton
+            label={t('Show Logs')}
+            variant="secondary"
+            onPress={openLogs}
+            disabled={!isAvailable}
+          />
+        </Section>
+
+        <Section
+          lang={lang}
+          title={t('Stats')}
+          subtitle={t('Stored on this device only — nothing is uploaded.')}>
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <Text style={styles.statValue}>{cfg.blockCount}</Text>
+              <Text style={styles.statLabel}>{t('Blocks')}</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statValue}>{cfg.keywords.length}</Text>
+              <Text style={styles.statLabel}>{t('Keywords')}</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statValue}>{cfg.domains.length}</Text>
+              <Text style={styles.statLabel}>{t('Domains')}</Text>
+            </View>
+          </View>
+          <Text style={[styles.lastBlockLine, { textAlign: align }]}>
+            {`${t('Last block')}: ${
+              cfg.lastBlockPackage
+                ? `${cfg.lastBlockPackage.split('.').pop()}${
+                    cfg.lastBlockReason ? ` (${cfg.lastBlockReason})` : ''
+                  }`
+                : t('nothing yet')
+            }`}
+          </Text>
+          <ActionButton label={t('Reset counter')} variant="secondary" onPress={clearCounter} />
         </Section>
 
         <Section
@@ -670,7 +810,7 @@ export default function SettingsScreen({
             'A trusted phone can turn Protection off with one SMS. The message is used only once, and messages that arrived before the switch was turned on are ignored.'
           )}
           lang={lang}>
-          <View style={[styles.remoteRow, lang === 'fa' && styles.headerRtl]}>
+          <View style={[styles.remoteRow, isRtl && styles.headerRtl]}>
             <View style={styles.remoteLabel}>
               <Text style={[styles.remoteTitle, { textAlign: align }]}>
                 {t('Enable Remote Deactivation')}
@@ -746,38 +886,151 @@ export default function SettingsScreen({
         </Section>
 
         <Section
-          title={t('Help')}
-          subtitle={t('Five short steps — from the first keyword to the partner PIN.')}
+          title={t('Excluded Apps')}
+          subtitle={t('Checked apps are never inspected — no keyword or domain block inside them.')}
           lang={lang}>
-          <ActionButton label={t('How to use Tavakkol')} onPress={onOpenHelp} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder={t('Search apps')}
+            placeholderTextColor="#5A6779"
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={[styles.input, { textAlign: align }]}
+          />
+
+          <View style={[styles.excludedMeta, isRtl && styles.headerRtl]}>
+            <Text style={styles.excludedCount}>
+              {t('{{count}} selected', { count: excluded.length })}
+            </Text>
+            {excluded.length > 0 ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={onClearExcluded}
+                style={({ pressed }) => [pressed && styles.pressed]}>
+                <Text style={styles.clearLink}>{t('Clear selection')}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+
+          {loadingApps ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator color={COLORS.accent} size="small" />
+              <Text style={styles.loadingText}>{t('Loading apps…')}</Text>
+            </View>
+          ) : filtered.length === 0 ? (
+            <Text style={styles.emptyText}>{t('No app matches this search.')}</Text>
+          ) : (
+            visibleApps.map((app) => {
+              const checked = excludedSet.has(app.pkg);
+              const busy = busyPkg === app.pkg;
+              return (
+                <Pressable
+                  key={app.pkg}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked }}
+                  accessibilityLabel={app.label}
+                  onPress={() => toggleApp(app.pkg)}
+                  style={({ pressed }) => [
+                    styles.appRow,
+                    checked && styles.appRowChecked,
+                    isRtl && styles.headerRtl,
+                    pressed && styles.pressed,
+                  ]}>
+                  <View style={[styles.checkbox, checked && styles.checkboxOn]}>
+                    {busy ? (
+                      <ActivityIndicator color={COLORS.onAccent} size="small" />
+                    ) : checked ? (
+                      <Text style={styles.checkmark}>✓</Text>
+                    ) : null}
+                  </View>
+                  <View style={styles.appInfo}>
+                    <Text style={[styles.appLabel, { textAlign: align }]} numberOfLines={1}>
+                      {app.label}
+                    </Text>
+                    <Text style={[styles.appPkg, { textAlign: align }]} numberOfLines={1}>
+                      {app.pkg}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })
+          )}
+
+          {hiddenCount > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setShowAllApps(true)}
+              style={({ pressed }) => [styles.showMore, pressed && styles.pressed]}>
+              <Text style={styles.showMoreText}>
+                {t('Show more ({{count}})', { count: hiddenCount })}
+              </Text>
+            </Pressable>
+          ) : null}
+          {showAllApps && !searching && filtered.length > 3 ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setShowAllApps(false)}
+              style={({ pressed }) => [styles.showMore, pressed && styles.pressed]}>
+              <Text style={styles.showMoreText}>{t('Show less')}</Text>
+            </Pressable>
+          ) : null}
+
+          <Text style={[styles.hint, { textAlign: align }]}>
+            {t('Excluded apps are saved instantly.')}
+          </Text>
         </Section>
 
-        <Section title={t('Support Us')} lang={lang}>
-          <Text style={[styles.supportText, { textAlign: align }]}>
-            {t(
-              'Tavakkol is completely free and has no ads. If you are happy with this app, you can share in this good deed.'
-            )}
-          </Text>
-          <ActionButton
-            label={t('Support from inside Iran')}
-            onPress={() => openDonate('iran')}
-          />
-          <ActionButton
-            label={t('Support from outside Iran')}
-            variant="secondary"
-            onPress={() => openDonate('crypto')}
-          />
+        <Section
+          title={t('Language')}
+          subtitle={t('Choose the language of the app.')}
+          lang={lang}>
+          <View style={styles.langRow}>
+            {LANGUAGES.map((option) => {
+              const active = option.code === lang;
+              return (
+                <Pressable
+                  key={option.code}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: active }}
+                  onPress={() => onChangeLanguage(option.code)}
+                  style={({ pressed }) => [
+                    styles.langOption,
+                    active && styles.langOptionActive,
+                    pressed && styles.pressed,
+                  ]}>
+                  <Text
+                    style={[
+                      styles.langText,
+                      active && styles.langTextActive,
+                      { textAlign: 'center' },
+                    ]}>
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </Section>
 
-        <Section title={t('More')} lang={lang}>
-          <Text style={[styles.body, { textAlign: align }]}>
-            {t('If you encounter any problems, please contact the developer.')}
-          </Text>
-          <ActionButton
-            label={t('Contact Developer')}
-            variant="secondary"
-            onPress={contactDeveloper}
-          />
+        <Section
+          title={t('Background Music')}
+          subtitle={t('A calm loop plays while the app is open. Turn it off any time.')}
+          lang={lang}>
+          <View style={[styles.remoteRow, isRtl && styles.headerRtl]}>
+            <View style={styles.remoteLabel}>
+              <Text style={[styles.remoteTitle, { textAlign: align }]}>{t('Music')}</Text>
+              <Text style={[styles.remoteHint, { textAlign: align }]}>
+                {musicMuted ? t('Muted') : t('Playing at 30% volume')}
+              </Text>
+            </View>
+            <Switch
+              value={!musicMuted}
+              onValueChange={(next) => onToggleMusicMuted(!next)}
+              trackColor={{ false: COLORS.border, true: COLORS.accentSoft }}
+              thumbColor={!musicMuted ? COLORS.accent : '#5A6779'}
+            />
+          </View>
         </Section>
 
         <Text style={styles.version}>{t('Version {{version}}', { version: VERSION_LABEL })}</Text>
@@ -786,50 +1039,93 @@ export default function SettingsScreen({
       </ScrollView>
 
       <Modal
-        visible={donateMode !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={closeDonate}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={[styles.modalTitle, { textAlign: align }]}>
-              {donateMode === 'iran' ? t('Support from inside Iran') : t('Support from outside Iran')}
-            </Text>
-            <Text style={[styles.body, { textAlign: align }]}>
-              {t(
-              'Thank you for supporting Tavakkol with your donation. Every contribution, however small, keeps us going.'
-            )}
-            </Text>
+        visible={logsOpen}
+        animationType="slide"
+        onRequestClose={closeLogs}>
+        <View style={styles.logModalRoot}>
+          <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+          <View style={styles.logHeader}>
+            <View style={styles.logHeaderTitle}>
+              <Text style={styles.logTitle}>{t('Debug Log')}</Text>
+              <Text style={styles.logSubtitle}>{t('Last 100 events · newest first')}</Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('Close debug log')}
+              onPress={closeLogs}
+              style={({ pressed }) => [styles.logClose, pressed && styles.pressed]}>
+              <Text style={styles.logCloseText}>{t('Close')}</Text>
+            </Pressable>
+          </View>
 
-            {donateMode === 'iran' ? (
-              DONATION_ZARINPAL_URL ? (
-                <ActionButton label={t('Open the payment page')} onPress={openZarinpal} />
-              ) : (
-                <Text style={[styles.body, { textAlign: align }]}>
-                  {t('The domestic payment link is not set yet.')}
-                </Text>
-              )
-            ) : DONATION_WALLET ? (
-              <>
-                <Text style={[styles.walletNetwork, { textAlign: align }]}>
-                  {DONATION_NETWORK}
-                </Text>
-                <Text selectable style={[styles.walletAddress, { textAlign: align }]}>
-                  {DONATION_WALLET}
-                </Text>
-                <ActionButton
-                  label={copied ? t('Copied') : t('Copy wallet address')}
-                  onPress={copyWallet}
-                  saved={copied}
-                />
-              </>
-            ) : (
-              <Text style={[styles.body, { textAlign: align }]}>
-                {t('The donation wallet address is not set yet.')}
+          {health ? (
+            <View style={styles.logHealth}>
+              <Text style={styles.logHealthText}>
+                {`${t('Accessibility: {{state}}', {
+                  state: health.accessibilityEnabled ? t('enabled') : t('DISABLED'),
+                })} · ${t('Guard bound: {{state}}', {
+                  state: health.serviceRunning ? t('yes') : t('no'),
+                })} · ${t('Foreground service: {{state}}', {
+                  state: health.foregroundActive ? t('running') : t('DOWN'),
+                })} · ${t('Watchdog: {{state}}', {
+                  state: health.watchdogRunning ? t('up') : t('DOWN'),
+                })} (${formatHeartbeat(health.heartbeatAgeMs, t)}) · ${t('Battery optimization')}: ${
+                  health.batteryOptimizationIgnored
+                    ? t('battery optimization off (safe)')
+                    : t('battery optimization on (kill risk)')
+                }`}
               </Text>
-            )}
+              {!health.batteryOptimizationIgnored ? (
+                <ActionButton
+                  label={t('Exclude from battery optimization')}
+                  variant="secondary"
+                  onPress={fixBattery}
+                />
+              ) : null}
+            </View>
+          ) : null}
 
-            <ActionButton label={t('Close')} variant="secondary" onPress={closeDonate} />
+          {logsLoading ? (
+            <ActivityIndicator color={COLORS.accent} style={styles.logLoader} />
+          ) : (
+            <FlatList
+              data={logs}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.logList}
+              ListEmptyComponent={
+                <Text style={styles.logEmpty}>
+                  {t(
+                    'No events recorded yet. The log fills as soon as the guard runs — tap Refresh after using the phone, or Clear to start over.'
+                  )}
+                </Text>
+              }
+              renderItem={({ item }) => (
+                <View style={styles.logRow}>
+                  <Text style={styles.logTime}>{formatLogTime(item.t)}</Text>
+                  <Text style={[styles.logType, { color: logTypeColor(item.type) }]}>
+                    {item.type}
+                  </Text>
+                  <View style={styles.logBody}>
+                    {item.pkg ? <Text style={styles.logPkg}>{shortPackage(item.pkg)}</Text> : null}
+                    {item.text ? <Text style={styles.logText}>{item.text}</Text> : null}
+                  </View>
+                </View>
+              )}
+            />
+          )}
+
+          <View style={styles.logFooter}>
+            <View style={styles.logFooterButton}>
+              <ActionButton label={t('Refresh')} variant="secondary" onPress={loadLogs} busy={logsLoading} />
+            </View>
+            <View style={styles.logFooterButton}>
+              <ActionButton
+                label={t('Clear log')}
+                variant="secondary"
+                onPress={clearLogs}
+                busy={clearingLogs}
+              />
+            </View>
           </View>
         </View>
       </Modal>
@@ -897,21 +1193,21 @@ const styles = StyleSheet.create({
   headerRtl: {
     flexDirection: 'row-reverse',
   },
-  backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+  menuButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.surfaceAlt,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  backIcon: {
+  menuIcon: {
     color: COLORS.text,
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: 22,
     fontWeight: '700',
+    lineHeight: 26,
   },
   headerText: {
     flex: 1,
@@ -996,6 +1292,66 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 6,
   },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 12,
+  },
+  statusTextWrap: {
+    flex: 1,
+  },
+  statusTitle: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  statusHint: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 3,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  statBox: {
+    flex: 1,
+    backgroundColor: COLORS.surfaceAlt,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  statValue: {
+    color: COLORS.accent,
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  statLabel: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  lastBlockLine: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginBottom: 12,
+  },
+  healthLine: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  healthOk: {
+    color: COLORS.accent,
+  },
+  healthWarn: {
+    color: COLORS.warning,
+  },
   excludedMeta: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1077,12 +1433,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 12,
   },
-  supportText: {
-    color: COLORS.text,
-    fontSize: 14,
-    lineHeight: 22,
-    marginBottom: 10,
-  },
   showMore: {
     alignSelf: 'center',
     paddingVertical: 10,
@@ -1137,24 +1487,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 10,
   },
-  walletNetwork: {
-    color: COLORS.accent,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    marginBottom: 4,
-  },
-  walletAddress: {
-    color: COLORS.text,
-    fontSize: 14,
-    lineHeight: 21,
-    backgroundColor: COLORS.surfaceAlt,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 12,
-    marginBottom: 10,
-  },
   footer: {
     color: '#475569',
     fontSize: 12,
@@ -1167,5 +1499,106 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginTop: 18,
     textAlign: 'center',
+  },
+  logModalRoot: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  logHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingTop: (StatusBar.currentHeight || 24) + 14,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  logHeaderTitle: {
+    flex: 1,
+  },
+  logTitle: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  logSubtitle: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  logClose: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  logCloseText: {
+    color: COLORS.accent,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  logHealth: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  logHealthText: {
+    color: COLORS.muted,
+    fontSize: 11,
+    lineHeight: 17,
+    marginBottom: 8,
+  },
+  logLoader: {
+    marginTop: 30,
+  },
+  logList: {
+    padding: 12,
+  },
+  logEmpty: {
+    color: COLORS.muted,
+    fontSize: 13,
+    lineHeight: 20,
+    padding: 16,
+    textAlign: 'center',
+  },
+  logRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(58,72,90,0.35)',
+  },
+  logTime: {
+    color: '#64748B',
+    fontSize: 10,
+    width: 74,
+  },
+  logType: {
+    fontSize: 11,
+    fontWeight: '700',
+    width: 130,
+  },
+  logBody: {
+    flex: 1,
+  },
+  logPkg: {
+    color: COLORS.muted,
+    fontSize: 11,
+  },
+  logText: {
+    color: COLORS.text,
+    fontSize: 12,
+  },
+  logFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 14,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  logFooterButton: {
+    flex: 1,
   },
 });

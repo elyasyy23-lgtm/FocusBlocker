@@ -3,17 +3,15 @@ import {
   ActivityIndicator,
   AppState,
   BackHandler,
-  FlatList,
   ImageBackground,
   Linking,
   Modal,
   PermissionsAndroid,
   Platform,
-  Pressable,
   ScrollView,
+  Share,
   StatusBar,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -22,12 +20,15 @@ import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import * as FocusGuard from './modules/focus-guard';
 import { createTranslator } from './src/i18n';
 import { COLORS, textAlign } from './src/theme';
-import { ActionButton, Chip, GiftNote, Section, StatusPill } from './src/components/ui';
-import { DEFAULT_KEYWORDS } from './src/defaults';
-import { VERSION, VERSION_LABEL } from './src/buildInfo';
+import { ActionButton } from './src/components/ui';
+import Drawer from './src/components/Drawer';
+import DonateSheet from './src/components/DonateSheet';
+import HomeScreen from './src/screens/HomeScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import HelpScreen from './src/screens/HelpScreen';
 import LockScreen from './src/screens/LockScreen';
+import { DEFAULT_KEYWORDS, APP_SHARE_URL, DEVELOPER_RUBIKA_SCHEME, DEVELOPER_RUBIKA_URL } from './src/defaults';
+import { VERSION, VERSION_LABEL } from './src/buildInfo';
 
 const BACKGROUND = require('./assets/background.jpg');
 
@@ -89,62 +90,6 @@ function normalizeDomain(raw) {
     .replace(/\.+$/, '');
 }
 
-const LOG_TYPE_COLORS = {
-  service_connected: '#7DD3FC',
-  service_unbound: '#F87171',
-  service_destroyed: '#F87171',
-  service_interrupted: '#FBBF24',
-  fgs_started: '#4ADE80',
-  fgs_failed: '#F87171',
-  fgs_fallback: '#FBBF24',
-  watchdog_started: '#4ADE80',
-  watchdog_wakeup: '#7DD3FC',
-  watchdog_task_removed: '#7DD3FC',
-  watchdog_destroyed: '#F87171',
-  watchdog_failed: '#F87171',
-  guard_missing: '#F87171',
-  guard_recovered: '#4ADE80',
-  guard_alert: '#FBBF24',
-  guard_alert_failed: '#F87171',
-  alarm_failed: '#FBBF24',
-  job_failed: '#FBBF24',
-  job_tick: '#7DD3FC',
-  autostart_opened: '#8C9AAB',
-  keyword_detected: '#FBBF24',
-  domain_detected: '#FBBF24',
-  block_triggered: '#F87171',
-  block_recheck_back: '#FBBF24',
-  block_recheck_home: '#FBBF24',
-  block_recheck_clear: '#7DD3FC',
-  scan_failed: '#FBBF24',
-};
-
-function logTypeColor(type) {
-  return LOG_TYPE_COLORS[type] || COLORS.muted;
-}
-
-function formatLogTime(value) {
-  if (!value) return '--:--:--';
-  const date = new Date(value);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(
-    date.getMinutes()
-  )}:${pad(date.getSeconds())}`;
-}
-
-function shortPackage(pkg) {
-  const parts = String(pkg || '').split('.');
-  return parts.slice(-2).join('.');
-}
-
-/** "42s ago" / "12min ago" / "never" — how long the watchdog has been silent. */
-function formatHeartbeat(ageMs, t) {
-  if (ageMs === null || ageMs === undefined || ageMs < 0) return t('never');
-  const seconds = Math.round(ageMs / 1000);
-  if (seconds < 90) return t('{{seconds}}s ago', { seconds });
-  return t('{{minutes}}min ago', { minutes: Math.round(seconds / 60) });
-}
-
 export default function App() {
   const [config, setConfig] = useState(FocusGuard.EMPTY_CONFIG);
   const [keywordsText, setKeywordsText] = useState('');
@@ -154,20 +99,21 @@ export default function App() {
   const [savingDomains, setSavingDomains] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [message, setMessage] = useState(null);
-  const [health, setHealth] = useState(null);
-  const [logsOpen, setLogsOpen] = useState(false);
-  const [logs, setLogs] = useState([]);
-  const [logsLoading, setLogsLoading] = useState(false);
-  const [clearingLogs, setClearingLogs] = useState(false);
-  const [keepAliveBusy, setKeepAliveBusy] = useState(false);
   const [screen, setScreen] = useState('main');
   const [appState, setAppState] = useState(AppState.currentState);
 
+  // v1.4.5: the side drawer.
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  // v1.4.5: Support Us is a drawer action now, so its sheet lives up here.
+  const [donateMode, setDonateMode] = useState(null);
+
   // v1.4.2 Delay Mode: the challenge lives behind a modal; nothing is written
-  // to the native store until the typed text matches exactly.
+  // to the native store until the typed text matches exactly. v1.4.5: the same
+  // modal now guards BOTH turning Protection off and turning Delay Mode off.
   const [delayOpen, setDelayOpen] = useState(false);
   const [delayTyped, setDelayTyped] = useState('');
   const [delayError, setDelayError] = useState(null);
+  const [delayIntent, setDelayIntent] = useState('protection'); // 'protection' | 'delayMode'
 
   // v1.4.2: update checker — `null` while unknown, `{ latest, url }` when a
   // strictly newer version is published on the Pages site.
@@ -180,15 +126,6 @@ export default function App() {
   const [sessionUnlocked, setSessionUnlocked] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
 
-  // v1.3.0: the Help screen came from Settings, so Back goes back there first.
-  useEffect(() => {
-    if (screen === 'main') return undefined;
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      setScreen(screen === 'help' ? 'settings' : 'main');
-      return true;
-    });
-    return () => subscription.remove();
-  }, [screen]);
   const [lang, setLang] = useState('en');
   const keywordsDirtyRef = useRef(false);
   const domainsDirtyRef = useRef(false);
@@ -199,6 +136,11 @@ export default function App() {
   const isRtl = lang === 'fa';
   // Localised challenge the user must retype (same sentence in both languages).
   const challengeText = t(DELAY_CHALLENGE);
+
+  // v1.4.5: while Protection is ON the Settings screen is closed and the Home
+  // editors are read-only. `config.enabled` is the single source of truth.
+  const settingsLocked = Boolean(config.enabled);
+  const readOnly = Boolean(config.enabled);
 
   const refresh = useCallback(async () => {
     try {
@@ -216,11 +158,6 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-    // Health rides along every foreground refresh — the Debug Log section
-    // always shows the live keep-alive state without opening the modal.
-    FocusGuard.getServiceHealth()
-      .then(setHealth)
-      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -232,10 +169,34 @@ export default function App() {
       } else {
         // Leaving the app locks it again — the next return needs the PIN.
         setSessionUnlocked(false);
+        setDrawerOpen(false);
       }
     });
     return () => subscription.remove();
   }, [refresh]);
+
+  // v1.4.5: hardware Back — close the drawer first, then return to Home.
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (drawerOpen) {
+        setDrawerOpen(false);
+        return true;
+      }
+      if (screen !== 'main') {
+        setScreen('main');
+        return true;
+      }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [drawerOpen, screen]);
+
+  // v1.4.5: if Protection is turned on while Settings is open, bounce to Home.
+  useEffect(() => {
+    if (settingsLocked && screen === 'settings') {
+      setScreen('main');
+    }
+  }, [settingsLocked, screen]);
 
   // v1.4.2: background music. One player for the whole app, looping at 30 %.
   // It pauses the moment the app leaves the foreground and stays silent while
@@ -388,6 +349,13 @@ export default function App() {
     }
   };
 
+  const openDelay = (intent) => {
+    setDelayIntent(intent);
+    setDelayTyped('');
+    setDelayError(null);
+    setDelayOpen(true);
+  };
+
   /**
    * v1.3.1: the Protection switch is a plain switch — no PIN, no dialog. The
    * v1.3.2: the Partner PIN only guards entering the app (LockScreen). The
@@ -414,9 +382,7 @@ export default function App() {
       // silent failure — open the challenge instead of leaving Protection on
       // with no explanation.
       if (!value && /Delay Mode/i.test(String(error && error.message))) {
-        setDelayTyped('');
-        setDelayError(null);
-        setDelayOpen(true);
+        openDelay('protection');
         return;
       }
       setMessage(error.message || t('Could not change the blocker state.'));
@@ -442,16 +408,32 @@ export default function App() {
         // switching Protection off without the challenge.
       }
       if (delayOn) {
-        setDelayTyped('');
-        setDelayError(null);
-        setDelayOpen(true);
+        openDelay('protection');
         return;
       }
     }
     applyEnabled(value);
   };
 
+  /**
+   * v1.4.5: Delay Mode is now symmetric — turning it OFF while it is ON needs
+   * the same typed challenge (otherwise one tap disables the guard and then a
+   * second tap turns Protection off). Turning it ON is always immediate.
+   */
   const toggleDelayMode = async (value) => {
+    if (!value) {
+      let delayOn = config.delayMode;
+      try {
+        const live = await FocusGuard.getConfig();
+        delayOn = Boolean(live.delayMode);
+      } catch (error) {
+        // Fall back to the cached value.
+      }
+      if (delayOn) {
+        openDelay('delayMode');
+        return;
+      }
+    }
     try {
       await FocusGuard.setDelayMode(value);
       await refresh();
@@ -461,6 +443,10 @@ export default function App() {
           : t('Delay Mode is off — Protection can be switched off again directly.')
       );
     } catch (error) {
+      if (!value && /Delay Mode/i.test(String(error && error.message))) {
+        openDelay('delayMode');
+        return;
+      }
       setMessage(error.message || t('Could not change Delay Mode.'));
     }
   };
@@ -483,22 +469,36 @@ export default function App() {
   };
 
   const cancelDelay = () => {
-    // Protection was never touched — it is still ON.
+    // Nothing was written — Protection/Delay Mode stay exactly as they were.
     setDelayOpen(false);
     setDelayTyped('');
     setDelayError(null);
   };
 
-  const confirmDelayOff = async () => {
+  const confirmDelay = async () => {
     if (normalizeChallenge(delayTyped) !== normalizeChallenge(challengeText)) {
       setDelayError(
-        t('The text does not match yet. Keep typing — or cancel to keep Protection on.')
+        t('The text does not match yet. Keep typing — or cancel to keep it on.')
       );
       return;
     }
+    const intent = delayIntent;
     setDelayOpen(false);
     setDelayTyped('');
     setDelayError(null);
+    if (intent === 'delayMode') {
+      setToggling(true);
+      try {
+        await FocusGuard.disableDelayModeAfterChallenge();
+        await refresh();
+        setMessage(t('Delay Mode is off — Protection can be switched off again directly.'));
+      } catch (error) {
+        setMessage(error.message || t('Could not change Delay Mode.'));
+      } finally {
+        setToggling(false);
+      }
+      return;
+    }
     await applyEnabled(false, { afterChallenge: true });
   };
 
@@ -531,119 +531,6 @@ export default function App() {
     }
   };
 
-  const openAccessibility = async () => {
-    try {
-      await FocusGuard.openAccessibilitySettings();
-      setMessage(t('Find “Tavakkol guard (keywords + domains)” in the list and switch it on.'));
-    } catch (error) {
-      setMessage(error.message || t('Could not open Accessibility settings.'));
-    }
-  };
-
-  const enableDeviceAdmin = async () => {
-    try {
-      await FocusGuard.requestDeviceAdmin();
-      setMessage(t('Confirm the system dialog to keep Tavakkol installed.'));
-      setTimeout(refresh, 1200);
-    } catch (error) {
-      setMessage(error.message || t('Could not open the device admin dialog.'));
-    }
-  };
-
-  const runPanicLock = async () => {
-    try {
-      await FocusGuard.lockScreen();
-    } catch (error) {
-      setMessage(error.message || t('Locking the screen failed.'));
-    }
-  };
-
-  const clearCounter = async () => {
-    try {
-      await FocusGuard.resetBlockCount();
-      await refresh();
-      setMessage(t('Block counter reset.'));
-    } catch (error) {
-      setMessage(error.message || t('Could not reset the counter.'));
-    }
-  };
-
-  const loadLogs = async () => {
-    setLogsLoading(true);
-    try {
-      const [nextLogs, nextHealth] = await Promise.all([
-        FocusGuard.getDebugLogs(),
-        FocusGuard.getServiceHealth(),
-      ]);
-      setLogs(nextLogs);
-      setHealth(nextHealth);
-    } catch (error) {
-      setMessage(error.message || t('Could not read the debug log.'));
-      setLogsOpen(false);
-    } finally {
-      setLogsLoading(false);
-    }
-  };
-
-  const openLogs = async () => {
-    setLogsOpen(true);
-    await loadLogs();
-  };
-
-  const closeLogs = () => setLogsOpen(false);
-
-  const clearLogs = async () => {
-    setClearingLogs(true);
-    try {
-      await FocusGuard.clearDebugLogs();
-      setLogs([]);
-    } catch (error) {
-      setMessage(error.message || t('Could not clear the log.'));
-    } finally {
-      setClearingLogs(false);
-    }
-  };
-
-  const fixBattery = async () => {
-    try {
-      await FocusGuard.requestIgnoreBatteryOptimizations();
-      setMessage(t('Confirm the system dialog so Android stops killing the guard.'));
-      setTimeout(loadLogs, 1500);
-    } catch (error) {
-      setMessage(error.message || t('Could not open the battery dialog.'));
-    }
-  };
-
-  const startKeepAlive = async () => {
-    setKeepAliveBusy(true);
-    try {
-      await FocusGuard.ensureKeepAlive();
-      await refresh();
-      setMessage(
-        t('Keep-alive armed: watchdog started, 15-minute alarm and persisted job scheduled.')
-      );
-    } catch (error) {
-      setMessage(error.message || t('Could not start the keep-alive.'));
-    } finally {
-      setKeepAliveBusy(false);
-    }
-  };
-
-  const openAutostart = async () => {
-    try {
-      const result = await FocusGuard.openAutostartSettings();
-      setMessage(
-        result.opened === 'autostart'
-          ? t('Switch Autostart ON for Tavakkol on this screen, then come back.')
-          : t(
-              'Find “Autostart” (or “Battery usage / Allow background activity”) on this screen and allow Tavakkol.'
-            )
-      );
-    } catch (error) {
-      setMessage(error.message || t('Could not open the autostart screen.'));
-    }
-  };
-
   // ---------------------------------------------------------------- settings
   const changeLanguage = useCallback(async (code) => {
     setLang(code);
@@ -673,6 +560,51 @@ export default function App() {
     } catch (error) {
       setMessage(error.message || t('Could not save the excluded apps.'));
     }
+  }, [t]);
+
+  // -------------------------------------------------- drawer actions (v1.4.5)
+  const shareApp = useCallback(async () => {
+    try {
+      await Share.share({
+        message: `${t(
+          'Tavakkol — a free guard for your phone. Blocked words and sites close themselves while you type.'
+        )}\n\n${t('Tavakkol')} v${VERSION_LABEL}\n${APP_SHARE_URL}`,
+      });
+    } catch (error) {
+      setMessage(t('Could not open the share sheet.'));
+    }
+  }, [t]);
+
+  const contactDeveloper = useCallback(async () => {
+    // Rubika's own scheme first, then the plain web link (works even without
+    // the app installed, because rubika.ir answers in a browser).
+    const opened =
+      (await FocusGuard.openUrl(DEVELOPER_RUBIKA_SCHEME)) ||
+      (await FocusGuard.openUrl(DEVELOPER_RUBIKA_URL));
+    if (!opened) {
+      try {
+        await Linking.openURL(DEVELOPER_RUBIKA_URL);
+      } catch (error) {
+        setMessage(t('Could not open the link.'));
+      }
+    }
+  }, [t]);
+
+  const openDonate = useCallback((mode) => setDonateMode(mode), []);
+
+  const navigate = useCallback(
+    (name) => {
+      if (name === 'settings' && settingsLocked) {
+        setMessage(t('To open Settings, first turn Protection off.'));
+        return;
+      }
+      setScreen(name);
+    },
+    [settingsLocked, t]
+  );
+
+  const blockedSettings = useCallback(() => {
+    setMessage(t('To open Settings, first turn Protection off.'));
   }, [t]);
 
   const keywordsPreview = Array.from(
@@ -729,545 +661,106 @@ export default function App() {
       <ImageBackground source={BACKGROUND} style={styles.root} resizeMode="cover">
         <View style={styles.overlay} />
         <StatusBar barStyle="dark-content" backgroundColor={COLORS.pageBackground} />
-        <LockScreen
-          t={t}
-          lang={lang}
-          busy={unlocking}
-          onSubmit={unlockApp}
-        />
+        <LockScreen t={t} lang={lang} busy={unlocking} onSubmit={unlockApp} />
       </ImageBackground>
     );
   }
 
-  if (screen === 'help') {
-    return (
-      <HelpScreen
-        t={t}
-        lang={lang}
-        onBack={() => setScreen('settings')}
-      />
-    );
-  }
-
-  if (screen === 'settings') {
-    return (
-      <SettingsScreen
-        t={t}
-        lang={lang}
-        onBack={() => setScreen('main')}
-        onChangeLanguage={changeLanguage}
-        excluded={config.excludedApps}
-        onToggleExcluded={toggleExcluded}
-        onClearExcluded={clearExcluded}
-        isAvailable={FocusGuard.isAvailable}
-        onOpenHelp={() => setScreen('help')}
-        onMessage={setMessage}
-        message={message}
-        musicMuted={config.musicMuted}
-        onToggleMusicMuted={toggleMusicMuted}
-      />
-    );
-  }
+  const delayIsProtection = delayIntent === 'protection';
 
   return (
-    <ImageBackground source={BACKGROUND} style={styles.root} resizeMode="cover">
-      <View style={styles.overlay} />
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.pageBackground} />
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}>
-        <View style={[styles.brandRow, isRtl && styles.brandRowRtl]}>
-          <View style={styles.brandText}>
-            <Text style={[styles.brand, { textAlign: align }]}>{t('Tavakkol')}</Text>
-            <Text style={[styles.brandSub, { textAlign: align }]}>{t('Personal guard')}</Text>
-          </View>
-          <View style={styles.headerActions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('Help')}
-              onPress={() => setScreen('help')}
-              style={({ pressed }) => [styles.gear, pressed && styles.pressed]}>
-              <Text style={styles.helpIcon}>?</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('Settings')}
-              onPress={() => setScreen('settings')}
-              style={({ pressed }) => [styles.gear, pressed && styles.pressed]}>
-              <Text style={styles.gearIcon}>⚙</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        <Text style={[styles.tagline, { textAlign: align }]}>
-          {t(
-            'A guard for your own phone. It watches text as it changes on screen — a blocked keyword or domain in a search bar, address bar or chat closes the app immediately.'
-          )}
-        </Text>
-
-        <GiftNote
+    <View style={styles.appRoot}>
+      {screen === 'help' ? (
+        <HelpScreen t={t} lang={lang} onOpenDrawer={() => setDrawerOpen(true)} />
+      ) : screen === 'settings' && !settingsLocked ? (
+        <SettingsScreen
+          t={t}
           lang={lang}
-          text={t('This app is completely free. Please remember us in your prayers.')}
+          onOpenDrawer={() => setDrawerOpen(true)}
+          onChangeLanguage={changeLanguage}
+          excluded={config.excludedApps}
+          onToggleExcluded={toggleExcluded}
+          onClearExcluded={clearExcluded}
+          isAvailable={FocusGuard.isAvailable}
+          onMessage={setMessage}
+          message={message}
+          musicMuted={config.musicMuted}
+          onToggleMusicMuted={toggleMusicMuted}
+          config={config}
+          onRefresh={refresh}
         />
+      ) : (
+        <HomeScreen
+          t={t}
+          lang={lang}
+          isAvailable={FocusGuard.isAvailable}
+          config={config}
+          keywordsText={keywordsText}
+          onChangeKeywords={(value) => {
+            keywordsDirtyRef.current = true;
+            setKeywordsText(value);
+          }}
+          domainsText={domainsText}
+          onChangeDomains={(value) => {
+            domainsDirtyRef.current = true;
+            setDomainsText(value);
+          }}
+          keywordsPreview={keywordsPreview}
+          domainsPreview={domainsPreview}
+          keywordsSaved={keywordsSaved}
+          domainsSaved={domainsSaved}
+          saving={saving}
+          savingDomains={savingDomains}
+          toggling={toggling}
+          message={message}
+          blockingReady={blockingReady}
+          readOnly={readOnly}
+          onSaveKeywords={saveKeywords}
+          onSaveDomains={saveDomains}
+          onToggleBlocking={toggleBlocking}
+          onToggleDelayMode={toggleDelayMode}
+          onOpenDrawer={() => setDrawerOpen(true)}
+        />
+      )}
 
-        {!FocusGuard.isAvailable ? (
-          <View style={styles.warningBox}>
-            <Text style={[styles.warningTitle, { textAlign: align }]}>
-              {t('Native build required')}
-            </Text>
-            <Text style={[styles.warningText, { textAlign: align }]}>
-              {t(
-                'Expo Go cannot run accessibility services. Build the APK (eas build -p android --profile preview) and install it — every control below works there.'
-              )}
-            </Text>
-          </View>
-        ) : null}
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        t={t}
+        lang={lang}
+        currentScreen={screen}
+        settingsLocked={settingsLocked}
+        onNavigate={navigate}
+        onBlockedSettings={blockedSettings}
+        onShare={shareApp}
+        onContact={contactDeveloper}
+        onSupport={() => openDonate('iran')}
+      />
 
-        {loading ? (
-          <ActivityIndicator color={COLORS.accent} style={styles.loader} />
-        ) : (
-          <>
-            <View style={styles.heroCard}>
-              <Text style={[styles.heroLabel, { textAlign: align }]}>{t('Protection')}</Text>
-              <Text
-                style={[
-                  styles.heroState,
-                  blockingReady ? styles.heroOn : styles.heroOff,
-                  { textAlign: align },
-                ]}>
-                {blockingReady ? t('Active') : t('Not active yet')}
-              </Text>
-              <Text style={[styles.heroHint, { textAlign: align }]}>
-                {config.enabled
-                  ? t('{{keywords}} keyword(s) + {{domains}} domain(s) watched', {
-                      keywords: config.keywords.length,
-                      domains: config.domains.length,
-                    })
-                  : t('Blocker paused')}
-                {' · '}
-                {t('{{count}} block(s) so far', { count: config.blockCount })}
-              </Text>
-              <View style={[styles.switchGrid, isRtl && styles.switchGridRtl]}>
-                <View style={styles.switchCell}>
-                  <Text style={[styles.switchTitle, { textAlign: align }]}>{t('Protection')}</Text>
-                  <Text style={[styles.switchHint, { textAlign: align }]}>
-                    {config.accessibilityEnabled
-                      ? t('Accessibility service is running')
-                      : t('Service is off — enable it below')}
-                  </Text>
-                  <View style={styles.switchControl}>
-                    <Switch
-                      value={config.enabled}
-                      onValueChange={toggleBlocking}
-                      disabled={toggling || !FocusGuard.isAvailable}
-                      trackColor={{ false: COLORS.border, true: COLORS.accentSoft }}
-                      thumbColor={config.enabled ? COLORS.accent : '#5A6779'}
-                    />
-                  </View>
-                </View>
+      <DonateSheet
+        visible={donateMode !== null}
+        mode={donateMode}
+        onClose={() => setDonateMode(null)}
+        t={t}
+        lang={lang}
+        onMessage={setMessage}
+      />
 
-                <View style={styles.switchCell}>
-                  <Text style={[styles.switchTitle, { textAlign: align }]}>{t('Delay Mode')}</Text>
-                  <Text style={[styles.switchHint, { textAlign: align }]}>
-                    {config.delayMode
-                      ? t('On — Protection can only be turned off by typing the full text')
-                      : t('Off — Protection turns off with one tap')}
-                  </Text>
-                  <View style={styles.switchControl}>
-                    <Switch
-                      value={config.delayMode}
-                      onValueChange={toggleDelayMode}
-                      disabled={!FocusGuard.isAvailable}
-                      trackColor={{ false: COLORS.border, true: COLORS.accentSoft }}
-                      thumbColor={config.delayMode ? COLORS.accent : '#5A6779'}
-                    />
-                  </View>
-                </View>
-              </View>
-            </View>
-
-            <Section
-              lang={lang}
-              title={t('{{n}}. {{title}}', { n: 1, title: t('Blocked keywords') })}
-              subtitle={t(
-                'Any text that changes on screen is checked — search bars, the browser address bar and chat messages (Telegram, Rubika). Separate keywords with a comma. Matching is whole-word only, so a short word never fires inside a longer one.'
-              )}>
-              <TextInput
-                value={keywordsText}
-                onChangeText={(value) => {
-                  keywordsDirtyRef.current = true;
-                  setKeywordsText(value);
-                }}
-                placeholder="sex, porn, casino"
-                placeholderTextColor="#5A6779"
-                autoCapitalize="none"
-                autoCorrect={false}
-                multiline
-                style={[styles.input, { textAlign: align }]}
-              />
-              <View style={styles.chipRow}>
-                {keywordsPreview.length === 0 ? (
-                  <Text style={styles.emptyHint}>
-                    {t('No keywords yet — nothing will be blocked.')}
-                  </Text>
-                ) : (
-                  keywordsPreview.map((keyword) => (
-                    <Chip key={keyword} label={keyword} lang={lang} />
-                  ))
-                )}
-              </View>
-              <ActionButton
-                label={t('Save block list')}
-                onPress={saveKeywords}
-                busy={saving}
-                saved={keywordsSaved}
-                disabled={!FocusGuard.isAvailable}
-              />
-            </Section>
-
-            <Section
-              lang={lang}
-              title={t('{{n}}. {{title}}', { n: 2, title: t('Blocked domains') })}
-              subtitle={t(
-                'The guard reads the address bar of Chrome and other browsers. http://, https://, www. and paths are removed automatically — just type the domain.'
-              )}>
-              <TextInput
-                value={domainsText}
-                onChangeText={(value) => {
-                  domainsDirtyRef.current = true;
-                  setDomainsText(value);
-                }}
-                placeholder="facebook.com, instagram.com"
-                placeholderTextColor="#5A6779"
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="url"
-                multiline
-                style={[styles.input, { textAlign: align }]}
-              />
-              <View style={styles.chipRow}>
-                {domainsPreview.length === 0 ? (
-                  <Text style={styles.emptyHint}>
-                    {t('No domains yet — the browser stays open.')}
-                  </Text>
-                ) : (
-                  domainsPreview.map((domain) => (
-                    <Chip key={domain} label={domain} danger lang={lang} />
-                  ))
-                )}
-              </View>
-              <ActionButton
-                label={t('Save domain list')}
-                onPress={saveDomains}
-                busy={savingDomains}
-                saved={domainsSaved}
-                disabled={!FocusGuard.isAvailable}
-              />
-            </Section>
-
-            <Section
-              lang={lang}
-              title={t('{{n}}. {{title}}', { n: 3, title: t('Accessibility service') })}
-              subtitle={t(
-                'This is what lets the app read the screen and press Back. Android shows a warning — that warning is normal for any accessibility app.'
-              )}>
-              <View style={styles.statusRow}>
-                <View style={styles.statusTextWrap}>
-                  <Text style={[styles.statusTitle, { textAlign: align }]}>
-                    {t('Service status')}
-                  </Text>
-                  <Text style={[styles.statusHint, { textAlign: align }]}>
-                    {t('Settings → Accessibility → Installed apps')}
-                  </Text>
-                </View>
-                <StatusPill
-                  active={config.accessibilityEnabled}
-                  labels={[t('Enabled'), t('Disabled')]}
-                />
-              </View>
-              <ActionButton
-                label={t('Open Accessibility settings')}
-                variant="secondary"
-                onPress={openAccessibility}
-                disabled={!FocusGuard.isAvailable}
-              />
-            </Section>
-
-            <Section
-              lang={lang}
-              title={t('{{n}}. {{title}}', { n: 4, title: t('Device admin (anti-uninstall)') })}
-              subtitle={t(
-                'While device admin is active, Android refuses to uninstall Tavakkol. Deactivate it in Settings → Security → Device admin apps if you ever want the app gone.'
-              )}>
-              <View style={styles.statusRow}>
-                <View style={styles.statusTextWrap}>
-                  <Text style={[styles.statusTitle, { textAlign: align }]}>
-                    {t('Device admin')}
-                  </Text>
-                  <Text style={[styles.statusHint, { textAlign: align }]}>
-                    {t('Uses the force-lock policy')}
-                  </Text>
-                </View>
-                <StatusPill
-                  active={config.deviceAdminActive}
-                  labels={[t('Active'), t('Inactive')]}
-                />
-              </View>
-              {config.deviceAdminActive ? (
-                <ActionButton
-                  label={t('Panic lock screen')}
-                  variant="secondary"
-                  onPress={runPanicLock}
-                />
-              ) : (
-                <ActionButton
-                  label={t('Activate device admin')}
-                  variant="secondary"
-                  onPress={enableDeviceAdmin}
-                  disabled={!FocusGuard.isAvailable}
-                />
-              )}
-            </Section>
-
-            <Section
-              lang={lang}
-              title={t('Stats')}
-              subtitle={t('Stored on this device only — nothing is uploaded.')}>
-              <View style={styles.statsRow}>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{config.blockCount}</Text>
-                  <Text style={styles.statLabel}>{t('Blocks')}</Text>
-                </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{config.keywords.length}</Text>
-                  <Text style={styles.statLabel}>{t('Keywords')}</Text>
-                </View>
-                <View style={styles.statBox}>
-                  <Text style={styles.statValue}>{config.domains.length}</Text>
-                  <Text style={styles.statLabel}>{t('Domains')}</Text>
-                </View>
-              </View>
-              <Text style={[styles.lastBlockLine, { textAlign: align }]}>
-                {`${t('Last block')}: ${
-                  config.lastBlockPackage
-                    ? `${config.lastBlockPackage.split('.').pop()}${
-                        config.lastBlockReason ? ` (${config.lastBlockReason})` : ''
-                      }`
-                    : t('nothing yet')
-                }`}
-              </Text>
-              <ActionButton
-                label={t('Reset counter')}
-                variant="secondary"
-                onPress={clearCounter}
-              />
-            </Section>
-
-            <Section
-              lang={lang}
-              title={t('{{n}}. {{title}}', { n: 5, title: t('Keep-alive') })}
-              subtitle={t(
-                'Android — and MIUI/HyperOS especially — kills background apps. Three independent restarters bring the guard back by themselves: a restartable foreground watchdog, a 15-minute alarm and a 15-minute job, plus a boot receiver.'
-              )}>
-              <View style={styles.statusRow}>
-                <View style={styles.statusTextWrap}>
-                  <Text style={[styles.statusTitle, { textAlign: align }]}>
-                    {t('Watchdog service')}
-                  </Text>
-                  <Text style={[styles.statusHint, { textAlign: align }]}>
-                    {health
-                      ? `${formatHeartbeat(health.heartbeatAgeMs, t)}${
-                          health.manufacturer ? ` · ${health.manufacturer}` : ''
-                        }`
-                      : t('checking…')}
-                  </Text>
-                </View>
-                <StatusPill
-                  active={Boolean(health && health.watchdogRunning)}
-                  labels={[t('Up'), t('Down')]}
-                />
-              </View>
-              <ActionButton
-                label={t('Start keep-alive now')}
-                variant="secondary"
-                onPress={startKeepAlive}
-                busy={keepAliveBusy}
-                disabled={!FocusGuard.isAvailable}
-              />
-              <ActionButton
-                label={
-                  health && health.manufacturer
-                    ? t('Open Autostart settings ({{manufacturer}})', {
-                        manufacturer: health.manufacturer,
-                      })
-                    : t('Open Autostart settings')
-                }
-                variant="secondary"
-                onPress={openAutostart}
-                disabled={!FocusGuard.isAvailable}
-              />
-              <Text style={[styles.keepAliveHint, { textAlign: align }]}>
-                {t(
-                  'One-time setup on Redmi / POCO / Xiaomi: 1) Autostart → Tavakkol ON, 2) Battery saver → No restrictions, 3) in Recents, pull Tavakkol down to lock it. Without Autostart even a foreground service gets killed within hours.'
-                )}
-              </Text>
-            </Section>
-
-            <Section
-              lang={lang}
-              title={t('{{n}}. {{title}}', { n: 6, title: t('Debug Log') })}
-              subtitle={t(
-                'Everything the background guard does — service starts and stops, foreground-service state, watchdog wake-ups, keyword/domain hits and blocks — recorded on this device, never uploaded. Survives crashes and restarts.'
-              )}>
-              {health ? (
-                <Text
-                  style={[
-                    styles.healthLine,
-                    health.serviceRunning && health.foregroundActive
-                      ? styles.healthOk
-                      : styles.healthWarn,
-                    { textAlign: align },
-                  ]}>
-                  {`${t('Service {{state}}', {
-                    state: health.serviceRunning ? t('running') : t('NOT running'),
-                  })} · ${
-                    health.foregroundActive
-                      ? t('foreground notification active')
-                      : t('NO foreground notification')
-                  } · ${t('watchdog {{state}} ({{age}})', {
-                    state: health.watchdogRunning ? t('up') : t('DOWN'),
-                    age: formatHeartbeat(health.heartbeatAgeMs, t),
-                  })} · ${
-                    health.batteryOptimizationIgnored
-                      ? t('battery unrestricted')
-                      : t('battery RESTRICTED — Android may kill the guard')
-                  }`}
-                </Text>
-              ) : null}
-              <ActionButton
-                label={t('Show Logs')}
-                variant="secondary"
-                onPress={openLogs}
-                disabled={!FocusGuard.isAvailable}
-              />
-            </Section>
-
-            {message ? <Text style={styles.message}>{message}</Text> : null}
-
-            <Text style={[styles.footer, { textAlign: align }]}>
-              {t(
-                'Works fully offline. Any text that changes on screen is checked — search bars, address bars and chat messages. While the guard is running it keeps a small persistent notification: if that notification disappears, the guard was stopped. The watchdog, the 15-minute alarm, the 15-minute job and the boot receiver restart it on their own — and if the guard stays down for more than three minutes you get an alert instead of silently losing protection.'
-              )}
-            </Text>
-            <Text style={styles.versionText}>{VERSION_LABEL}</Text>
-          </>
-        )}
-      </ScrollView>
-
-      <Modal visible={logsOpen} animationType="slide" onRequestClose={closeLogs}>
-        <View style={styles.logModalRoot}>
-          <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-          <View style={styles.logHeader}>
-            <View style={styles.logHeaderTitle}>
-              <Text style={styles.logTitle}>{t('Debug Log')}</Text>
-              <Text style={styles.logSubtitle}>{t('Last 100 events · newest first')}</Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('Close debug log')}
-              onPress={closeLogs}
-              style={({ pressed }) => [styles.logClose, pressed && styles.pressed]}>
-              <Text style={styles.logCloseText}>{t('Close')}</Text>
-            </Pressable>
-          </View>
-
-          {health ? (
-            <View style={styles.logHealth}>
-              <Text style={styles.logHealthText}>
-                {`${t('Accessibility: {{state}}', {
-                  state: health.accessibilityEnabled ? t('enabled') : t('DISABLED'),
-                })} · ${t('Guard bound: {{state}}', {
-                  state: health.serviceRunning ? t('yes') : t('no'),
-                })} · ${t('Foreground service: {{state}}', {
-                  state: health.foregroundActive ? t('running') : t('DOWN'),
-                })} · ${t('Watchdog: {{state}}', {
-                  state: health.watchdogRunning ? t('up') : t('DOWN'),
-                })} (${formatHeartbeat(health.heartbeatAgeMs, t)}) · ${t('Battery optimization')}: ${
-                  health.batteryOptimizationIgnored
-                    ? t('battery optimization off (safe)')
-                    : t('battery optimization on (kill risk)')
-                }`}
-              </Text>
-              {!health.batteryOptimizationIgnored ? (
-                <ActionButton
-                  label={t('Exclude from battery optimization')}
-                  variant="secondary"
-                  onPress={fixBattery}
-                />
-              ) : null}
-            </View>
-          ) : null}
-
-          {logsLoading ? (
-            <ActivityIndicator color={COLORS.accent} style={styles.logLoader} />
-          ) : (
-            <FlatList
-              data={logs}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.logList}
-              ListEmptyComponent={
-                <Text style={styles.logEmpty}>
-                  {t(
-                    'No events recorded yet. The log fills as soon as the guard runs — tap Refresh after using the phone, or Clear to start over.'
-                  )}
-                </Text>
-              }
-              renderItem={({ item }) => (
-                <View style={styles.logRow}>
-                  <Text style={styles.logTime}>{formatLogTime(item.t)}</Text>
-                  <Text style={[styles.logType, { color: logTypeColor(item.type) }]}>
-                    {item.type}
-                  </Text>
-                  <View style={styles.logBody}>
-                    {item.pkg ? <Text style={styles.logPkg}>{shortPackage(item.pkg)}</Text> : null}
-                    {item.text ? <Text style={styles.logText}>{item.text}</Text> : null}
-                  </View>
-                </View>
-              )}
-            />
-          )}
-
-          <View style={styles.logFooter}>
-            <View style={styles.logFooterButton}>
-              <ActionButton label={t('Refresh')} variant="secondary" onPress={loadLogs} busy={logsLoading} />
-            </View>
-            <View style={styles.logFooterButton}>
-              <ActionButton
-                label={t('Clear log')}
-                variant="secondary"
-                onPress={clearLogs}
-                busy={clearingLogs}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* v1.4.2 Delay Mode: the only way to switch Protection off is to type
-          the whole text. Paste is blocked (contextMenuHidden + the change-size
-          guard), cancelling writes nothing. */}
-      <Modal
-        visible={delayOpen}
-        animationType="slide"
-        onRequestClose={cancelDelay}>
+      {/* v1.4.2/1.4.5 Delay Mode: the only way to switch Protection — or Delay
+          Mode itself — off is to type the whole text. Paste is blocked
+          (contextMenuHidden + the change-size guard), cancelling writes nothing. */}
+      <Modal visible={delayOpen} animationType="slide" onRequestClose={cancelDelay}>
         <View style={styles.delayRoot}>
           <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
           <Text style={[styles.delayTitle, { textAlign: align }]}>{t('Delay Mode')}</Text>
           <Text style={[styles.delaySub, { textAlign: align }]}>
-            {t(
-              'To turn Protection off, type the text below exactly as it is written — copying and pasting is not allowed. Close this window and Protection stays on.'
-            )}
+            {delayIsProtection
+              ? t(
+                  'To turn Protection off, type the text below exactly as it is written — copying and pasting is not allowed. Close this window and Protection stays on.'
+                )
+              : t(
+                  'To turn Delay Mode off, type the text below exactly as it is written — copying and pasting is not allowed. Close this window and Delay Mode stays on.'
+                )}
           </Text>
           <ScrollView
             style={styles.delayScroll}
@@ -1298,13 +791,13 @@ export default function App() {
               <Text style={[styles.delayError, { textAlign: align }]}>{delayError}</Text>
             ) : null}
             <ActionButton
-              label={t('Turn Protection off')}
-              onPress={confirmDelayOff}
+              label={delayIsProtection ? t('Turn Protection off') : t('Turn Delay Mode off')}
+              onPress={confirmDelay}
               busy={toggling}
             />
             <View style={styles.delayGap} />
             <ActionButton
-              label={t('Cancel — keep Protection on')}
+              label={t('Cancel — keep it on')}
               variant="secondary"
               onPress={cancelDelay}
             />
@@ -1325,9 +818,7 @@ export default function App() {
               {t('New version ready')}
             </Text>
             <Text style={[styles.updateBody, { textAlign: align }]}>
-              {t(
-                'A new version of the app is ready! Please update to get the latest features.'
-              )}
+              {t('A new version of the app is ready! Please update to get the latest features.')}
             </Text>
             <Text style={[styles.updateMeta, { textAlign: align }]}>
               {t('Installed {{current}} · available {{latest}}', {
@@ -1345,11 +836,15 @@ export default function App() {
           </View>
         </View>
       </Modal>
-    </ImageBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  appRoot: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
   bootLoader: {
     flex: 1,
     alignItems: 'center',
@@ -1363,157 +858,11 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: COLORS.overlay,
   },
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: (StatusBar.currentHeight || 24) + 20,
-    paddingBottom: 48,
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  brandRowRtl: {
-    flexDirection: 'row-reverse',
-  },
-  brandText: {
-    flex: 1,
-  },
-  brand: {
-    color: COLORS.pageText,
-    fontSize: 32,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-  },
-  brandSub: {
-    color: COLORS.pageAccent,
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  gear: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.surfaceAlt,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  gearIcon: {
-    color: COLORS.text,
-    fontSize: 20,
-  },
-  helpIcon: {
-    color: COLORS.text,
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  pressed: {
-    opacity: 0.75,
-  },
-  tagline: {
-    color: COLORS.pageMuted,
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: 12,
-    marginBottom: 18,
-  },
-  warningBox: {
-    backgroundColor: 'rgba(58,44,8,0.92)',
-    borderColor: '#6B5110',
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 20,
-  },
-  warningTitle: {
-    color: COLORS.warning,
-    fontWeight: '700',
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  warningText: {
-    color: '#EAD9A6',
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  loader: {
-    marginTop: 32,
-  },
-  heroCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 18,
-  },
-  heroLabel: {
-    color: COLORS.muted,
-    fontSize: 12,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-  },
-  heroState: {
-    fontSize: 26,
-    fontWeight: '700',
-    marginTop: 6,
-  },
-  heroOn: {
-    color: COLORS.accent,
-  },
-  heroOff: {
-    color: COLORS.text,
-  },
-  heroHint: {
-    color: COLORS.muted,
-    fontSize: 13,
-    marginTop: 6,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 18,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  // v1.4.2: Protection + Delay Mode sit side by side in one row.
-  switchGrid: {
-    flexDirection: 'row',
-    marginTop: 18,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    gap: 14,
-  },
-  switchGridRtl: {
-    flexDirection: 'row-reverse',
-  },
-  switchCell: {
-    flex: 1,
-  },
-  switchControl: {
-    flexDirection: 'row',
-    marginTop: 10,
-  },
-  switchLabel: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  // v1.4.2 Delay Mode challenge screen
   delayRoot: {
     flex: 1,
     backgroundColor: COLORS.background,
-    paddingTop: (StatusBar.currentHeight || 24) + 18,
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingTop: (StatusBar.currentHeight || 24) + 16,
   },
   delayTitle: {
     color: COLORS.text,
@@ -1522,94 +871,29 @@ const styles = StyleSheet.create({
   },
   delaySub: {
     color: COLORS.muted,
-    fontSize: 13,
-    lineHeight: 20,
-    marginTop: 8,
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 10,
   },
   delayScroll: {
     flex: 1,
-    marginTop: 14,
+    marginTop: 16,
   },
   delayScrollContent: {
-    paddingBottom: 24,
+    paddingBottom: 40,
   },
   challengeBox: {
-    backgroundColor: COLORS.surfaceAlt,
-    borderRadius: 12,
+    backgroundColor: COLORS.surface,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
     padding: 14,
+    marginBottom: 14,
   },
   challengeText: {
     color: COLORS.text,
     fontSize: 14,
-    lineHeight: 24,
-  },
-  delayInput: {
-    marginTop: 14,
-    minHeight: 120,
-    lineHeight: 24,
-    textAlignVertical: 'top',
-  },
-  delayProgress: {
-    color: COLORS.muted,
-    fontSize: 12,
-    marginTop: 8,
-    marginBottom: 12,
-  },
-  delayError: {
-    color: COLORS.danger,
-    fontSize: 13,
-    marginBottom: 12,
-  },
-  delayGap: {
-    height: 10,
-  },
-  // v1.4.2 update prompt
-  updateBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(4,8,12,0.78)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 22,
-  },
-  updateCard: {
-    width: '100%',
-    maxWidth: 420,
-    backgroundColor: COLORS.background,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 20,
-  },
-  updateTitle: {
-    color: COLORS.accent,
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 1.1,
-    textTransform: 'uppercase',
-  },
-  updateBody: {
-    color: COLORS.text,
-    fontSize: 16,
-    lineHeight: 26,
-    marginTop: 10,
-  },
-  updateMeta: {
-    color: COLORS.muted,
-    fontSize: 12,
-    marginTop: 10,
-    marginBottom: 16,
-  },
-  switchTitle: {
-    color: COLORS.text,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  switchHint: {
-    color: COLORS.muted,
-    fontSize: 12,
-    marginTop: 3,
+    lineHeight: 22,
   },
   input: {
     color: COLORS.text,
@@ -1619,213 +903,56 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    minHeight: 56,
     fontSize: 15,
   },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12,
+  delayInput: {
+    minHeight: 120,
+    textAlignVertical: 'top',
   },
-  emptyHint: {
+  delayProgress: {
     color: COLORS.muted,
     fontSize: 12,
+    marginTop: 8,
   },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  statusTextWrap: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  statusTitle: {
-    color: COLORS.text,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  statusHint: {
-    color: COLORS.muted,
-    fontSize: 12,
-    marginTop: 3,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 14,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: COLORS.surfaceAlt,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-  },
-  statValue: {
-    color: COLORS.text,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  statLabel: {
-    color: COLORS.muted,
-    fontSize: 11,
-    marginTop: 4,
-  },
-  lastBlockLine: {
-    color: COLORS.muted,
-    fontSize: 12,
-    marginBottom: 12,
-  },
-  message: {
-    color: COLORS.pageWarning,
+  delayError: {
+    color: COLORS.danger,
     fontSize: 13,
-    lineHeight: 19,
-    marginTop: 20,
-    textAlign: 'center',
+    fontWeight: '600',
+    marginTop: 8,
   },
-  healthLine: {
-    fontSize: 12,
-    lineHeight: 18,
-    marginBottom: 12,
+  delayGap: {
+    height: 8,
   },
-  healthOk: {
-    color: COLORS.accent,
-  },
-  healthWarn: {
-    color: COLORS.warning,
-  },
-  keepAliveHint: {
-    color: COLORS.muted,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 6,
-  },
-  footer: {
-    color: COLORS.pageMuted,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 28,
-  },
-  versionText: {
-    color: '#475569',
-    fontSize: 11,
-    textAlign: 'center',
-    marginTop: 14,
-  },
-  logModalRoot: {
+  updateBackdrop: {
     flex: 1,
-    backgroundColor: COLORS.background,
-    paddingTop: (StatusBar.currentHeight || 24) + 10,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
-  logHeader: {
-    flexDirection: 'row',
+    backgroundColor: 'rgba(3,6,10,0.86)',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
+    justifyContent: 'center',
+    padding: 22,
   },
-  logHeaderTitle: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  logTitle: {
-    color: COLORS.text,
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  logSubtitle: {
-    color: COLORS.muted,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  logClose: {
-    backgroundColor: COLORS.surfaceAlt,
+  updateCard: {
+    width: '100%',
+    backgroundColor: '#101820',
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    padding: 18,
   },
-  logCloseText: {
+  updateTitle: {
     color: COLORS.text,
+    fontSize: 19,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  updateBody: {
+    color: COLORS.muted,
     fontSize: 14,
-    fontWeight: '600',
-  },
-  logHealth: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 12,
-    marginBottom: 10,
-  },
-  logHealthText: {
-    color: COLORS.muted,
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  logLoader: {
-    marginTop: 32,
-  },
-  logList: {
-    paddingBottom: 8,
-  },
-  logEmpty: {
-    color: COLORS.muted,
-    fontSize: 13,
-    lineHeight: 19,
-    textAlign: 'center',
-    marginTop: 28,
-  },
-  logRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 10,
+    lineHeight: 21,
     marginBottom: 8,
   },
-  logTime: {
+  updateMeta: {
     color: COLORS.muted,
-    fontSize: 11,
-    fontFamily: Platform.select({ android: 'monospace', default: undefined }),
-    width: 92,
-    paddingTop: 2,
-  },
-  logType: {
-    fontSize: 11,
-    fontWeight: '700',
-    width: 108,
-    paddingTop: 2,
-  },
-  logBody: {
-    flex: 1,
-  },
-  logPkg: {
-    color: '#7DD3FC',
-    fontSize: 11,
-    marginBottom: 2,
-  },
-  logText: {
-    color: COLORS.text,
     fontSize: 12,
-    lineHeight: 17,
-  },
-  logFooter: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  logFooterButton: {
-    flex: 1,
+    marginBottom: 14,
   },
 });

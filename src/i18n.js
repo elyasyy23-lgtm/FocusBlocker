@@ -357,6 +357,20 @@ const FA = {
   'Installed {{current}} · available {{latest}}': 'نصب‌شده {{current}} · موجود {{latest}}',
   'I am standing here to protect myself, my mind, and my future. I know this urge is temporary, and if I wait a few minutes, it will pass. I am stronger than to ruin my peace and values for a fleeting moment of pleasure. I am striving for bigger dreams and a more deserving life. Every time I resist this urge, my willpower grows stronger. I choose to stay loyal to myself today, and I am writing this text with focus and calm to prove that I am in control of my life.':
     'من اینجا ایستاده‌ام تا از خودم، ذهنم و آینده‌ام محافظت کنم. می‌دانم که این وسوسه گذرا است و اگر چند دقیقه صبر کنم، از بین می‌رود. من قوی‌تر از این هستم که به خاطر یک لحظه لذت کوتاه، آرامش و ارزش‌هایم را خراب کنم. من برای آرزوهای بزرگ‌تر و زندگی شایسته‌تری تلاش می‌کنم. هر بار که این وسوسه را رد می‌کنم، قدرت اراده‌ام بیشتر می‌شود. من انتخاب می‌کنم که امروز به خودم وفادار بمانم و این متن را با تمرکز و آرامش می‌نویسم تا ثابت کنم که کنترل زندگی‌ام را در دست دارم.',
+  // ------------------------------- v1.4.5: drawer + settings lock + symmetric Delay Mode
+  Menu: 'منو',
+  Home: 'خانه',
+  'Service is off — enable it in Settings': 'سرویس خاموش است — آن را در تنظیمات فعال کنید',
+  'Protection is on — turn it off to edit the lists and open Settings.':
+    'محافظت روشن است — برای ویرایش فهرست‌ها و ورود به تنظیمات، ابتدا آن را خاموش کنید.',
+  'To open Settings, first turn Protection off.':
+    'برای ورود به تنظیمات، ابتدا محافظت را خاموش کنید.',
+  'To turn Delay Mode off, type the text below exactly as it is written — copying and pasting is not allowed. Close this window and Delay Mode stays on.':
+    'برای خاموش کردن حالت تاخیر، متن زیر را دقیقاً همان‌طور که نوشته شده تایپ کنید — کپی کردن و چسباندن مجاز نیست. اگر این پنجره را ببندید، حالت تاخیر روشن می‌ماند.',
+  'The text does not match yet. Keep typing — or cancel to keep it on.':
+    'متن هنوز مطابقت ندارد. به تایپ ادامه دهید — یا انصراف بزنید تا روشن بماند.',
+  'Turn Delay Mode off': 'خاموش کردن حالت تاخیر',
+  'Cancel — keep it on': 'انصراف — روشن بماند',
 };
 
 const DICT = { fa: FA };

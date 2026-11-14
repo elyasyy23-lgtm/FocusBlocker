@@ -49,7 +49,7 @@ const STEPS = [
   },
 ];
 
-export default function HelpScreen({ t, lang, onBack }) {
+export default function HelpScreen({ t, lang, onOpenDrawer }) {
   const align = textAlign(lang);
   const isRtl = lang === 'fa';
 
@@ -63,10 +63,10 @@ export default function HelpScreen({ t, lang, onBack }) {
         <View style={[styles.header, isRtl && styles.headerRtl]}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t('Back')}
-            onPress={onBack}
+            accessibilityLabel={t('Menu')}
+            onPress={onOpenDrawer}
             style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
-            <Text style={styles.backIcon}>{isRtl ? '›' : '‹'}</Text>
+            <Text style={styles.backIcon}>☰</Text>
           </Pressable>
           <View style={styles.headerText}>
             <Text style={[styles.title, { textAlign: align }]}>{t('Help')}</Text>

@@ -1,4 +1,7 @@
-# TASK — Tavakkol v1.4.0 (Remote Deactivation via SMS · Help cleanup · Share App → About)
+# TASK — Tavakkol v1.4.5 (custom drawer · Settings lock · symmetric Delay Mode)
+
+CURRENT RELEASE TARGET = **v1.4.5** (versionCode 16). See the v1.4.5 section at the bottom.
+(The v1.4.0 goal below is the historical first task that created this file.)
 
 GOAL (owner's list, 2026-11-13):
 1. **Remote Deactivation via SMS** — a toggle inside a new Settings section «کنترل از راه دور»
@@ -67,7 +70,7 @@ Release live: `Tavakkol-release.apk` 31.1 MB
       arrived before the toggle was on is ignored; Help has no Support block; Share App sits at
       the top of Settings.
 
-NOW: v1.4.3 code complete + verified locally — owner push pending (commands below).
+NOW: v1.4.5 code complete + verified locally — owner push pending (commands below).
 Docs page live: https://elyasyy23-lgtm.github.io/FocusBlocker/ (index.html, main /).
 
 ## v1.4.2 — Delay Mode + background music (2026-11-13)
@@ -115,11 +118,65 @@ the NATIVE layer the source of truth.
 - [x] Verify: check-i18n 225/257 OK; `npm run verify` green (642 modules; compiled
       gate confirmed = live getConfig read + `setEnabledAfterDelayChallenge`);
       prebuild versionName 1.4.3 / versionCode 15; `android/` + `dist/` wiped.
-- [ ] Owner push + tag v1.4.3 → CI builds `Tavakkol-release.apk`.
+- [x] Owner push + tag v1.4.3 → CI builds `Tavakkol-release.apk`.
 - [ ] Owner on-device check: Delay Mode ON → tapping Protection OFF opens the modal
       every time (even after restart); wrong text/cancel keeps it ON; correct text
       turns it off; the protection switch snaps back on its own if the write is
       refused.
+- [x] SHIPPED 2026-11-14: commit `3776d4d` → main + tag `v1.4.3`; CI runs 43519797298
+      (main) + 43519801031 (tag) both SUCCESS → Release `Tavakkol-release.apk` 35.3 MB
+      live at
+      https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v1.4.3/Tavakkol-release.apk
+
+## v1.4.5 — custom drawer · Settings lock · symmetric Delay Mode (2026-11-14)
+
+Owner's list:
+1. Drawer navigation (hamburger ☰, RTL) — Home / Settings / Help + Share App / Contact
+   Developer / Support Us.
+2. When Protection is ON: Settings is COMPLETELY inaccessible (gear/drawer shows
+   «برای ورود به تنظیمات، ابتدا محافظت را خاموش کنید.»); Home lists are read-only.
+   Only turning Protection OFF (Delay text or Partner PIN) grants access.
+3. Delay Mode OFF must ALSO cost the typing challenge (turning Protection off costs one too).
+4. Remote SMS kill switch bypasses the challenge (partner turns Protection off instantly).
+
+Decisions:
+- ABANDONED react-navigation — built the drawer on RN `Animated` + `PanResponder` (ZERO new
+  native deps, no native rebuild, full RTL control). Uninstalled @react-navigation/drawer,
+  @react-navigation/native, react-native-gesture-handler, -reanimated, -worklets,
+  -safe-area-context, -screens (37 packages); `index.js` back to plain registerRootComponent.
+- Native layer is the source of truth for BOTH switches (mirrors the v1.4.3 Protection gate).
+- SMS bypass preserved: `RemoteSmsReceiver.kt` calls `FocusGuardStore.setEnabled` directly.
+
+Steps:
+- [x] Revert nav deps + `index.js`.
+- [x] `src/components/Drawer.js` (Animated+PanResponder, slides left EN / right FA, backdrop +
+      swipe-to-close, 🔒 Settings row when locked).
+- [x] `src/components/DonateSheet.js` (Support Us modal, global drawer action).
+- [x] Deleted nav-coupled `src/components/AppDrawerContent.js`.
+- [x] `src/screens/HomeScreen.js` — title + 2 switches + keyword/domain lists (read-only when
+      Protection ON).
+- [x] `src/screens/SettingsScreen.js` — ☰ header + ALL advanced sections moved in (accessibility,
+      device admin, keep-alive, debug log, stats, partner PIN, remote control, excluded apps,
+      language, music).
+- [x] `src/screens/HelpScreen.js` — ☰ header (`onOpenDrawer`).
+- [x] `App.js` — state hub + routing (screen main|settings|help), drawer + donate sheet + delay +
+      update modals, gate logic (toggleBlocking, applyEnabled, toggleDelayMode, confirmDelay).
+- [x] Native: `setEnabled` refuses OFF while delayMode; `setEnabledAfterDelayChallenge`;
+      `setDelayMode` refuses OFF while on; `setDelayModeAfterDelayChallenge`; bridge
+      `disableDelayModeAfterDelayChallenge`.
+- [x] i18n: 9 new keys (Menu/Home/settings-lock/Delay-Mode-off text) + extended
+      `scripts/check-i18n.js` to scan HomeScreen/Drawer/DonateSheet (224 strings / 266 entries).
+- [x] Version 1.4.5 / versionCode 16 (app.json, package.json, package-lock, buildInfo),
+      `version.json` → 1.4.5, `index.html` labels → ۱.۴.۵.
+- [x] Verify: check-i18n OK; `npm run verify` green (645 modules; bundle contains
+      `disableDelayModeAfterDelayChallenge` + the lock string); prebuild versionName 1.4.5 /
+      versionCode 16, app_name Tavakkol (fa توکل); module manifest parses (RECEIVE_SMS +
+      receiver + keep-alive services); `android/` + `dist/` wiped.
+- [ ] Owner push + tag v1.4.5 → CI builds `Tavakkol-release.apk`.
+- [ ] Owner on-device check: drawer opens/slides from the correct side; while Protection ON the
+      gear shows the lock message and Home lists are read-only; Delay Mode ON → turning Delay
+      Mode OFF needs the typed text (one tap no longer disables it); partner SMS still kills
+      Protection instantly.
 
 ## Handover commands (owner)
 
@@ -127,6 +184,6 @@ the NATIVE layer the source of truth.
 cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
 git fetch origin && git rebase origin/main
 git push origin main
-git tag v1.4.3
-git push origin v1.4.3
+git tag v1.4.5
+git push origin v1.4.5
 ```
