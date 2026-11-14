@@ -65,8 +65,8 @@ const FA = {
   Disabled: 'خاموش',
   'Open Accessibility settings': 'باز کردن تنظیمات دسترسی‌پذیری',
   'Device admin (anti-uninstall)': 'مدیر دستگاه (ضد حذف)',
-  'While device admin is active, Android refuses to uninstall Tavakkol. Deactivate it in Settings → Security → Device admin apps if you ever want the app gone.':
-    'تا وقتی مدیر دستگاه فعال است، اندروید اجازهٔ حذف توکل را نمی‌دهد. اگر می‌خواهید برنامه حذف شود، آن را در تنظیمات ← امنیت ← برنامه‌های مدیر دستگاه غیرفعال کنید.',
+  'While device admin is active, Android refuses to uninstall Tavakkol. Open the path below to switch it off whenever you want the app gone.':
+    'تا وقتی مدیر دستگاه فعال است، اندروید اجازهٔ حذف توکل را نمی‌دهد. هر وقت خواستید برنامه حذف شود، با مسیر زیر آن را خاموش کنید.',
   'Device admin': 'مدیر دستگاه',
   Inactive: 'غیرفعال',
   Stats: 'آمار',
@@ -409,28 +409,16 @@ const FA = {
 
   // ------------------------------- v1.4.10/v1.4.11: device admin · adult lock on Home · fa default
   'Device admin settings': 'تنظیمات مدیر',
+  'To manage device admin access, go to your phone settings and follow this path:':
+    'برای مدیریت دسترسی مدیر دستگاه، لطفاً به تنظیمات گوشی بروید و مسیر زیر را دنبال کنید:',
+  'Settings ← Privacy ← Special permissions ← Device admin apps ← Tavakkol':
+    'تنظیمات ← حریم خصوصی ← مجوزهای ویژه ← برنامه‌های مدیر دستگاه ← توکل',
+  'Close': 'بستن',
   'Could not open the device admin settings.': 'باز کردن تنظیمات مدیر دستگاه ممکن نشد.',
   'Locked while Protection is on': 'تا محافظت روشن است قفل شده',
   'On — built-in list added': 'روشن — فهرست آماده اضافه شد',
   // ------------------------------- v1.4.12: adult lock own card · no force-lock
   'Blocks uninstall only — no screen lock': 'فقط جلوی حذف را می‌گیرد — بدون قفل صفحه',
-  'Tap “Activate” on the system screen to block uninstalling — no screen-lock permission is requested.':
-    'در صفحهٔ سیستم «فعال کردن» را بزنید تا حذف برنامه ممکن نباشد — هیچ اجازهٔ قفل صفحه‌ای درخواست نمی‌شود.',
-  'Open “Device admin apps” from this screen and pick Tavakkol.':
-    'در همین صفحه «برنامه‌های مدیر دستگاه» را باز کنید و توکل را انتخاب کنید.',
-  'Device admin settings opened — Tavakkol is listed here.':
-    'تنظیمات مدیر دستگاه باز شد — توکل در همین فهرست است.',
-  'Deactivate it on this screen to allow uninstalling Tavakkol.':
-    'برای اینکه حذف توکل ممکن شود، همین‌جا آن را غیرفعال کنید.',
-  'No device-admin screen answered on this phone. Open Settings → Security → Device admin apps and pick Tavakkol.':
-    'هیچ صفحهٔ مدیر دستگاهی روی این گوشی باز نشد. خودتان این مسیر را بروید: تنظیمات ← امنیت ← برنامه‌های مدیر دستگاه و توکل را انتخاب کنید.',
-  'This phone did not open the Device admin list. Open it by hand:':
-    'این گوشی فهرست مدیر دستگاه را باز نکرد. خودتان این مسیر را بروید:',
-  'Settings → Security → Device admin apps':
-    'تنظیمات ← امنیت ← برنامه‌های مدیر دستگاه',
-  'MIUI/HyperOS sometimes hides this entry. If it is missing, search “device admin” in Settings.':
-    'MIUI/HyperOS گاهی این گزینه را پنهان می‌کند. اگر نبود، در تنظیمات عبارت «مدیر دستگاه» را جست‌وجو کنید.',
-  'Hide this guide': 'بستن راهنما',
   'Turn Protection off before changing the adult content lock.':
     'پیش از تغییر قفل محتوای بزرگسالان، محافظت را خاموش کنید.',
 };

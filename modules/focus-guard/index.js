@@ -299,13 +299,21 @@ export async function setMusicMuted(muted) {
  * "package/activity" (v1.4.12 returned only the label, which left a silent
  * no-op on MIUI/HyperOS undiagnosable). Tolerates the old string shape.
  */
-export async function openDeviceAdminSettings() {
-  if (!native) return { opened: 'none', target: '', active: false };
-  const result = await native.openDeviceAdminSettings();
-  if (typeof result === 'string') return { opened: result, target: '', active: false };
-  return result && typeof result === 'object'
-    ? { opened: result.opened || 'none', target: result.target || '', active: !!result.active }
-    : { opened: 'none', target: '', active: false };
+/**
+ * v1.4.15: no intent is fired anymore. The screen is ROM-specific (on the owner's
+ * HyperOS it is Settings → Privacy → Special permissions → Device admin apps) and
+ * every intent variant either threw ActivityNotFoundException or opened the wrong
+ * page, so the UI shows the path as text. This only logs the tap and reports
+ * whether admin is currently active.
+ */
+export async function deviceAdminHintState() {
+  if (!native || !native.deviceAdminHintState) return { active: false };
+  try {
+    const result = await native.deviceAdminHintState();
+    return { active: !!(result && result.active) };
+  } catch (error) {
+    return { active: false };
+  }
 }
 
 /** v1.4.13: writes a line into the same debug ring buffer the guard uses. */

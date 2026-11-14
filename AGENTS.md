@@ -868,3 +868,27 @@ Google Analytics 4 added to `index.html` head: Measurement ID **`G-CVCKBEBCV1`**
 after `<meta name="theme-color">`, before the JSON-LD. It is the only third-party request on the
 page (fonts stay self-hosted). Pages deployed, live page verified (gtag present in `<head>`,
 `gtag.js` 200). No consent banner — the site sets no cookies of its own beyond GA's `_ga`.
+
+## v1.4.15 (2026-11-14, code complete + verified, NOT pushed — owner runs push/tag)
+
+**Owner verified the real path on their Xiaomi: Settings → Privacy → Special permissions → Device
+admin apps.** Decision: stop firing intents entirely (they throw `ActivityNotFoundException` /
+open the wrong page on HyperOS) and show the path as text.
+
+- `FocusGuardModule.kt`: `openDeviceAdminSettings` (the whole 6-rung intent ladder) **deleted**, and
+  the now-unused `resolveTarget()` helper + `PackageManager` import removed. Replaced by
+  `deviceAdminHintState()` which logs `admin_guide_opened` and returns `{active}` — it never starts
+  an activity.
+- `modules/focus-guard/index.js`: `openDeviceAdminSettings` export → `deviceAdminHintState()`.
+- `SettingsScreen.js`: button «تنظیمات مدیر» opens an RN `Modal` (reuses `modalBackdrop` /
+  `modalCard` / `modalTitle` / `body`): title «تنظیمات مدیر», the exact owner sentence, the path line
+  «تنظیمات ← حریم خصوصی ← مجوزهای ویژه ← برنامههای مدیر دستگاه ← توکل» in accent green, and ONE
+  «بستن» button. **No copy button** (owner explicitly said not to add one). The v1.4.14 inline
+  `adminGuide` card and its styles are gone. Section subtitle now points at "the path below" instead
+  of naming the wrong (Security) route.
+- i18n 233 strings / 291 translations: +3 (`To manage device admin access…`, the path, `Close`),
+  9 dead admin-guide strings removed, subtitle key reworded.
+- Verified: check-i18n OK, `npm run verify` green (bundle has `deviceAdminHintState` + `adminPath`),
+  prebuild 1.4.15 / code 25, module manifest parses, Kotlin braces/parens balanced, `android/` +
+  `dist/` wiped. Version 1.4.15 / 25 in app.json, package.json, package-lock, buildInfo,
+  version.json, index.html ۱.۴.۱۵ (3 spots).

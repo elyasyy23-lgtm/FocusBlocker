@@ -4,7 +4,6 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
@@ -309,109 +308,21 @@ class FocusGuardModule : Module() {
     }
 
     /**
-     * v1.4.12 (owner fix): opens the device-admin UI and never ends in silence.
-     * No single action is handled by every ROM, so the candidates are tried in
-     * order until one launches:
-     *   1. the AOSP "Device admin apps" list — the literal is required, there is
-     *      no `Settings.ACTION_*` constant for it (the v1.4.11 CI break);
-     *   2. OUR admin component — DevicePolicyManager shows the activation dialog
-     *      when inactive and the admin details with "Deactivate" when active;
-     *      this is the one route every ROM implements;
-     *   3. the Security page;
-     *   4. the Settings home page.
-     * Returns which step opened: 'admin' | 'component' | 'security' | 'settings'
-     * ('none' when even the Settings home page refuses to launch).
+     * v1.4.15 (owner decision): the button no longer fires ANY intent.
+     * "android.settings.DEVICE_ADMIN_SETTINGS" throws ActivityNotFoundException on
+     * the owner's HyperOS build and every ROM variant of this screen failed, so the
+     * UI now shows the exact settings path as text (ParseScreen modal) instead of
+     * guessing. The bridge is kept ONLY to log the tap and report whether admin is
+     * active; it never starts an activity.
      */
-    /**
-     * v1.4.14 (owner request): the plain «Device admin apps» list screen
-     * (`android.settings.DEVICE_ADMIN_SETTINGS`) is fired FIRST, exactly as
-     * written — no extras, because EXTRA_DEVICE_ADMIN makes MIUI jump straight
-     * to the details page instead of the list. The v1.4.13 `resolveActivity`
-     * gate is gone: on Android 11+ that call returns null for Settings unless
-     * the package is declared in <queries>, which would silently skip every
-     * candidate. Firing and catching is the only honest test on a ROM we cannot
-     * inspect. Every attempt is logged, and the caller gets the screen that
-     * actually opened (or "none" → the JS layer shows the text guide).
-     */
-    AsyncFunction("openDeviceAdminSettings") {
+    AsyncFunction("deviceAdminHintState") {
       val ctx = requireContext()
       val active = isDeviceAdminActive(ctx)
       FocusGuardStore.logEvent(
-        ctx, "admin_button_clicked", null,
+        ctx, "admin_guide_opened", null,
         "active=$active sdk=${Build.VERSION.SDK_INT} ${Build.MANUFACTURER}/${Build.BRAND}"
       )
-
-      // ---- 1) the list screen, exactly as requested -------------------------
-      val listIntent = Intent("android.settings.DEVICE_ADMIN_SETTINGS")
-      val listTarget = runCatching { resolveTarget(ctx, listIntent) }.getOrNull()
-      FocusGuardStore.logEvent(
-        ctx, "admin_list_intent", null,
-        "firing android.settings.DEVICE_ADMIN_SETTINGS → " + (listTarget ?: "target hidden")
-      )
-      try {
-        listIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        ctx.startActivity(listIntent)
-        FocusGuardStore.logEvent(ctx, "admin_list_intent_ok", null, listTarget ?: "started")
-        return@AsyncFunction mapOf(
-          "opened" to "admin",
-          "target" to (listTarget ?: ""),
-          "active" to active
-        )
-      } catch (error: Throwable) {
-        FocusGuardStore.logEvent(
-          ctx, "admin_list_intent_fail", null,
-          error.javaClass.simpleName + ": " + error.message
-        )
-      }
-
-      // ---- 2) fallbacks ----------------------------------------------------
-      val addAdmin = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
-        putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent(ctx))
-        putExtra(
-          DevicePolicyManager.EXTRA_ADD_EXPLANATION,
-          FocusGuardStore.text(
-            ctx,
-            "While this is active, Android will not uninstall Tavakkol. Deactivate it in " +
-              "Settings > Security > Device admin apps when you really want to remove the app.",
-            "تا وقتی این گزینه فعال است، اندروید اجازهٔ حذف توکل را نمی‌دهد. برای حذف، آن را در " +
-              "تنظیمات > امنیت > برنامه‌های مدیر دستگاه غیرفعال کنید."
-          )
-        )
-      }
-
-      val candidates = listOf(
-        "component" to addAdmin,
-        "admin_activity" to Intent().setComponent(
-          ComponentName("com.android.settings", "com.android.settings.Settings\$DeviceAdminSettingsActivity")
-        ),
-        "admin_activity_legacy" to Intent().setComponent(
-          ComponentName("com.android.settings", "com.android.settings.DeviceAdminSettings")
-        ),
-        "security" to Intent(Settings.ACTION_SECURITY_SETTINGS),
-        "settings" to Intent(Settings.ACTION_SETTINGS)
-      )
-
-      for ((label, intent) in candidates) {
-        val target = runCatching { resolveTarget(ctx, intent) }.getOrNull()
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        try {
-          ctx.startActivity(intent)
-          FocusGuardStore.logEvent(ctx, "admin_intent_ok", null, label + " → " + (target ?: "started"))
-          return@AsyncFunction mapOf(
-            "opened" to label,
-            "target" to (target ?: ""),
-            "active" to active
-          )
-        } catch (error: Throwable) {
-          FocusGuardStore.logEvent(
-            ctx, "admin_intent_fail", null,
-            label + " → " + error.javaClass.simpleName + ": " + error.message
-          )
-        }
-      }
-
-      FocusGuardStore.logEvent(ctx, "admin_intent_none", null, "${candidates.size + 1} intents failed")
-      mapOf("opened" to "none", "target" to "", "active" to active)
+      mapOf("active" to active)
     }
 
     /** v1.4.13: lets the JS layer write into the same ring buffer the guard uses. */
@@ -640,22 +551,6 @@ class FocusGuardModule : Module() {
       if (resolvable) return component
     }
     return null
-  }
-
-  /**
-   * v1.4.13: "package/activity" the intent would open, or null when nothing on
-   * this device handles it. Sent to the debug log so a silent no-op is diagnosable.
-   */
-  @Suppress("DEPRECATION")
-  private fun resolveTarget(ctx: Context, intent: Intent): String? {
-    val pm = ctx.packageManager
-    val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-      pm.resolveActivity(intent, PackageManager.ResolveInfoFlags.of(0L))
-    } else {
-      pm.resolveActivity(intent, 0)
-    }
-    val activity = info?.activityInfo ?: return null
-    return activity.packageName + "/" + activity.name
   }
 
   private fun adminComponent(ctx: Context): ComponentName =
