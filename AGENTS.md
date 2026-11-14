@@ -823,7 +823,7 @@ step green, so the new Kotlin compiled first try. Release `Tavakkol v1.4.13` liv
 serves `latestVersion: 1.4.13`. Pending owner on-device check: tap «تنظیمات مدیر» once, then read
 Home → Debug Log (`admin_button_clicked` + `admin_intent_ok|skip|fail` + `admin_intent_result`).
 
-## v1.4.14 (2026-11-14, code complete + verified, NOT pushed — owner runs push/tag)
+## v1.4.14 (2026-11-14, SHIPPED)
 
 **Plain list intent fired first + visible text guide.** Owner asked for the exact
 `Intent("android.settings.DEVICE_ADMIN_SETTINGS")` (the Device admin APPS LIST, not the "Add admin"
@@ -854,3 +854,9 @@ screen) to be tried on its own, with a caught crash and a text fallback.
 
 Expected Debug Log order after a tap: `admin_button_clicked` → `admin_list_intent` →
 `admin_list_intent_ok` (or `_fail` then `admin_intent_ok …` / `admin_intent_none`).
+
+SHIPPED 2026-11-14: commit `e9d95bb` → main + tag `v1.4.14`. CI runs **43608390716** (main) and
+**43608396174** (tag) both SUCCESS → Release `Tavakkol v1.4.14` live, `Tavakkol-release.apk`
+37,027,423 bytes (`releases/latest/...` 302 → v1.4.14, Pages `version.json` = 1.4.14).
+Gotcha: `git fetch && git rebase origin/main` FAILS while the tree has unstaged changes — commit
+first, then rebase, then push (the push block order matters).
