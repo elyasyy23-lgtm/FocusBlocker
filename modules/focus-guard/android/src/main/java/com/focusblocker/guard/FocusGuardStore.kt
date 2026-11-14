@@ -2,6 +2,7 @@ package com.focusblocker.guard
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -43,6 +44,12 @@ internal object FocusGuardStore {
   // guard state.
   private const val KEY_DELAY_MODE = "delay_mode"
   private const val KEY_MUSIC_MUTED = "music_muted"
+  // v1.4.6: an app UPDATE must reset Protection OFF (so nobody can bypass the
+  // guard by installing a new build). `KEY_VERSION_CODE` is the last versionCode
+  // this device ran; `KEY_RESET_ON_UPDATE_PENDING` tells the JS layer to explain
+  // the reset to the user exactly once.
+  private const val KEY_VERSION_CODE = "last_version_code"
+  private const val KEY_RESET_ON_UPDATE_PENDING = "reset_on_update_pending"
   /**
    * v1.3.1: how long a correct Partner PIN keeps the SYSTEM pages (device admin,
    * app info) unguarded. Long enough for the partner to walk to Settings and
@@ -378,6 +385,79 @@ internal object FocusGuardStore {
 
   fun setEnabled(context: Context, enabled: Boolean) {
     prefs(context).edit().putBoolean(KEY_ENABLED, enabled).apply()
+  }
+
+  // ---------------------------------------------------------------------
+  // v1.4.6: reset Protection on app update.
+  //
+  // Installing a new build must NOT be a way to slip past the guard, so every
+  // update forces Protection OFF and the user turns it back on by hand. The
+  // reset is applied in three places (all idempotent):
+  //   1. the MY_PACKAGE_REPLACED broadcast in GuardWakeupReceiver (the canonical
+  //      "this app was just updated" signal — fires even if the app was closed),
+  //   2. `maybeResetOnUpdate` on the accessibility service connect and on every
+  //      app launch, which catches the broadcast being missed by comparing the
+  //      stored versionCode with the one the device is actually running,
+  //   3. a JS `consumeUpdateReset` flag so the UI can tell the user what happened.
+  // A fresh INSTALL has no stored versionCode, so it is recorded without a reset
+  // (there is nothing to bypass on a brand-new install).
+  // ---------------------------------------------------------------------
+
+  @Suppress("DEPRECATION")
+  private fun currentVersionCode(context: Context): Long {
+    val info = context.packageManager.getPackageInfo(context.packageName, 0)
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      info.longVersionCode
+    } else {
+      info.versionCode.toLong()
+    }
+  }
+
+  private fun recordVersionCode(context: Context) {
+    prefs(context).edit().putLong(KEY_VERSION_CODE, currentVersionCode(context)).apply()
+  }
+
+  /** Forces Protection OFF + raises the one-shot "app updated" notice. */
+  fun resetProtectionForUpdate(context: Context) {
+    setEnabled(context, false)
+    clearUnlockWindow(context)
+    prefs(context).edit().putBoolean(KEY_RESET_ON_UPDATE_PENDING, true).apply()
+    recordVersionCode(context)
+    logEvent(
+      context,
+      "protection_reset_on_update",
+      text = "app updated to version code ${currentVersionCode(context)} — Protection turned OFF"
+    )
+  }
+
+  /**
+   * Belt-and-braces fallback for a missed MY_PACKAGE_REPLACED: if the device is
+   * running a different versionCode than the one we last stored, an update
+   * happened. Returns true when a reset was performed.
+   */
+  fun maybeResetOnUpdate(context: Context): Boolean {
+    val current = currentVersionCode(context)
+    val stored = prefs(context).getLong(KEY_VERSION_CODE, -1L)
+    if (stored == -1L) {
+      // First launch of a build that knows about this feature: remember it, no reset.
+      recordVersionCode(context)
+      return false
+    }
+    if (stored != current) {
+      resetProtectionForUpdate(context)
+      return true
+    }
+    return false
+  }
+
+  /** Reads AND clears the "an update turned Protection off" flag (shown once). */
+  fun consumeUpdateReset(context: Context): Boolean {
+    val preferences = prefs(context)
+    val pending = preferences.getBoolean(KEY_RESET_ON_UPDATE_PENDING, false)
+    if (pending) {
+      preferences.edit().putBoolean(KEY_RESET_ON_UPDATE_PENDING, false).apply()
+    }
+    return pending
   }
 
   fun blockCount(context: Context): Int = prefs(context).getInt(KEY_BLOCK_COUNT, 0)

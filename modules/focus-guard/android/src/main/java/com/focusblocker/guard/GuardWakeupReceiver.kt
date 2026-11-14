@@ -27,6 +27,14 @@ class GuardWakeupReceiver : BroadcastReceiver() {
       GuardScheduler.ACTION_WAKEUP -> "alarm tick"
       else -> action
     }
+    // v1.4.6: a new build was installed — Protection must not survive an update,
+    // otherwise updating becomes a way to slip past the guard without the PIN.
+    // MY_PACKAGE_REPLACED is the canonical signal and fires even if the app was
+    // closed; the versionCode fallback in the service/module covers a miss.
+    if (action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+      FocusGuardStore.resetProtectionForUpdate(context)
+      FocusAccessibilityService.reload()
+    }
     // Re-arm first: a reboot wipes alarms, and a force-stop wipes the job.
     GuardScheduler.scheduleAll(context)
     GuardScheduler.maybeLogWakeup(context, "watchdog_wakeup", source)

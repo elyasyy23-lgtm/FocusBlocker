@@ -251,6 +251,9 @@ class FocusAccessibilityService : AccessibilityService() {
     super.onServiceConnected()
     runningService = this
     isRunning = true
+    // v1.4.6: catch an update whose MY_PACKAGE_REPLACED was missed — Protection
+    // must be OFF after any version change, before we read `enabled` below.
+    FocusGuardStore.maybeResetOnUpdate(this)
     refreshConfig()
     FocusGuardStore.logEvent(
       this, "service_connected",

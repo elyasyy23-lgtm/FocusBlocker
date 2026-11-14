@@ -94,6 +94,20 @@ export async function disableProtectionAfterChallenge() {
   return native.setEnabledAfterDelayChallenge();
 }
 
+/**
+ * v1.4.6: an app update turns Protection OFF (anti-bypass). This returns true
+ * exactly once afterwards, so the UI can explain the reset. Never throws — a
+ * missing native module just means "nothing to report".
+ */
+export async function consumeUpdateReset() {
+  if (!native) return false;
+  try {
+    return Boolean(await native.consumeUpdateReset());
+  } catch (error) {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Excluded apps + language (v1.2.0)
 // ---------------------------------------------------------------------------

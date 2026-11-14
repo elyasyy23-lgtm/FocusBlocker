@@ -1,7 +1,8 @@
-# TASK — Tavakkol v1.4.5 (custom drawer · Settings lock · symmetric Delay Mode)
+# TASK — Tavakkol v1.4.6 (reset Protection on update · Settings gear lock)
 
-CURRENT RELEASE TARGET = **v1.4.5** (versionCode 16). See the v1.4.5 section at the bottom.
-(The v1.4.0 goal below is the historical first task that created this file.)
+CURRENT RELEASE TARGET = **v1.4.6** (versionCode 17). See the v1.4.6 section at the bottom.
+v1.4.5 SHIPPED (commit f4daa21, tag v1.4.5). (The v1.4.0 goal below is the historical first
+task that created this file.)
 
 GOAL (owner's list, 2026-11-13):
 1. **Remote Deactivation via SMS** — a toggle inside a new Settings section «کنترل از راه دور»
@@ -70,7 +71,7 @@ Release live: `Tavakkol-release.apk` 31.1 MB
       arrived before the toggle was on is ignored; Help has no Support block; Share App sits at
       the top of Settings.
 
-NOW: v1.4.5 code complete + verified locally — owner push pending (commands below).
+NOW: v1.4.6 code complete + verified locally — owner push pending (commands below).
 Docs page live: https://elyasyy23-lgtm.github.io/FocusBlocker/ (index.html, main /).
 
 ## v1.4.2 — Delay Mode + background music (2026-11-13)
@@ -172,18 +173,60 @@ Steps:
       `disableDelayModeAfterDelayChallenge` + the lock string); prebuild versionName 1.4.5 /
       versionCode 16, app_name Tavakkol (fa توکل); module manifest parses (RECEIVE_SMS +
       receiver + keep-alive services); `android/` + `dist/` wiped.
-- [ ] Owner push + tag v1.4.5 → CI builds `Tavakkol-release.apk`.
+- [x] SHIPPED 2026-11-14: commit `f4daa21` → main + tag `v1.4.5`; CI runs 43560395378
+      (main) + 43560405437 (tag) both SUCCESS → Release `Tavakkol v1.4.5`,
+      `Tavakkol-release.apk` 35.3 MB live at
+      https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v1.4.5/Tavakkol-release.apk
+      (`releases/latest/...` 302 → v1.4.5).
 - [ ] Owner on-device check: drawer opens/slides from the correct side; while Protection ON the
       gear shows the lock message and Home lists are read-only; Delay Mode ON → turning Delay
       Mode OFF needs the typed text (one tap no longer disables it); partner SMS still kills
       Protection instantly.
 
+## v1.4.6 — reset Protection on update · Settings gear lock (2026-11-14)
+
+Owner's list:
+1. **Reset Protection on update** — installing a new build MUST turn Protection OFF
+   automatically; the user turns it back on by hand. Stops an update being a way to slip past
+   the guard.
+2. Drawer (☰) opens normally while Protection is ON; the **Settings gear (⚙️)** is locked with a
+   message; the keyword/domain boxes stay read-only. (Drawer + read-only were already v1.4.5;
+   this adds the visible ⚙️ gear on Home.)
+
+Decisions:
+- Three idempotent reset paths: (a) `MY_PACKAGE_REPLACED` in `GuardWakeupReceiver` (canonical
+  signal, fires even with the app closed), (b) `maybeResetOnUpdate` versionCode compare on
+  service connect + every app launch, (c) a JS `consumeUpdateReset` flag → one-time message.
+- A fresh INSTALL has no stored versionCode → recorded, no reset (nothing to bypass).
+- The update reset writes the store directly (bypasses the Delay-Mode gate) — an update is an
+  admin action, same as the SMS kill switch.
+
+Steps:
+- [x] `FocusGuardStore.kt`: `KEY_VERSION_CODE` + `KEY_RESET_ON_UPDATE_PENDING`, `currentVersionCode`,
+      `recordVersionCode`, `resetProtectionForUpdate`, `maybeResetOnUpdate`, `consumeUpdateReset`.
+- [x] `GuardWakeupReceiver.kt`: on `ACTION_MY_PACKAGE_REPLACED` → `resetProtectionForUpdate` + reload.
+- [x] `FocusAccessibilityService.kt`: `maybeResetOnUpdate(this)` before `refreshConfig()`.
+- [x] `FocusGuardModule.kt`: `maybeResetOnUpdate` in `ensureKeepAlive` + `AsyncFunction("consumeUpdateReset")`.
+- [x] `modules/focus-guard/index.js`: `consumeUpdateReset()` bridge.
+- [x] `HomeScreen.js`: ⚙️ gear in the header (dim + 🔒 badge while Protection is ON); tapping it
+      shows the "turn Protection off first" message. `App.js` passes `onOpenSettings` + `settingsLocked`.
+- [x] `App.js`: one-time effect consumes the update-reset flag → localized notice.
+- [x] i18n: 1 new key (225 strings / 267 entries).
+- [x] Version 1.4.6 / versionCode 17 (app.json, package.json, package-lock, buildInfo),
+      `version.json` → 1.4.6, `index.html` labels → ۱.۴.۶.
+- [x] Verify: check-i18n OK; `npm run verify` green (645 modules; bundle contains
+      `consumeUpdateReset`, the update-reset string and the gear); prebuild versionName 1.4.6 /
+      versionCode 17; module manifest parses; `android/` + `dist/` wiped.
+- [ ] Owner push + tag v1.4.6 → CI builds `Tavakkol-release.apk`.
+- [ ] Owner on-device check: install v1.4.6 over v1.4.5 → Protection is OFF with the update
+      notice; the ⚙️ gear shows locked while Protection is ON; drawer still opens.
+
 ## Handover commands (owner)
 
 ```bash
 cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
+git add -A && git commit -m "v1.4.6: reset Protection on update + Settings gear lock"
 git fetch origin && git rebase origin/main
 git push origin main
-git tag v1.4.5
-git push origin v1.4.5
+git tag v1.4.6 && git push origin v1.4.6
 ```

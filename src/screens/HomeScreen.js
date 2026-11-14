@@ -52,6 +52,8 @@ export default function HomeScreen({
   onToggleBlocking,
   onToggleDelayMode,
   onOpenDrawer,
+  onOpenSettings,
+  settingsLocked,
 }) {
   const align = textAlign(lang);
   const isRtl = lang === 'fa';
@@ -76,6 +78,21 @@ export default function HomeScreen({
             <Text style={[styles.brand, { textAlign: align }]}>{t('Tavakkol')}</Text>
             <Text style={[styles.brandSub, { textAlign: align }]}>{t('Personal guard')}</Text>
           </View>
+          {/* v1.4.6: the Settings gear. It stays visible while Protection is ON
+              but is locked — tapping it explains that Protection must be turned
+              off first (the drawer's Settings row behaves the same way). */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('Settings')}
+            onPress={onOpenSettings}
+            style={({ pressed }) => [
+              styles.hamburger,
+              settingsLocked && styles.gearLocked,
+              pressed && styles.pressed,
+            ]}>
+            <Text style={styles.hamburgerIcon}>⚙️</Text>
+            {settingsLocked ? <Text style={styles.lockBadge}>🔒</Text> : null}
+          </Pressable>
         </View>
 
         <Text style={[styles.tagline, { textAlign: align }]}>
@@ -293,6 +310,15 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     lineHeight: 26,
+  },
+  gearLocked: {
+    opacity: 0.55,
+  },
+  lockBadge: {
+    position: 'absolute',
+    right: 2,
+    bottom: 0,
+    fontSize: 12,
   },
   brandText: {
     flex: 1,

@@ -371,6 +371,9 @@ const FA = {
     'متن هنوز مطابقت ندارد. به تایپ ادامه دهید — یا انصراف بزنید تا روشن بماند.',
   'Turn Delay Mode off': 'خاموش کردن حالت تاخیر',
   'Cancel — keep it on': 'انصراف — روشن بماند',
+  // ------------------------------- v1.4.6: Protection resets OFF after an update
+  'The app was updated — Protection was turned off automatically. Turn it back on to keep the guard active.':
+    'برنامه به‌روزرسانی شد — محافظت به‌صورت خودکار خاموش شد. برای فعال ماندن محافظ، آن را دوباره روشن کنید.',
 };
 
 const DICT = { fa: FA };

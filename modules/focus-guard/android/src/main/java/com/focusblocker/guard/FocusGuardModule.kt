@@ -441,9 +441,22 @@ class FocusGuardModule : Module() {
      */
     AsyncFunction("ensureKeepAlive") {
       val ctx = requireContext()
+      // v1.4.6: every launch re-checks for an update that flipped Protection OFF
+      // (fallback for a missed MY_PACKAGE_REPLACED broadcast).
+      if (FocusGuardStore.maybeResetOnUpdate(ctx)) {
+        FocusAccessibilityService.reload()
+      }
       GuardScheduler.scheduleAll(ctx)
       GuardWatchdogService.start(ctx, "app_opened")
       true
+    }
+
+    /**
+     * v1.4.6: true exactly once after an app update turned Protection off — the
+     * UI uses it to explain the reset to the user.
+     */
+    AsyncFunction("consumeUpdateReset") {
+      FocusGuardStore.consumeUpdateReset(requireContext())
     }
 
     /**

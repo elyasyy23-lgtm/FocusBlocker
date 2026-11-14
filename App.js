@@ -130,6 +130,8 @@ export default function App() {
   const keywordsDirtyRef = useRef(false);
   const domainsDirtyRef = useRef(false);
   const seededRef = useRef(false);
+  // v1.4.6: consume the "an update turned Protection off" notice exactly once.
+  const updateResetCheckedRef = useRef(false);
 
   const t = useMemo(() => createTranslator(lang), [lang]);
   const align = textAlign(lang);
@@ -174,6 +176,24 @@ export default function App() {
     });
     return () => subscription.remove();
   }, [refresh]);
+
+  // v1.4.6: installing a new build forces Protection OFF (nobody may bypass the
+  // guard by updating). The native side raises a one-shot flag; we surface it in
+  // the user's language so the silent reset never looks like a bug. Runs once,
+  // after the first config load so the language is known.
+  useEffect(() => {
+    if (loading || updateResetCheckedRef.current) return;
+    updateResetCheckedRef.current = true;
+    FocusGuard.consumeUpdateReset().then((reset) => {
+      if (reset) {
+        setMessage(
+          t(
+            'The app was updated — Protection was turned off automatically. Turn it back on to keep the guard active.'
+          )
+        );
+      }
+    });
+  }, [loading, t]);
 
   // v1.4.5: hardware Back — close the drawer first, then return to Home.
   useEffect(() => {
@@ -720,6 +740,8 @@ export default function App() {
           onToggleBlocking={toggleBlocking}
           onToggleDelayMode={toggleDelayMode}
           onOpenDrawer={() => setDrawerOpen(true)}
+          onOpenSettings={() => navigate('settings')}
+          settingsLocked={settingsLocked}
         />
       )}
 

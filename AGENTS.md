@@ -523,4 +523,43 @@ OFF must ALSO cost the typed challenge; (4) the SMS kill switch bypasses the cha
   `disableDelayModeAfterDelayChallenge` and the lock string); `npm run prebuild:android` →
   versionName 1.4.5 / versionCode 16, app_name Tavakkol (fa توکل); module manifest parses
   (RECEIVE_SMS + receiver + keep-alive services); `android/` + `dist/` wiped. Kotlin compiles
-  only in CI. NOT pushed — owner runs the push/tag.
+  only in CI. SHIPPED 2026-11-14: commit `f4daa21` → main + tag v1.4.5, CI runs 43560395378 +
+  43560405437 both SUCCESS, Release `Tavakkol v1.4.5` (35.3 MB) live.
+
+### v1.4.6 — reset Protection on update · Settings gear lock (2026-11-14)
+
+Owner's list: (1) installing a new build must turn Protection OFF automatically — the user turns
+it back on by hand (an update must never be a way to slip past the guard); (2) the drawer (☰)
+still opens while Protection is ON, but the **Settings gear (⚙️)** is locked with a message and
+the keyword/domain boxes stay read-only.
+
+- **Protection reset on update — three idempotent paths**:
+  1. `GuardWakeupReceiver.kt` — on `ACTION_MY_PACKAGE_REPLACED` (the canonical "app was updated"
+     broadcast, delivered even when the app was closed) → `FocusGuardStore.resetProtectionForUpdate`
+     + `FocusAccessibilityService.reload()`.
+  2. `FocusGuardStore.maybeResetOnUpdate(context)` — compares the stored `last_version_code`
+     against the device's real versionCode; called in `FocusAccessibilityService.onServiceConnected`
+     (before `refreshConfig`, so `enabled` reads the reset) AND in `FocusGuardModule.ensureKeepAlive`
+     (every app launch). Catches a missed broadcast.
+  3. A one-shot `reset_on_update_pending` flag → JS `FocusGuard.consumeUpdateReset()` (bridge in
+     `modules/focus-guard/index.js`, native `AsyncFunction("consumeUpdateReset")`) → `App.js` shows
+     a localized notice once, after the first config load (so the language is known).
+- Store helpers (all in `FocusGuardStore.kt`): `currentVersionCode` (`longVersionCode` on API 28+,
+  `versionCode` below, `@Suppress("DEPRECATION")`), `recordVersionCode`, `resetProtectionForUpdate`
+  (setEnabled false + clearUnlockWindow + raise flag + record version + `protection_reset_on_update`
+  log), `maybeResetOnUpdate`, `consumeUpdateReset`. Keys: `last_version_code`,
+  `reset_on_update_pending`.
+- **A fresh INSTALL has no stored versionCode → recorded, no reset** (nothing to bypass on a
+  brand-new install). The update reset writes the store DIRECTLY (bypasses the Delay-Mode gate) —
+  an update is an admin action, same rule as the SMS kill switch.
+- **Settings gear**: `HomeScreen.js` header now has a ⚙️ button beside the ☰ (dimmed + a 🔒 badge
+  while `settingsLocked`); tapping calls `onOpenSettings` → `navigate('settings')`, which already
+  shows «برای ورود به تنظیمات، ابتدا محافظت را خاموش کنید.» when Protection is ON. The drawer's
+  Settings row behaves the same. `settingsLocked`/`readOnly` both derive from `config.enabled`.
+- i18n: 1 new key (the update-reset notice) → 225 UI strings / 267 translations.
+- Version 1.4.6 / versionCode 17 (app.json, package.json, package-lock, buildInfo);
+  `version.json` latestVersion 1.4.6; `index.html` labels ۱.۴.۶.
+- Verified: check-i18n OK; `npm run verify` green (645 modules; bundle contains
+  `consumeUpdateReset`, the update-reset string and the ⚙️/🔒 glyphs); `npm run prebuild:android` →
+  versionName 1.4.6 / versionCode 17; module manifest parses; `android/` + `dist/` wiped. Kotlin
+  compiles only in CI. NOT pushed — owner runs the push/tag.
