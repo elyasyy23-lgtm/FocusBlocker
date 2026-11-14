@@ -418,6 +418,12 @@ const FA = {
     'در صفحهٔ سیستم «فعال کردن» را بزنید تا حذف برنامه ممکن نباشد — هیچ اجازهٔ قفل صفحه‌ای درخواست نمی‌شود.',
   'Open “Device admin apps” from this screen and pick Tavakkol.':
     'در همین صفحه «برنامه‌های مدیر دستگاه» را باز کنید و توکل را انتخاب کنید.',
+  'Device admin settings opened — Tavakkol is listed here.':
+    'تنظیمات مدیر دستگاه باز شد — توکل در همین فهرست است.',
+  'Deactivate it on this screen to allow uninstalling Tavakkol.':
+    'برای اینکه حذف توکل ممکن شود، همین‌جا آن را غیرفعال کنید.',
+  'No device-admin screen answered on this phone. Open Settings → Security → Device admin apps and pick Tavakkol.':
+    'هیچ صفحهٔ مدیر دستگاهی روی این گوشی باز نشد. خودتان این مسیر را بروید: تنظیمات ← امنیت ← برنامه‌های مدیر دستگاه و توکل را انتخاب کنید.',
   'Turn Protection off before changing the adult content lock.':
     'پیش از تغییر قفل محتوای بزرگسالان، محافظت را خاموش کنید.',
 };

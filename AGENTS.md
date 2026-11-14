@@ -725,6 +725,11 @@ the keyword/domain boxes stay read-only.
   the HTML tag method (`<meta name="google-site-verification" ...>`) in `index.html` head — both
   are permanent, do not delete afterwards.
 - Sitemap to submit after verification: `https://elyasyy23-lgtm.github.io/FocusBlocker/sitemap.xml`.
+- 2026-11-14: verification file LIVE — `google316c466330b5d665.html` in the repo root, content
+  exactly `google-site-verification: google316c466330b5d665.html`, commit `3cbecef`, public URL
+  returns 200 (`text/html`, 54 B) at
+  https://elyasyy23-lgtm.github.io/FocusBlocker/google316c466330b5d665.html. NEVER delete this file —
+  Google re-runs the check periodically. Owner then clicks Verify and submits the sitemap manually.
 - DECISION 2026-11-14: owner chose the **manual HTML-file route** for Search Console (they do the
   Google login + the "Verify" click; zyvo only hosts the file and proves it returns 200, then the
   owner submits `sitemap.xml` by hand). Do not push the service-account/OAuth route again unless the
@@ -775,3 +780,38 @@ the keyword/domain boxes stay read-only.
 - Footer carries «آخرین به‌روزرسانی: آبان ۱۴۰۵ · نسخهٔ ۱.۴.۱۲» as a freshness signal.
 - Resulting page: ~1,238 visible words, 1 `<h1>` / 4 `<h2>` / 13 `<h3>`, 0 broken anchors, tags
   balanced, no third-party font host. Sitemap `lastmod` stays 2026-11-14 (same day).
+
+## v1.4.13 (2026-11-14, code complete + verified, NOT pushed — owner runs push/tag)
+
+**Device-admin button still dead on HyperOS** (owner: no error in Debug Log, tapping «تنظیمات مدیر»
+changed nothing). Root problem was diagnosability, not just routing: v1.4.12 returned only a label
+and swallowed every exception, so a ROM that resolves an intent to a screen that immediately
+finishes looked identical to "nothing happened".
+
+- `FocusGuardModule.openDeviceAdminSettings` rewritten: returns
+  `{opened, target, active}` where `target` is the `package/activity` the chosen Intent resolves to.
+  New private `resolveTarget(ctx, intent)` uses `PackageManager.resolveActivity`
+  (`ResolveInfoFlags.of(0)` on API 33+) and SKIPS intents that resolve to nothing
+  (`admin_intent_skip`) instead of firing and swallowing `ActivityNotFoundException`.
+- Ladder (order depends on state): if admin ACTIVE → `ACTION_ADD_DEVICE_ADMIN` (our component's
+  details screen with Deactivate) → `android.settings.DEVICE_ADMIN_SETTINGS`; if INACTIVE → the
+  reverse (activation dialog last). Then the explicit AOSP activities
+  `com.android.settings/.Settings$DeviceAdminSettingsActivity` and
+  `com.android.settings/.DeviceAdminSettings` (MIUI hides the entry but often keeps the class),
+  then `ACTION_SECURITY_SETTINGS`, then `ACTION_SETTINGS`. `EXTRA_DEVICE_ADMIN` now rides on the
+  list intent too — some ROMs only land on the right row with it.
+- Debug log: `admin_button_clicked` (active + sdk + manufacturer/brand), `admin_intent_skip`,
+  `admin_intent_ok` (with resolved component), `admin_intent_fail` (exception class + message),
+  `admin_intent_none`, plus `admin_intent_result` written from JS. Colours added in
+  `src/utils/debugLog.js`. New native bridge `logDebug(type, text)` (`text` is non-nullable — the
+  Expo Kotlin DSL is safest with `String`, use `ifEmpty { null }`), JS helper `FocusGuard.logDebug`.
+- `SettingsScreen.openDeviceAdminSettings` handles the object shape (old string shape still
+  tolerated), logs the result, and ALWAYS shows a message: admin list opened / details+Deactivate /
+  Security fallback / none → «تنظیمات ← امنیت ← برنامههای مدیر دستگاه». i18n 237 strings / 294
+  entries (3 new).
+- Version 1.4.13 / code 23 (app.json, package.json, package-lock, buildInfo), `version.json` 1.4.13,
+  `index.html` ۱.۴.۱۳ (3 spots). Verified: check-i18n OK, `npm run verify` green (bundle contains
+  `admin_activity_legacy` + `logDebug`), prebuild 1.4.13 (23), android/ + dist/ wiped, Kotlin
+  braces/parens balanced (Kotlin compiles only in CI).
+- If MIUI STILL opens nothing while the log shows `admin_intent_ok`, the ROM accepted the intent and
+  killed the screen: the next step is a JS-visible in-app instructions card, not another intent.

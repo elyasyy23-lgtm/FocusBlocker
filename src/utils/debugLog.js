@@ -35,6 +35,12 @@ export const LOG_TYPE_COLORS = {
   block_recheck_home: '#FBBF24',
   block_recheck_clear: '#7DD3FC',
   scan_failed: '#FBBF24',
+  admin_button_clicked: '#7DD3FC',
+  admin_intent_skip: '#8C9AAB',
+  admin_intent_ok: '#4ADE80',
+  admin_intent_fail: '#F87171',
+  admin_intent_none: '#F87171',
+  admin_intent_result: '#7DD3FC',
 };
 
 export function logTypeColor(type) {

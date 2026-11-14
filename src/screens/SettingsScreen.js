@@ -405,28 +405,49 @@ export default function SettingsScreen({
   };
 
   /**
-   * v1.4.12 (owner fix): one tap, and the user always lands somewhere useful.
-   * Native tries the device-admin list, then our own admin component (activation
-   * dialog / admin details), then Security, then Settings — and reports which
-   * one opened, so the hint below matches the screen in front of the user.
+   * v1.4.13 (owner bug: on HyperOS the button did nothing, silently):
+   * native now logs every intent it tries plus the activity each one resolves
+   * to, and returns { opened, target, active }. Every outcome shows a message —
+   * including the manual path when no Settings screen answers — so a tap can
+   * never end in silence again.
    */
   const openDeviceAdminSettings = async () => {
-    let opened = null;
+    let result = { opened: 'none', target: '', active: false };
     try {
-      opened = await FocusGuard.openDeviceAdminSettings();
+      result = await FocusGuard.openDeviceAdminSettings();
     } catch (error) {
-      // null (not 'none') so the error is reported once, not twice below.
       onMessage(error.message || t('Could not open the device admin settings.'));
     }
 
-    if (opened === 'component') {
-      onMessage(
-        t('Tap “Activate” on the system screen to block uninstalling — no screen-lock permission is requested.')
+    if (typeof FocusGuard.logDebug === 'function') {
+      FocusGuard.logDebug(
+        'admin_intent_result',
+        `${result.opened}${result.target ? ' -> ' + result.target : ''} (active=${result.active})`
       );
-    } else if (opened === 'security' || opened === 'settings') {
+    }
+
+    if (result.opened === 'component') {
+      onMessage(
+        result.active
+          ? t('Deactivate it on this screen to allow uninstalling Tavakkol.')
+          : t(
+              'Tap “Activate” on the system screen to block uninstalling — no screen-lock permission is requested.'
+            )
+      );
+    } else if (
+      result.opened === 'admin' ||
+      result.opened === 'admin_activity' ||
+      result.opened === 'admin_activity_legacy'
+    ) {
+      onMessage(t('Device admin settings opened — Tavakkol is listed here.'));
+    } else if (result.opened === 'security' || result.opened === 'settings') {
       onMessage(t('Open “Device admin apps” from this screen and pick Tavakkol.'));
-    } else if (opened === 'none') {
-      onMessage(t('Could not open the device admin settings.'));
+    } else if (result.opened === 'none') {
+      onMessage(
+        t(
+          'No device-admin screen answered on this phone. Open Settings → Security → Device admin apps and pick Tavakkol.'
+        )
+      );
     }
 
     setTimeout(() => {

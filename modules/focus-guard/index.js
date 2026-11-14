@@ -292,13 +292,30 @@ export async function setMusicMuted(muted) {
 }
 
 /**
- * v1.4.12: opens the device-admin UI. Resolves to which screen actually opened
- * ('admin' | 'component' | 'security' | 'settings' | 'none') so the caller can
- * guide the user, instead of a tap that silently does nothing.
+ * v1.4.13: opens the device-admin UI and reports exactly what happened.
+ * Resolves to `{ opened, target, active }` where `opened` is one of
+ * 'admin' | 'component' | 'admin_activity' | 'admin_activity_legacy' |
+ * 'security' | 'settings' | 'none' and `target` is the resolved
+ * "package/activity" (v1.4.12 returned only the label, which left a silent
+ * no-op on MIUI/HyperOS undiagnosable). Tolerates the old string shape.
  */
 export async function openDeviceAdminSettings() {
-  if (!native) return 'none';
-  return native.openDeviceAdminSettings();
+  if (!native) return { opened: 'none', target: '', active: false };
+  const result = await native.openDeviceAdminSettings();
+  if (typeof result === 'string') return { opened: result, target: '', active: false };
+  return result && typeof result === 'object'
+    ? { opened: result.opened || 'none', target: result.target || '', active: !!result.active }
+    : { opened: 'none', target: '', active: false };
+}
+
+/** v1.4.13: writes a line into the same debug ring buffer the guard uses. */
+export async function logDebug(type, text) {
+  if (!native || !native.logDebug) return false;
+  try {
+    return await native.logDebug(String(type), text ? String(text) : '');
+  } catch (error) {
+    return false;
+  }
 }
 
 export async function openAccessibilitySettings() {
