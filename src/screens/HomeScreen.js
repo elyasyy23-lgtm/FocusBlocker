@@ -54,6 +54,7 @@ export default function HomeScreen({
   onSaveDomains,
   onToggleBlocking,
   onToggleDelayMode,
+  onToggleAdultLock,
   onOpenDrawer,
   onMessage,
 }) {
@@ -159,6 +160,34 @@ export default function HomeScreen({
                   disabled={!isAvailable}
                   trackColor={{ false: COLORS.border, true: COLORS.accentSoft }}
                   thumbColor={config.delayMode ? COLORS.accent : '#5A6779'}
+                />
+              </View>
+            </View>
+
+            {/*
+              v1.4.11 (owner request): the adult lock moved here from Settings.
+              While Protection is ON the switch is frozen in BOTH directions —
+              the native module refuses the write too, so a stale render cannot
+              flip it.
+            */}
+            <View style={styles.switchCell}>
+              <Text style={[styles.switchTitle, { textAlign: align }]}>
+                {t('Adult content lock')}
+              </Text>
+              <Text style={[styles.switchHint, { textAlign: align }]}>
+                {config.enabled
+                  ? t('Locked while Protection is on')
+                  : config.adultLock
+                    ? t('On — built-in list added')
+                    : t('Off')}
+              </Text>
+              <View style={styles.switchControl}>
+                <Switch
+                  value={config.adultLock}
+                  onValueChange={onToggleAdultLock}
+                  disabled={!isAvailable || config.enabled}
+                  trackColor={{ false: COLORS.border, true: COLORS.accentSoft }}
+                  thumbColor={config.adultLock ? COLORS.accent : '#5A6779'}
                 />
               </View>
             </View>
@@ -404,13 +433,14 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-    gap: 14,
+    gap: 10,
   },
   switchGridRtl: {
     flexDirection: 'row-reverse',
   },
   switchCell: {
     flex: 1,
+    minWidth: 0,
   },
   switchControl: {
     flexDirection: 'row',

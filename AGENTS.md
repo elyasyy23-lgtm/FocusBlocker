@@ -642,3 +642,18 @@ the keyword/domain boxes stay read-only.
 - SHIPPED 2026-11-14: commit `14dcc7e` → main + tag `v1.4.9`; CI 43578559240 (main) +
   43578567196 (tag) both SUCCESS → Release `Tavakkol v1.4.9` live, `Tavakkol-release.apk`
   37,023,751 bytes (`releases/latest/...` 302 → v1.4.9). Pending owner on-device check.
+
+## v1.4.11 — device admin button · adult lock on Home · Persian-first (2026-11-14)
+
+- Settings → «مدیر دستگاه»: the button is now «تنظیمات مدیر» (`Device admin settings`) and calls the
+  new native `openDeviceAdminSettings` → `Settings.ACTION_DEVICE_ADMIN_SETTINGS` (fallback
+  `ACTION_SECURITY_SETTINGS`). The old in-app "Activate device admin" button is gone; the panic-lock
+  button and the status pill are untouched.
+- The adult lock MOVED from Settings to the Home switch grid (third cell beside Delay Mode) and
+  `FocusGuardModule.setAdultLock` now refuses BOTH directions while `FocusGuardStore.isEnabled`
+  (v1.4.9 refused only OFF). The Home switch is `disabled={…|| config.enabled}` too.
+- Persian-first: `FocusGuardStore.language()` default is now `"fa"` (stored value wins),
+  `EMPTY_CONFIG.language = 'fa'`, `App.js` initial `lang` state `'fa'`.
+- i18n 234 strings / 294 translations. Version 1.4.11 / versionCode 21; `version.json` 1.4.11;
+  `index.html` ۱.۴.۱۱. Verified: check-i18n OK, `npm run verify` green, prebuild 1.4.11 (21).
+- NOT pushed: owner runs commit/push/tag (`git tag v1.4.11`).

@@ -55,9 +55,6 @@ export default function SettingsScreen({
   const align = textAlign(lang);
   const isRtl = lang === 'fa';
 
-  const [adultLock, setAdultLockState] = useState(false);
-  const [adultBusy, setAdultBusy] = useState(false);
-
   const [apps, setApps] = useState([]);
   const [loadingApps, setLoadingApps] = useState(true);
   const [query, setQuery] = useState('');
@@ -153,11 +150,6 @@ export default function SettingsScreen({
       .catch(() => {});
   }, []);
 
-  // Keep the switch in sync with the native store (v1.4.9).
-  useEffect(() => {
-    setAdultLockState(Boolean(config && config.adultLock));
-  }, [config]);
-
   const excludedSet = useMemo(() => new Set(excluded), [excluded]);
 
   const filtered = useMemo(() => {
@@ -185,45 +177,6 @@ export default function SettingsScreen({
     },
     [busyPkg, onToggleExcluded]
   );
-
-  // -------------------------------------------------------------------
-  // Strict Adult Content Lock (v1.4.9)
-  //
-  // The switch is one-way while Protection is on: the native module refuses
-  // setAdultLock(false), so the only path off is Protection off first. Reading
-  // the live value from `config` (refreshed from the native store) keeps the UI
-  // honest even if a previous write failed.
-  // -------------------------------------------------------------------
-
-  const protectionOn = Boolean(config && config.enabled);
-
-  const applyAdultLock = async (next) => {
-    if (adultBusy || !isAvailable) return;
-    if (!next && protectionOn) {
-      onMessage(t('Protection is on — turn Protection off before turning off the adult lock.'));
-      return;
-    }
-    setAdultBusy(true);
-    try {
-      await FocusGuard.setAdultLock(next);
-      setAdultLockState(next);
-      if (onRefresh) await onRefresh();
-      onMessage(
-        next ? t('Adult content lock is ON.') : t('Adult content lock is OFF.')
-      );
-    } catch (error) {
-      const raw = (error && error.message) || '';
-      // The native refusal is the load-bearing gate — translate its message.
-      onMessage(
-        /Protection is on/i.test(raw)
-          ? t('Protection is on — turn Protection off before turning off the adult lock.')
-          : raw || t('Could not change the adult lock.')
-      );
-      if (onRefresh) onRefresh();
-    } finally {
-      setAdultBusy(false);
-    }
-  };
 
   // -------------------------------------------------------------------
   // Partner PIN (v1.3.1) — set, change or remove the app-lock PIN.
@@ -451,16 +404,20 @@ export default function SettingsScreen({
     }
   };
 
-  const enableDeviceAdmin = async () => {
+  /**
+   * v1.4.10 (owner request): the Device admin button now opens Android's own
+   * "Device admin apps" screen, so the user can inspect, activate or deactivate
+   * the admin there. The status pill above still reflects what the OS reports.
+   */
+  const openDeviceAdminSettings = async () => {
     try {
-      await FocusGuard.requestDeviceAdmin();
-      onMessage(t('Confirm the system dialog to keep Tavakkol installed.'));
-      setTimeout(() => {
-        if (onRefresh) onRefresh();
-      }, 1200);
+      await FocusGuard.openDeviceAdminSettings();
     } catch (error) {
-      onMessage(error.message || t('Could not open the device admin dialog.'));
+      onMessage(error.message || t('Could not open the device admin settings.'));
     }
+    setTimeout(() => {
+      if (onRefresh) onRefresh();
+    }, 1200);
   };
 
   const runPanicLock = async () => {
@@ -590,20 +547,19 @@ export default function SettingsScreen({
               labels={[t('Active'), t('Inactive')]}
             />
           </View>
+          <ActionButton
+            label={t('Device admin settings')}
+            variant="secondary"
+            onPress={openDeviceAdminSettings}
+            disabled={!isAvailable}
+          />
           {cfg.deviceAdminActive ? (
             <ActionButton
               label={t('Panic lock screen')}
               variant="secondary"
               onPress={runPanicLock}
             />
-          ) : (
-            <ActionButton
-              label={t('Activate device admin')}
-              variant="secondary"
-              onPress={enableDeviceAdmin}
-              disabled={!isAvailable}
-            />
-          )}
+          ) : null}
         </Section>
 
         <Section
@@ -651,43 +607,6 @@ export default function SettingsScreen({
             {t(
               'One-time setup on Redmi / POCO / Xiaomi: 1) Autostart → Tavakkol ON, 2) Battery saver → No restrictions, 3) in Recents, pull Tavakkol down to lock it. Without Autostart even a foreground service gets killed within hours.'
             )}
-          </Text>
-        </Section>
-
-        <Section
-          title={t('Full adult content lock')}
-          subtitle={t(
-            'Adds a built-in list of adult keywords and websites on top of your own lists. It reads text and links only — images and video cannot be recognised, so treat it as a strong filter, not a detector.'
-          )}
-          lang={lang}>
-          <View style={[styles.remoteRow, isRtl && styles.headerRtl]}>
-            <View style={styles.remoteLabel}>
-              <Text style={[styles.remoteTitle, { textAlign: align }]}>
-                {t('Adult content lock')}
-              </Text>
-              <Text style={[styles.remoteHint, { textAlign: align }]}>
-                {adultLock
-                  ? t('On — {{keywords}} keywords and {{domains}} websites, plus your own lists', {
-                      keywords: cfg.adultKeywordCount || 0,
-                      domains: cfg.adultDomainCount || 0,
-                    })
-                  : t('Off')}
-              </Text>
-            </View>
-            <Switch
-              value={adultLock}
-              onValueChange={applyAdultLock}
-              disabled={adultBusy || !isAvailable || (adultLock && protectionOn)}
-              trackColor={{ false: COLORS.border, true: COLORS.accentSoft }}
-              thumbColor={adultLock ? COLORS.accent : '#5A6779'}
-            />
-          </View>
-          <Text style={[styles.hint, { textAlign: align }]}>
-            {protectionOn
-              ? t('Protection is on — this lock stays on until Protection is turned off.')
-              : t(
-                  'Turn this on before you switch Protection on: from then on it can only be turned off after Protection is off.'
-                )}
           </Text>
         </Section>
 

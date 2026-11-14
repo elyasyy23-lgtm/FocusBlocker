@@ -27,7 +27,7 @@ export const EMPTY_CONFIG = {
   accessibilityEnabled: false,
   deviceAdminActive: false,
   excludedApps: [],
-  language: 'en',
+  language: 'fa',
   defaultsSeeded: false,
   pinSet: false,
   strictLocked: false,
@@ -275,10 +275,10 @@ export async function disableDelayModeAfterChallenge() {
 }
 
 /**
- * v1.4.9: Strict Adult Content Lock. ON = the built-in adult keyword/domain
- * list joins the guard. The native layer refuses the OFF direction while
- * Protection is on, so turning it on is a one-way door until the guard itself
- * is switched off.
+ * Strict Adult Content Lock. ON = the built-in adult keyword/domain list joins
+ * the guard. v1.4.11: the switch lives on the Home screen and the native layer
+ * refuses BOTH directions while Protection is on, so the choice is made before
+ * the guard goes on.
  */
 export async function setAdultLock(enabled) {
   if (!native) return false;
@@ -289,6 +289,15 @@ export async function setAdultLock(enabled) {
 export async function setMusicMuted(muted) {
   if (!native) return false;
   return native.setMusicMuted(Boolean(muted));
+}
+
+/**
+ * v1.4.10: the system "Device admin apps" screen
+ * (`android.settings.DEVICE_ADMIN_SETTINGS`).
+ */
+export async function openDeviceAdminSettings() {
+  if (!native) return false;
+  return native.openDeviceAdminSettings();
 }
 
 export async function openAccessibilitySettings() {

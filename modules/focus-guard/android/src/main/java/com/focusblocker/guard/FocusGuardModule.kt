@@ -290,20 +290,41 @@ class FocusGuardModule : Module() {
     }
 
     /**
-     * v1.4.9: Strict Adult Content Lock. Turning it ON is always allowed; turning
-     * it OFF is refused while Protection is on, so the lock can only be lifted
-     * after the Protection switch itself has been turned off (partner PIN or the
-     * Delay-Mode challenge). Enforced natively — never trusted from JS state.
+     * Strict Adult Content Lock (v1.4.9, hardened v1.4.11).
+     * v1.4.11: while Protection is ON the switch is frozen in BOTH directions —
+     * the owner wants it decided before the guard goes on. Enforced natively so
+     * a stale React state can never flip it behind the guard's back.
      */
     AsyncFunction("setAdultLock") { enabled: Boolean ->
       val ctx = requireContext()
-      if (!enabled && FocusGuardStore.isEnabled(ctx)) {
+      if (FocusGuardStore.isEnabled(ctx)) {
         throw IllegalStateException(
-          "Protection is on — turn Protection off before turning off the adult lock."
+          "Protection is on — turn Protection off before changing the adult lock."
         )
       }
       FocusGuardStore.setAdultLock(ctx, enabled)
       FocusAccessibilityService.reload()
+      true
+    }
+
+    /**
+     * v1.4.10: opens the SYSTEM "Device admin apps" list. Used by the button in
+     * Settings → Device admin so the user can inspect/activate/deactivate the
+     * admin from Android's own screen (no package filter — the platform page is
+     * what the owner asked for).
+     */
+    AsyncFunction("openDeviceAdminSettings") {
+      val ctx = requireContext()
+      val intent = Intent(Settings.ACTION_DEVICE_ADMIN_SETTINGS)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      try {
+        ctx.startActivity(intent)
+      } catch (error: Exception) {
+        // Extremely old/odd ROMs: fall back to the general Security page.
+        ctx.startActivity(
+          Intent(Settings.ACTION_SECURITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+      }
       true
     }
 

@@ -413,6 +413,14 @@ const FA = {
   'Could not change the adult lock.': 'تغییر قفل محتوای بزرگسالان ممکن نشد.',
   'Adult content lock is on — {{keywords}} built-in keywords and {{domains}} websites are blocked too':
     'قفل محتوای بزرگسالان روشن است — {{keywords}} کلمه و {{domains}} سایت آماده هم مسدود می‌شوند',
+
+  // ------------------------------- v1.4.10/v1.4.11: device admin · adult lock on Home · fa default
+  'Device admin settings': 'تنظیمات مدیر',
+  'Could not open the device admin settings.': 'باز کردن تنظیمات مدیر دستگاه ممکن نشد.',
+  'Locked while Protection is on': 'تا محافظت روشن است قفل شده',
+  'On — built-in list added': 'روشن — فهرست آماده اضافه شد',
+  'Turn Protection off before changing the adult content lock.':
+    'پیش از تغییر قفل محتوای بزرگسالان، محافظت را خاموش کنید.',
 };
 
 const DICT = { fa: FA };

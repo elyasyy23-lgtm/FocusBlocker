@@ -155,8 +155,13 @@ internal object FocusGuardStore {
   // ---------------------------------------------------------------------
 
   /** "en" or "fa" — Persian unless the user picked otherwise. */
+  /**
+   * v1.4.11: the app is Persian-first — a FRESH install starts in Persian
+   * (owner decision). The stored value always wins, so switching to English in
+   * Settings sticks across restarts.
+   */
   fun language(context: Context): String =
-    prefs(context).getString(KEY_LANGUAGE, "en") ?: "en"
+    prefs(context).getString(KEY_LANGUAGE, "fa") ?: "fa"
 
   fun setLanguage(context: Context, language: String) {
     val value = if (language.lowercase().startsWith("fa")) "fa" else "en"

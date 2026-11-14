@@ -127,7 +127,9 @@ export default function App() {
   const [sessionUnlocked, setSessionUnlocked] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
 
-  const [lang, setLang] = useState('en');
+  // v1.4.11: Persian-first — this initial value only covers the first frames
+  // before the native store is read; the store itself defaults to Persian too.
+  const [lang, setLang] = useState('fa');
   const keywordsDirtyRef = useRef(false);
   const domainsDirtyRef = useRef(false);
   const seededRef = useRef(false);
@@ -474,6 +476,27 @@ export default function App() {
     }
   };
 
+  /**
+   * v1.4.11: the adult lock lives on the Home screen. While Protection is ON the
+   * switch is disabled in the UI, and the native module refuses both directions
+   * anyway — this handler only translates the refusal and refreshes the state.
+   */
+  const toggleAdultLock = async (value) => {
+    try {
+      await FocusGuard.setAdultLock(value);
+      await refresh();
+      setMessage(value ? t('Adult content lock is ON.') : t('Adult content lock is OFF.'));
+    } catch (error) {
+      const raw = String((error && error.message) || '');
+      await refresh();
+      setMessage(
+        /Protection is on/i.test(raw)
+          ? t('Turn Protection off before changing the adult content lock.')
+          : raw || t('Could not change the adult lock.')
+      );
+    }
+  };
+
   const toggleMusicMuted = async (muted) => {
     try {
       await FocusGuard.setMusicMuted(muted);
@@ -742,6 +765,7 @@ export default function App() {
           onSaveDomains={saveDomains}
           onToggleBlocking={toggleBlocking}
           onToggleDelayMode={toggleDelayMode}
+          onToggleAdultLock={toggleAdultLock}
           onOpenDrawer={() => setDrawerOpen(true)}
           onMessage={setMessage}
         />

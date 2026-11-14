@@ -1,7 +1,7 @@
 # TASK — Tavakkol v1.4.9 (adult content lock + SMS kills the WHOLE guard)
 
-CURRENT RELEASE TARGET = **v1.4.9** (versionCode 20). See the v1.4.9 section at the bottom.
-v1.4.8 SHIPPED (commit 845c4de, tag v1.4.8). (The v1.4.0 goal below is the historical first
+CURRENT RELEASE TARGET = **v1.4.11** (versionCode 21). See the v1.4.11 section at the bottom.
+v1.4.9 SHIPPED (commit 14dcc7e, tag v1.4.9). (The v1.4.0 goal below is the historical first
 task that created this file.)
 
 GOAL (owner's list, 2026-11-13):
@@ -71,7 +71,7 @@ Release live: `Tavakkol-release.apk` 31.1 MB
       arrived before the toggle was on is ignored; Help has no Support block; Share App sits at
       the top of Settings.
 
-NOW: v1.4.9 code complete + verified locally — owner push/tag pending (commands at the bottom).
+NOW: v1.4.11 code complete + verified locally — owner push/tag pending (commands at the bottom).
 Docs page live: https://elyasyy23-lgtm.github.io/FocusBlocker/ (index.html, main /).
 
 ## v1.4.2 — Delay Mode + background music (2026-11-13)
@@ -387,12 +387,62 @@ Steps:
       Delay Mode off (`remote_deactivated … Protection + Delay Mode`), and only then the adult lock
       can be switched off.
 
+## v1.4.11 — device admin button · adult lock on Home · Persian-first (2026-11-14)
+
+Owner's list (three messages, shipped as ONE release; v1.4.10 was folded into it):
+1. Device admin section: the button must read exactly «تنظیمات مدیر» and open the phone's
+   system "Device admin apps" page. Section, status pill («فعال») and everything else untouched.
+2. Move the adult-content lock («قفل محتوای بزرگسالان») to the Home screen beside Delay Mode,
+   and freeze it while Protection is ON — no ON, no OFF; the user must turn Protection off first.
+3. Fresh install must start in Persian (فارسی); English still selectable in Settings.
+4. Bump to v1.4.11 + hand over push/build commands.
+
+Decisions:
+- Device admin: new native `openDeviceAdminSettings` launches
+  `Settings.ACTION_DEVICE_ADMIN_SETTINGS` (with a `ACTION_SECURITY_SETTINGS` fallback for odd
+  ROMs). The in-app "Activate device admin" button is gone — activation now happens on Android's
+  own page, which is exactly what was asked. The panic-lock button stays (only when the admin is
+  active). Status pill and section copy unchanged.
+- Adult lock gate hardened: `setAdultLock` now refuses BOTH directions while
+  `FocusGuardStore.isEnabled`, not just OFF (v1.4.9 behaviour). The Home switch is also
+  `disabled` in that state, so the guard cannot be weakened or widened mid-session.
+- The adult lock is REMOVED from Settings (moved, not duplicated) together with its
+  state/handler; the Settings section list is back to accessibility → device admin → keep-alive.
+- Persian-first: `FocusGuardStore.language()` default flipped `"en"` → `"fa"` (stored value always
+  wins, so English sticks once chosen); `EMPTY_CONFIG.language` and `App.js` initial `useState` are
+  `'fa'` too, so even the first frames render Persian.
+
+Steps:
+- [x] `FocusGuardModule.kt`: `setAdultLock` refuses both directions while Protection is on;
+      new `openDeviceAdminSettings` AsyncFunction.
+- [x] `FocusGuardStore.kt`: `language()` default `"fa"` (comment records the owner decision).
+- [x] `modules/focus-guard/index.js`: `openDeviceAdminSettings()` bridge, `EMPTY_CONFIG.language`
+      → `'fa'`.
+- [x] `src/screens/SettingsScreen.js`: device-admin button → «تنظیمات مدیر» opening the system page
+      (`openDeviceAdminSettings` handler replaced `enableDeviceAdmin`); adult Section, state and
+      handler removed.
+- [x] `src/screens/HomeScreen.js`: third `switchCell` «قفل محتوای بزرگسالان» beside Delay Mode,
+      disabled while `config.enabled`, hint «Locked while Protection is on» / On / Off; grid gap
+      14 → 10 and `switchCell.minWidth: 0` so three cells fit.
+- [x] `App.js`: `toggleAdultLock` handler (native refusal → localized message), `onToggleAdultLock`
+      passed to Home, initial `lang` state `'fa'`.
+- [x] i18n: 5 new keys → 234 UI strings / 294 translations.
+- [x] Version 1.4.11 / versionCode 21 (app.json, package.json, package-lock, buildInfo),
+      `version.json` → 1.4.11, `index.html` → ۱.۴.۱۱.
+- [x] Verify: check-i18n OK (234/294); `npm run verify` green (bundle has `openDeviceAdminSettings`,
+      `onToggleAdultLock`, the lock hint); `npm run prebuild:android` → versionName 1.4.11 /
+      versionCode 21; Kotlin brace/quote balance checked; `android/` + `dist/` wiped.
+- [ ] Owner push + tag v1.4.11 → CI builds `Tavakkol-release.apk`.
+- [ ] Owner on-device check: device-admin button says «تنظیمات مدیر» and lands on the system admin
+      list; Protection ON freezes the adult switch in both directions; fresh install opens in
+      Persian, and switching to English in Settings survives a restart.
+
 ## Handover commands (owner)
 
 ```bash
 cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
-git add -A && git commit -m "v1.4.9: strict adult content lock, partner SMS clears Delay Mode too"
+git add -A && git commit -m "v1.4.11: device admin system button, adult lock on Home, Persian-first"
 git fetch origin && git rebase origin/main
 git push origin main
-git tag v1.4.9 && git push origin v1.4.9
+git tag v1.4.11 && git push origin v1.4.11
 ```
