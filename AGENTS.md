@@ -639,4 +639,6 @@ the keyword/domain boxes stay read-only.
 - Verified: check-i18n OK, `npm run verify` 647 modules (Metro \u-escapes Persian — grep the
   escaped form), prebuild 1.4.9 (20), Kotlin compiled only by CI (Termux cannot build Kotlin),
   `android/` + `dist/` wiped.
-- NOT pushed: owner runs commit/push/tag (`git tag v1.4.9`).
+- SHIPPED 2026-11-14: commit `14dcc7e` → main + tag `v1.4.9`; CI 43578559240 (main) +
+  43578567196 (tag) both SUCCESS → Release `Tavakkol v1.4.9` live, `Tavakkol-release.apk`
+  37,023,751 bytes (`releases/latest/...` 302 → v1.4.9). Pending owner on-device check.

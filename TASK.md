@@ -376,7 +376,11 @@ Steps:
       Metro, so grep them via the escaped form); `npm run prebuild:android` → versionName 1.4.9 /
       versionCode 20; Kotlin brace/quote balance checked by script (Termux cannot compile Kotlin —
       the first CI run IS the compiler); `android/` + `dist/` wiped.
-- [ ] Owner push + tag v1.4.9 → CI builds `Tavakkol-release.apk`.
+- [x] SHIPPED 2026-11-14: commit `14dcc7e` → main + tag `v1.4.9`; CI runs 43578559240 (main) +
+      43578567196 (tag) both SUCCESS → Release `Tavakkol v1.4.9`, `Tavakkol-release.apk` 37,023,751
+      bytes live at
+      https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v1.4.9/Tavakkol-release.apk
+      (`releases/latest/...` 302 → v1.4.9).
 - [ ] Owner on-device check: turn the adult lock ON, turn Protection ON → the switch is dead and the
       Settings screen is unreachable; typing an adult keyword/opening an adult site closes the app
       and the debug log shows `adult_detected (adult lock list)`; partner SMS turns Protection AND
