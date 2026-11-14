@@ -860,3 +860,11 @@ SHIPPED 2026-11-14: commit `e9d95bb` → main + tag `v1.4.14`. CI runs **4360839
 37,027,423 bytes (`releases/latest/...` 302 → v1.4.14, Pages `version.json` = 1.4.14).
 Gotcha: `git fetch && git rebase origin/main` FAILS while the tree has unstaged changes — commit
 first, then rebase, then push (the push block order matters).
+
+## Site analytics (2026-11-14, SHIPPED — commit `4833828`)
+
+Google Analytics 4 added to `index.html` head: Measurement ID **`G-CVCKBEBCV1`** — one `async`
+`gtag.js` loader + the standard `dataLayer` / `gtag('js')` / `gtag('config')` block, placed right
+after `<meta name="theme-color">`, before the JSON-LD. It is the only third-party request on the
+page (fonts stay self-hosted). Pages deployed, live page verified (gtag present in `<head>`,
+`gtag.js` 200). No consent banner — the site sets no cookies of its own beyond GA's `_ga`.
