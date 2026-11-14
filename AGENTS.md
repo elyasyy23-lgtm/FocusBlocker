@@ -869,7 +869,7 @@ after `<meta name="theme-color">`, before the JSON-LD. It is the only third-part
 page (fonts stay self-hosted). Pages deployed, live page verified (gtag present in `<head>`,
 `gtag.js` 200). No consent banner — the site sets no cookies of its own beyond GA's `_ga`.
 
-## v1.4.15 (2026-11-14, code complete + verified, NOT pushed — owner runs push/tag)
+## v1.4.15 (2026-11-14, SHIPPED)
 
 **Owner verified the real path on their Xiaomi: Settings → Privacy → Special permissions → Device
 admin apps.** Decision: stop firing intents entirely (they throw `ActivityNotFoundException` /
@@ -892,3 +892,37 @@ open the wrong page on HyperOS) and show the path as text.
   prebuild 1.4.15 / code 25, module manifest parses, Kotlin braces/parens balanced, `android/` +
   `dist/` wiped. Version 1.4.15 / 25 in app.json, package.json, package-lock, buildInfo,
   version.json, index.html ۱.۴.۱۵ (3 spots).
+
+SHIPPED 2026-11-15: commit `0a4263b` → main + tag `v1.4.15`; CI runs **43615554922** (main) and
+**43615568418** (tag) both SUCCESS → Release `Tavakkol v1.4.15`, `Tavakkol-release.apk`
+37,024,231 bytes (`releases/latest/...` 302 → v1.4.15, Pages `version.json` = 1.4.15).
+The button is now purely informational: it opens the modal and starts no activity at all.
+
+## Site analytics #2 — public dashboard (2026-11-14, SHIPPED — commit `225d62e`)
+
+Owner wants traffic visible on their OWN site, not only in the GA dashboard. Choice: **Umami Cloud,
+Hobby plan (free, 100k events/month, 1 website, 6 months retention, cookieless, EU region at signup)** —
+it is the only free option that ships a proper public read-only dashboard (Share URL). GoatCounter is
+the free minimalist fallback; Plausible and Simple Analytics are paid (their public dashboards need a
+subscription), so they were ruled out on cost.
+
+- `index.html` head: after the GA block, a config script with two constants —
+  `TAVAKKOL_UMAMI_ID` (`REPLACE_UMAMI_WEBSITE_ID`) and `TAVAKKOL_STATS_URL`
+  (`REPLACE_UMAMI_SHARE_URL`). The Umami `script.js` is injected ONLY when the ID is not a
+  placeholder, so an unconfigured site makes zero requests to cloud.umami.is.
+- Footer last row: `<a id="statsLink" hidden>آمار بازدید</a>`; a small inline script sets `href`
+  and removes `hidden` only when the share URL is real (no dead link ever ships). CSS: `.stats-link`
+  pill with a `↗` marker; `.foot-meta` replaced the inline styles.
+- Verified: HTML structure balanced, 8 script tags / 8 closes, all inline JS passes `node --check`,
+  the three JSON-LD blocks still parse, head order GA → Umami → JSON-LD.
+- PENDING owner: sign up at https://cloud.umami.is/signup → add website (domain
+  `elyasyy23-lgtm.github.io`) → copy the website ID (UUID) → Website → Edit → Share URL → Add →
+  enable **Traffic** → copy the share link. Then the two constants get filled and the link appears.
+
+LIVE CONFIG: Umami website ID `a9e61d4a-7e53-45e4-9078-f6af538b6c68`, public dashboard
+`https://cloud.umami.is/share/E5qW7nnc43EoLYez` (307 → `/analytics/us/share/…`, so the workspace is
+in the **US** region). Footer «آمار بازدید» is a visible pill next to the version line
+(`.stats-link`, `↗` marker). **Google Analytics 4 was REMOVED** (owner decision "GA baad") so the
+footer promise «بدون جمع‌آوری اطلاعات» stays true — do not re-add gtag without being asked.
+Verified live: page contains the ID, `cloud.umami.is/script.js` 200 (9,246 B), share page 200,
+no `googletagmanager` anywhere.
