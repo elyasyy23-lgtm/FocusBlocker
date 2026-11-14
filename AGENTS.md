@@ -663,3 +663,35 @@ the keyword/domain boxes stay read-only.
   Kotlin failure); CI 43594355253 (main) + 43594360920 (tag) both SUCCESS → Release
   `Tavakkol v1.4.11`, `Tavakkol-release.apk` 37,024,127 bytes (`releases/latest/...` 302).
   Pending owner on-device check.
+
+## Site (index.html → GitHub Pages) — v1.4.11 (2026-11-14)
+
+- `index.html` on `main` IS the live page (`elyasyy23-lgtm.github.io/FocusBlocker`).
+- Real download badge: vanilla JS fetches
+  `https://api.github.com/repos/elyasyy23-lgtm/FocusBlocker/releases/latest`, finds the asset
+  named exactly `Tavakkol-release.apk`, reads `download_count`, counts up with
+  `requestAnimationFrame` and shows it as «📥 ۱۲ بار دانلود شده» (Persian digits via
+  `toLocaleString('fa-IR')`). The badge starts `hidden` and only appears after a successful
+  fetch — a rate limit (60/h unauthenticated) or an offline visitor never sees a fake 0.
+- "کاربر آنلاین" pill is an owner-approved PLACEHOLDER: the number drifts locally every 4.2 s,
+  no API, not analytics. Do not present it as real data anywhere.
+- The API asset name is the only contract: if the CI release ever renames the APK, update `ASSET`
+  in the inline script or the badge silently stays hidden (by design).
+
+## v1.4.12 — adult lock own card · device-admin fixes (2026-11-14, code complete, NOT pushed)
+
+- Home layout: the adult lock is NO LONGER the third cell of `switchGrid`. It has its own
+  `adultCard` directly below the Protection card and above the «کلمات مسدود» section: row with
+  title + state hint + `Switch`, and the built-in-counts line INSIDE the same card. Frozen while
+  Protection is ON (`disabled` in JS, native `setAdultLock` refuses both directions).
+- Device admin: the `<force-lock />` policy is GONE from `res/xml/device_admin.xml` (uninstall
+  blocking needs no policy and the dialog no longer warns about locking the screen). The
+  «Panic lock screen» button and the native `lockScreen` / `requestDeviceAdmin` functions were
+  deleted with it.
+- `openDeviceAdminSettings` is now a ladder that returns the step that opened:
+  `android.settings.DEVICE_ADMIN_SETTINGS` → `DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN` for our
+  own component (activation dialog / admin details — the ROM-independent route) →
+  `ACTION_SECURITY_SETTINGS` → `ACTION_SETTINGS` → `'none'`. Settings shows a matching hint.
+- i18n 234 / 291 (3 added, 6 dead keys removed). Version 1.4.12 / code 22.
+- Verified: check-i18n, `npm run verify` (1.2 MB bundle), prebuild 1.4.12 (22), XML parse.
+  Kotlin compiles only in CI.

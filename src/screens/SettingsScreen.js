@@ -405,27 +405,33 @@ export default function SettingsScreen({
   };
 
   /**
-   * v1.4.10 (owner request): the Device admin button now opens Android's own
-   * "Device admin apps" screen, so the user can inspect, activate or deactivate
-   * the admin there. The status pill above still reflects what the OS reports.
+   * v1.4.12 (owner fix): one tap, and the user always lands somewhere useful.
+   * Native tries the device-admin list, then our own admin component (activation
+   * dialog / admin details), then Security, then Settings — and reports which
+   * one opened, so the hint below matches the screen in front of the user.
    */
   const openDeviceAdminSettings = async () => {
+    let opened = null;
     try {
-      await FocusGuard.openDeviceAdminSettings();
+      opened = await FocusGuard.openDeviceAdminSettings();
     } catch (error) {
+      // null (not 'none') so the error is reported once, not twice below.
       onMessage(error.message || t('Could not open the device admin settings.'));
     }
+
+    if (opened === 'component') {
+      onMessage(
+        t('Tap “Activate” on the system screen to block uninstalling — no screen-lock permission is requested.')
+      );
+    } else if (opened === 'security' || opened === 'settings') {
+      onMessage(t('Open “Device admin apps” from this screen and pick Tavakkol.'));
+    } else if (opened === 'none') {
+      onMessage(t('Could not open the device admin settings.'));
+    }
+
     setTimeout(() => {
       if (onRefresh) onRefresh();
     }, 1200);
-  };
-
-  const runPanicLock = async () => {
-    try {
-      await FocusGuard.lockScreen();
-    } catch (error) {
-      onMessage(error.message || t('Locking the screen failed.'));
-    }
   };
 
   const clearCounter = async () => {
@@ -539,7 +545,7 @@ export default function SettingsScreen({
             <View style={styles.statusTextWrap}>
               <Text style={[styles.statusTitle, { textAlign: align }]}>{t('Device admin')}</Text>
               <Text style={[styles.statusHint, { textAlign: align }]}>
-                {t('Uses the force-lock policy')}
+                {t('Blocks uninstall only — no screen lock')}
               </Text>
             </View>
             <StatusPill
@@ -553,13 +559,6 @@ export default function SettingsScreen({
             onPress={openDeviceAdminSettings}
             disabled={!isAvailable}
           />
-          {cfg.deviceAdminActive ? (
-            <ActionButton
-              label={t('Panic lock screen')}
-              variant="secondary"
-              onPress={runPanicLock}
-            />
-          ) : null}
         </Section>
 
         <Section

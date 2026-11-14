@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  v1.4.12: the <force-lock /> policy was removed (owner request). Declaring it
+  made Android's activation dialog warn that the app can lock the screen, while
+  its only purpose here is to block uninstalling. No policies are needed for
+  that — activating the admin is enough.
+-->
 <device-admin xmlns:android="http://schemas.android.com/apk/res/android">
-  <uses-policies>
-    <!-- Allows locking the screen immediately (FocusBlocker's "Panic lock" button). -->
-    <force-lock />
-  </uses-policies>
+  <uses-policies />
 </device-admin>

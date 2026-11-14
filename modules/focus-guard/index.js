@@ -292,27 +292,18 @@ export async function setMusicMuted(muted) {
 }
 
 /**
- * v1.4.10: the system "Device admin apps" screen
- * (`android.settings.DEVICE_ADMIN_SETTINGS`).
+ * v1.4.12: opens the device-admin UI. Resolves to which screen actually opened
+ * ('admin' | 'component' | 'security' | 'settings' | 'none') so the caller can
+ * guide the user, instead of a tap that silently does nothing.
  */
 export async function openDeviceAdminSettings() {
-  if (!native) return false;
+  if (!native) return 'none';
   return native.openDeviceAdminSettings();
 }
 
 export async function openAccessibilitySettings() {
   if (!native) throw new Error('Native module missing — build a dev/release APK first.');
   return native.openAccessibilitySettings();
-}
-
-export async function requestDeviceAdmin() {
-  if (!native) throw new Error('Native module missing — build a dev/release APK first.');
-  return native.requestDeviceAdmin();
-}
-
-export async function lockScreen() {
-  if (!native) throw new Error('Native module missing — build a dev/release APK first.');
-  return native.lockScreen();
 }
 
 export async function resetBlockCount() {

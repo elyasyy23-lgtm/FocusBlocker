@@ -68,10 +68,7 @@ const FA = {
   'While device admin is active, Android refuses to uninstall Tavakkol. Deactivate it in Settings → Security → Device admin apps if you ever want the app gone.':
     'تا وقتی مدیر دستگاه فعال است، اندروید اجازهٔ حذف توکل را نمی‌دهد. اگر می‌خواهید برنامه حذف شود، آن را در تنظیمات ← امنیت ← برنامه‌های مدیر دستگاه غیرفعال کنید.',
   'Device admin': 'مدیر دستگاه',
-  'Uses the force-lock policy': 'از سیاست قفل فوری استفاده می‌کند',
   Inactive: 'غیرفعال',
-  'Panic lock screen': 'قفل فوری صفحه',
-  'Activate device admin': 'فعال کردن مدیر دستگاه',
   Stats: 'آمار',
   'Stored on this device only — nothing is uploaded.': 'فقط روی همین گوشی ذخیره می‌شود؛ چیزی به اینترنت فرستاده نمی‌شود.',
   Blocks: 'مسدودسازی',
@@ -141,10 +138,6 @@ const FA = {
   'Could not open Accessibility settings.': 'باز کردن تنظیمات دسترسی‌پذیری ممکن نشد.',
   'Find “Tavakkol guard (keywords + domains)” in the list and switch it on.':
     'در فهرست دنبال «محافظ توکل» بگردید و آن را روشن کنید.',
-  'Confirm the system dialog to keep Tavakkol installed.':
-    'پنجرهٔ سیستم را برای جلوگیری از حذف توکل تأیید کنید.',
-  'Could not open the device admin dialog.': 'باز کردن پنجرهٔ مدیر دستگاه ممکن نشد.',
-  'Locking the screen failed.': 'قفل کردن صفحه انجام نشد.',
   'Block counter reset.': 'شمارندهٔ مسدودسازی صفر شد.',
   'Could not reset the counter.': 'صفر کردن شمارنده ممکن نشد.',
   'Could not read the debug log.': 'خواندن گزارش ممکن نشد.',
@@ -419,6 +412,12 @@ const FA = {
   'Could not open the device admin settings.': 'باز کردن تنظیمات مدیر دستگاه ممکن نشد.',
   'Locked while Protection is on': 'تا محافظت روشن است قفل شده',
   'On — built-in list added': 'روشن — فهرست آماده اضافه شد',
+  // ------------------------------- v1.4.12: adult lock own card · no force-lock
+  'Blocks uninstall only — no screen lock': 'فقط جلوی حذف را می‌گیرد — بدون قفل صفحه',
+  'Tap “Activate” on the system screen to block uninstalling — no screen-lock permission is requested.':
+    'در صفحهٔ سیستم «فعال کردن» را بزنید تا حذف برنامه ممکن نباشد — هیچ اجازهٔ قفل صفحه‌ای درخواست نمی‌شود.',
+  'Open “Device admin apps” from this screen and pick Tavakkol.':
+    'در همین صفحه «برنامه‌های مدیر دستگاه» را باز کنید و توکل را انتخاب کنید.',
   'Turn Protection off before changing the adult content lock.':
     'پیش از تغییر قفل محتوای بزرگسالان، محافظت را خاموش کنید.',
 };

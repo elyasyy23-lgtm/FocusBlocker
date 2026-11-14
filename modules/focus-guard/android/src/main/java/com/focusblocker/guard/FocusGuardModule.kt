@@ -308,29 +308,50 @@ class FocusGuardModule : Module() {
     }
 
     /**
-     * v1.4.10: opens the SYSTEM "Device admin apps" list. Used by the button in
-     * Settings → Device admin so the user can inspect/activate/deactivate the
-     * admin from Android's own screen (no package filter — the platform page is
-     * what the owner asked for).
+     * v1.4.12 (owner fix): opens the device-admin UI and never ends in silence.
+     * No single action is handled by every ROM, so the candidates are tried in
+     * order until one launches:
+     *   1. the AOSP "Device admin apps" list — the literal is required, there is
+     *      no `Settings.ACTION_*` constant for it (the v1.4.11 CI break);
+     *   2. OUR admin component — DevicePolicyManager shows the activation dialog
+     *      when inactive and the admin details with "Deactivate" when active;
+     *      this is the one route every ROM implements;
+     *   3. the Security page;
+     *   4. the Settings home page.
+     * Returns which step opened: 'admin' | 'component' | 'security' | 'settings'
+     * ('none' when even the Settings home page refuses to launch).
      */
     AsyncFunction("openDeviceAdminSettings") {
       val ctx = requireContext()
-      // AOSP's Settings app exposes the "Device admin apps" list under this
-      // action string. There is NO `Settings.ACTION_DEVICE_ADMIN_SETTINGS`
-      // constant (that was the v1.4.11 CI failure), so the literal is used.
-      // Launching works without package-visibility queries; odd ROMs that do
-      // not handle it fall back to the Security page.
-      try {
-        ctx.startActivity(
-          Intent("android.settings.DEVICE_ADMIN_SETTINGS")
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        )
-      } catch (error: Exception) {
-        ctx.startActivity(
-          Intent(Settings.ACTION_SECURITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        )
+      val candidates = listOf(
+        "admin" to Intent("android.settings.DEVICE_ADMIN_SETTINGS"),
+        "component" to Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+          putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent(ctx))
+          putExtra(
+            DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+            FocusGuardStore.text(
+              ctx,
+              "While this is active, Android will not uninstall Tavakkol. Deactivate it in " +
+                "Settings > Security > Device admin apps when you really want to remove the app.",
+              "تا وقتی این گزینه فعال است، اندروید اجازهٔ حذف توکل را نمی‌دهد. برای حذف، آن را در " +
+                "تنظیمات > امنیت > برنامه‌های مدیر دستگاه غیرفعال کنید."
+            )
+          )
+        },
+        "security" to Intent(Settings.ACTION_SECURITY_SETTINGS),
+        "settings" to Intent(Settings.ACTION_SETTINGS)
+      )
+
+      for ((label, intent) in candidates) {
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+          ctx.startActivity(intent)
+          return@AsyncFunction label
+        } catch (error: Exception) {
+          // ROM without that screen (ActivityNotFoundException) — try the next.
+        }
       }
-      true
+      "none"
     }
 
     /** v1.4.2: background-music mute preference (read by the JS player). */
@@ -376,41 +397,6 @@ class FocusGuardModule : Module() {
 
     AsyncFunction("isDeviceAdminActive") {
       isDeviceAdminActive(requireContext())
-    }
-
-    AsyncFunction("requestDeviceAdmin") {
-      val ctx = requireContext()
-      if (!isDeviceAdminActive(ctx)) {
-        val activity = appContext.currentActivity
-          ?: throw IllegalStateException("Open Tavakkol in the foreground first")
-        val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
-        intent.putExtra(
-          DevicePolicyManager.EXTRA_DEVICE_ADMIN,
-          ComponentName(ctx, FocusDeviceAdminReceiver::class.java)
-        )
-        intent.putExtra(
-          DevicePolicyManager.EXTRA_ADD_EXPLANATION,
-          FocusGuardStore.text(
-            ctx,
-            "While this is active, Android will not uninstall Tavakkol. Deactivate it in " +
-              "Settings > Security > Device admin apps when you really want to remove the app.",
-            "تا وقتی این گزینه فعال است، اندروید اجازهٔ حذف توکل را نمی‌دهد. برای حذف، آن را در " +
-              "تنظیمات > امنیت > برنامه‌های مدیر دستگاه غیرفعال کنید."
-          )
-        )
-        activity.startActivity(intent)
-      }
-      true
-    }
-
-    AsyncFunction("lockScreen") {
-      val ctx = requireContext()
-      if (!isDeviceAdminActive(ctx)) {
-        throw IllegalStateException("Activate device admin first")
-      }
-      val manager = ctx.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-      manager.lockNow()
-      true
     }
 
     AsyncFunction("resetBlockCount") {

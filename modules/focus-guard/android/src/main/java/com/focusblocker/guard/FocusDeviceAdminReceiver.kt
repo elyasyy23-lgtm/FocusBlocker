@@ -9,8 +9,9 @@ import android.util.Log
  * Device administrator receiver.
  *
  * Android will not uninstall an app that has an active device admin, so simply
- * activating this receiver is what makes removal hard. The force-lock policy in
- * res/xml/device_admin.xml additionally lets the app lock the screen instantly.
+ * activating this receiver is what makes removal hard. No additional policies
+ * are requested (v1.4.12 removed the force-lock policy) — the activation dialog
+ * therefore only talks about uninstalling, not about locking the screen.
  */
 class FocusDeviceAdminReceiver : DeviceAdminReceiver() {
   override fun onEnabled(context: Context, intent: Intent) {

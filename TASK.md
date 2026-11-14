@@ -454,3 +454,75 @@ git fetch origin && git rebase origin/main
 git push origin main
 git tag v1.4.11 && git push origin v1.4.11
 ```
+
+## Site task — real download count (DONE 2026-11-14)
+
+GOAL: `index.html` shows the real number of APK downloads from GitHub, plus the existing
+"live users" decorative pill beside it, vanilla JS only.
+
+- [x] Inspect `index.html` (fa/RTL, 388 lines, CTA at ~237, `.meta` at ~245, styles `.cta`/`.meta`).
+- [x] CSS: `.stats` + `.stat` pill (surface/line/accent-deep, tabular-nums, `[hidden]` support),
+      `.glow` dot with `livepulse` keyframe + reduced-motion off switch.
+- [x] HTML: badges right under the CTA — `#downloads-badge` (starts `hidden`) and the
+      «کاربر آنلاین» placeholder pill.
+- [x] JS: fetch `releases/latest`, pick asset `Tavakkol-release.apk`, `download_count`,
+      Persian digits via `toLocaleString('fa-IR')`, rAF count-up (eased) with reduced-motion
+      fallback, silent catch (offline / 60-per-hour rate limit never shows a fake number),
+      live-users drift every 4.2 s, clearly commented as a placeholder.
+- [x] Verify: live API returned tag `v1.4.11`, `Tavakkol-release.apk` count 2; extracted the inline
+      script → `node --check` OK; ran it in Node with stubbed `document`/`window` against the real
+      API → badge unhidden and «۲»; HTML tag balance checked (div/section/span/p all balanced).
+- [x] Pushed: commit `1b9c2b7` → main (`6f3faa6..1b9c2b7`). GitHub Pages re-served the page —
+      `curl https://elyasyy23-lgtm.github.io/FocusBlocker/` now contains `downloads-badge` /
+      `live-users`, and the live URL was opened on the phone for the owner.
+- [ ] Owner visual check on the phone: badge shows «📥 ۲ بار دانلود شده» (Persian digits) and the
+      live-users pill drifts on its own.
+- Note: `download_count` is per release asset — a new upload next release starts at 0, and the
+  asset name `Tavakkol-release.apk` is the only contract (`ASSET` in the inline script).
+
+## v1.4.12 — adult lock own card · device Admin fixes (code complete + verified, NOT pushed)
+
+GOAL: (1) the adult lock leaves the Protection/Delay-Mode grid and gets its own card below the
+Protection card, before the keyword section — hint text stays inside it and it still freezes while
+Protection is ON; (2) device admin: remove the force-lock policy, remove the panic-lock button and
+fix the system-settings intent so the button always lands somewhere useful; (3) version 1.4.12.
+
+- [x] `HomeScreen.js` — third switch cell deleted from `switchGrid`; new `adultCard` (surface,
+      border, radius 18) right under the hero card: title + state hint on one side, `Switch` on the
+      other (`adultRow`/`adultRowRtl`), the built-in-counts line («… {{keywords}} کلمه و
+      {{domains}} سایت …») inside the same card. `disabled={!isAvailable || config.enabled}`
+      unchanged, native `setAdultLock` still refuses both directions while Protection is ON.
+      Dead style `adultOn` replaced by `adultCard/adultRow/adultText/adultTitle/adultHint/
+      adultSwitch/adultCounts`.
+- [x] `res/xml/device_admin.xml` — `<force-lock />` REMOVED (`<uses-policies />` empty). The
+      activation dialog no longer asks for screen-lock rights; blocking uninstall never needed a
+      policy. Receiver doc comment updated.
+- [x] `FocusGuardModule.kt` — `openDeviceAdminSettings` rewritten as a 4-step ladder that returns
+      which screen opened: `android.settings.DEVICE_ADMIN_SETTINGS` → our own admin component
+      (`DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN` + explanation; activation dialog when
+      inactive, admin details + Deactivate when active) → `ACTION_SECURITY_SETTINGS` →
+      `ACTION_SETTINGS` → `'none'`. `lockScreen` and `requestDeviceAdmin` AsyncFunctions deleted
+      (both were force-lock/activation duplicates).
+- [x] `modules/focus-guard/index.js` — `lockScreen` + `requestDeviceAdmin` exports deleted;
+      `openDeviceAdminSettings()` resolves the step string ('none' without native).
+- [x] `SettingsScreen.js` — `runPanicLock` + «Panic lock screen» button deleted; hint is now
+      «Blocks uninstall only — no screen lock»; the handler turns the returned step into a message
+      (component → tap Activate; security/settings → open «Device admin apps»; none → error).
+- [x] `src/i18n.js` — 3 new keys, 6 dead keys removed (force-lock/panic/activation duplicates).
+      check-i18n: 234 UI strings / 291 translations.
+- [x] Version 1.4.12 / versionCode 22 (app.json, package.json, package-lock, buildInfo),
+      `version.json` 1.4.12, `index.html` ۱.۴.۱۲.
+- [x] Verified: check-i18n OK; `npm run verify` green (1.2 MB bundle contains
+      `openDeviceAdminSettings`, `adultCard`, the new hint); `npm run prebuild:android` →
+      versionName 1.4.12 / versionCode 22, app_name Tavakkol; three XML files parse; Kotlin
+      brace/paren balance checked; `android/` + `dist/` wiped.
+
+NOW: waiting for the owner to run the push/tag block below (Kotlin compiles only in CI).
+
+```bash
+cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
+git add -A && git commit -m "v1.4.12: adult lock own card, device admin ladder, no force-lock"
+git fetch origin && git rebase origin/main
+git push origin main
+git tag v1.4.12 && git push origin v1.4.12
+```

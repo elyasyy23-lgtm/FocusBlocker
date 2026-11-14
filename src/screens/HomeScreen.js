@@ -21,7 +21,8 @@ const BACKGROUND = require('../../assets/background.jpg');
  * Home screen (v1.4.5) — the clean, everyday face of Tavakkol.
  *
  * It shows ONLY what the user needs at a glance:
- *   - the two switches (Protection + Delay Mode),
+ *   - the Protection card (Protection + Delay Mode switches),
+ *   - the adult-content-lock card (v1.4.12 — its own box, not part of the pair),
  *   - the blocked keyword list and the blocked domain list,
  *   - the debug log at the very bottom (v1.4.7 — it was in Settings before).
  *
@@ -163,37 +164,42 @@ export default function HomeScreen({
                 />
               </View>
             </View>
+          </View>
+        </View>
 
-            {/*
-              v1.4.11 (owner request): the adult lock moved here from Settings.
-              While Protection is ON the switch is frozen in BOTH directions —
-              the native module refuses the write too, so a stale render cannot
-              flip it.
-            */}
-            <View style={styles.switchCell}>
-              <Text style={[styles.switchTitle, { textAlign: align }]}>
+        {/*
+          v1.4.12 (owner request): the adult lock lives in its OWN card right
+          below the Protection card, so it is no longer read as part of the
+          Protection/Delay-Mode pair. The old rule is unchanged: while
+          Protection is ON the switch is frozen in BOTH directions, and the
+          native module refuses the write too — a stale render cannot flip it.
+        */}
+        <View style={styles.adultCard}>
+          <View style={[styles.adultRow, isRtl && styles.adultRowRtl]}>
+            <View style={styles.adultText}>
+              <Text style={[styles.adultTitle, { textAlign: align }]}>
                 {t('Adult content lock')}
               </Text>
-              <Text style={[styles.switchHint, { textAlign: align }]}>
+              <Text style={[styles.adultHint, { textAlign: align }]}>
                 {config.enabled
                   ? t('Locked while Protection is on')
                   : config.adultLock
                     ? t('On — built-in list added')
                     : t('Off')}
               </Text>
-              <View style={styles.switchControl}>
-                <Switch
-                  value={config.adultLock}
-                  onValueChange={onToggleAdultLock}
-                  disabled={!isAvailable || config.enabled}
-                  trackColor={{ false: COLORS.border, true: COLORS.accentSoft }}
-                  thumbColor={config.adultLock ? COLORS.accent : '#5A6779'}
-                />
-              </View>
+            </View>
+            <View style={styles.adultSwitch}>
+              <Switch
+                value={config.adultLock}
+                onValueChange={onToggleAdultLock}
+                disabled={!isAvailable || config.enabled}
+                trackColor={{ false: COLORS.border, true: COLORS.accentSoft }}
+                thumbColor={config.adultLock ? COLORS.accent : '#5A6779'}
+              />
             </View>
           </View>
           {config.adultLock ? (
-            <Text style={[styles.heroHint, styles.adultOn, { textAlign: align }]}>
+            <Text style={[styles.adultCounts, { textAlign: align }]}>
               {t(
                 'Adult content lock is on — {{keywords}} built-in keywords and {{domains}} websites are blocked too',
                 {
@@ -417,9 +423,45 @@ const styles = StyleSheet.create({
   heroOff: {
     color: COLORS.text,
   },
-  adultOn: {
-    color: COLORS.pageAccent,
+  adultCard: {
+    marginTop: 12,
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 16,
+  },
+  adultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  adultRowRtl: {
+    flexDirection: 'row-reverse',
+  },
+  adultText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  adultTitle: {
+    color: COLORS.text,
+    fontSize: 15,
     fontWeight: '600',
+  },
+  adultHint: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 3,
+  },
+  adultSwitch: {
+    flexDirection: 'row',
+  },
+  adultCounts: {
+    color: COLORS.pageAccent,
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontWeight: '600',
+    marginTop: 10,
   },
 
   heroHint: {
