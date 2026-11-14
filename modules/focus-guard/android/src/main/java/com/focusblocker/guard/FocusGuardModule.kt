@@ -315,12 +315,17 @@ class FocusGuardModule : Module() {
      */
     AsyncFunction("openDeviceAdminSettings") {
       val ctx = requireContext()
-      val intent = Intent(Settings.ACTION_DEVICE_ADMIN_SETTINGS)
-        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      // AOSP's Settings app exposes the "Device admin apps" list under this
+      // action string. There is NO `Settings.ACTION_DEVICE_ADMIN_SETTINGS`
+      // constant (that was the v1.4.11 CI failure), so the literal is used.
+      // Launching works without package-visibility queries; odd ROMs that do
+      // not handle it fall back to the Security page.
       try {
-        ctx.startActivity(intent)
+        ctx.startActivity(
+          Intent("android.settings.DEVICE_ADMIN_SETTINGS")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
       } catch (error: Exception) {
-        // Extremely old/odd ROMs: fall back to the general Security page.
         ctx.startActivity(
           Intent(Settings.ACTION_SECURITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
