@@ -725,6 +725,29 @@ the keyword/domain boxes stay read-only.
   the HTML tag method (`<meta name="google-site-verification" ...>`) in `index.html` head — both
   are permanent, do not delete afterwards.
 - Sitemap to submit after verification: `https://elyasyy23-lgtm.github.io/FocusBlocker/sitemap.xml`.
+- DECISION 2026-11-14: owner chose the **manual HTML-file route** for Search Console (they do the
+  Google login + the "Verify" click; zyvo only hosts the file and proves it returns 200, then the
+  owner submits `sitemap.xml` by hand). Do not push the service-account/OAuth route again unless the
+  owner reopens it — `~/gsc-register.py` + the skill stay on disk as the fallback.
+- 2026-11-14 (owner asked for full automation): Search Console **cannot** be registered with no
+  credential — no API creates a property anonymously and GSC UI automation would need the owner's
+  Google login + 2FA (refused). The workable path is the **Site Verification API with a service
+  account**: the service account verifies the FILE token itself, becomes owner, then the human email
+  is appended to `owners`, property added (`PUT webmasters/v3/sites/{siteUrl}`) and sitemap submitted
+  (`PUT .../sitemaps/{feedpath}`). Owner's only manual part = Google Cloud console (project + enable
+  Site Verification API & Search Console API + service-account JSON key, no billing). Tooling is
+  ready: `~/gsc-register.py` (`check|token|verify|finish <gmail>`), libs `google-auth` + `requests`
+  installed in Termux; key expected at `~/.config/zyvo/gsc-service-account.json` (chmod 600).
+  Playbook: `~/.config/zyvo/skills/google-search-console-api-registration/SKILL.md`.
+- Readiness check 2026-11-14: `/sitemap.xml` 200 `application/xml` (288 B, one `<loc>` = site root,
+  `lastmod` 2026-11-14, weekly, priority 1.0) and `/robots.txt` 200 `text/plain` (`User-agent: *` /
+  `Allow: /` + absolute `Sitemap:` line) are both live and correct. No `google*.html` file and no
+  `google-site-verification` meta exist yet; repo root has no `_config.yml` / `CNAME` / `.nojekyll`.
+  Do NOT add `.nojekyll`: Jekyll's default excludes keep `node_modules` (and the Expo sources) off
+  the published site; plain `.html` files without front matter are already served verbatim, so the
+  Google verification file will be reachable. Property must be the URL-prefix type
+  `https://elyasyy23-lgtm.github.io/FocusBlocker/` (Domain property needs DNS — impossible on
+  `github.io`).
 - On-page audit 2026-11-14: 1 `<h1>`, 2 `<h2>`, 6 `<h3>`, 2 images (all with alt), ~346 visible
   words — thin for competitive terms like «ترک پورن». No FAQ/HowTo structured data, no in-page
   anchors, Google Fonts loaded from the network. These were the known gaps for the next SEO pass.
