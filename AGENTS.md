@@ -956,3 +956,16 @@ dictionary and is applied in place — the app itself is unaffected (no APK chan
   Persian restore. Tooling recipe: skill `site-bilingual-toggle`; `linkedom` lives in `$TMPDIR/domtest`.
 - `hero.cta` now says ۳۷ مگابایت / 37 MB (the release APK is 37,024,231 B; the old 31 MB was stale).
 
+### Install safety note (2026-11-14, SHIPPED `0110851`)
+
+`.cta-note` sits directly under the green download button (owner copy, verbatim):
+«⚠️ نکته امنیتی: ممکن است گوگل هنگام نصب هشدار دهد. نگران نباشید؛ این فایل مستقیماً از سایت رسمی
+توکل دانلود شده و کاملاً امن است. کافی است روی «Install anyway» (نصب به هر حال) بزنید.» — English via
+the `hero.safetyNote` key (`⚠️ Security Note: … Just tap 'Install anyway'.`).
+
+Style: `font-size .82rem`, `line-height 1.85`, `color: var(--muted)`, `background: var(--accent-soft)`,
+1px `rgba(21,128,61,.16)` border, `border-radius 14px`, `max-width 46ch`, `text-align:start` — readable
+but clearly secondary to the CTA. Mobile (≤420px) drops to `.78rem` / `9px 11px`. Do not add an icon
+element: the ⚠️ is part of the owner's text and must survive the i18n swap.
+
+
