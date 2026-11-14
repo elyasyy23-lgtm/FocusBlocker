@@ -614,3 +614,29 @@ the keyword/domain boxes stay read-only.
   `version.json` 1.4.8; `index.html` ۱.۴.۸.
 - Verified: `npm run verify` green (bundle has the placeholder link, wallet and new strings);
   `npm run prebuild:android` → 1.4.8 (19); `android/` + `dist/` wiped.
+- SHIPPED 2026-11-14: commit `845c4de` → main + tag `v1.4.8`; CI 43570283627 (main) +
+  43570293175 (tag) both SUCCESS → Release `Tavakkol v1.4.8`, `Tavakkol-release.apk` 35.3 MB live at
+  https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v1.4.8/Tavakkol-release.apk
+  (`releases/latest/...` 200). ZarinPal route still shows «لینک پرداخت ... تنظیم نشده» until the
+  owner pastes the real link in `src/defaults.js`.
+
+## v1.4.9 — strict adult content lock + partner SMS clears both switches (2026-11-14)
+
+- New third blocking option: Settings → «قفل کامل محتوای بزرگسالان». Native gate lives in
+  `FocusGuardModule.setAdultLock`: turning it OFF is REFUSED while `FocusGuardStore.isEnabled` is
+  true (throws), ON is always allowed. The list itself is `AdultFilter.kt` (keywords + bare-host
+  domains) and is merged at match time inside `FocusAccessibilityService.refreshConfig()` —
+  `keywords`/`domains` prefs are never rewritten, so switching the lock off leaves no residue.
+  Hits log as `adult_detected` with `REASON_ADULT`, toast «محتوای بزرگسالان مسدود شد».
+- `FocusGuardStore.deactivateGuard(ctx)` (new) = Protection OFF + Delay Mode OFF in ONE edit; it is
+  now the shared body of both the partner-SMS kill switch (`RemoteSmsReceiver`) and
+  `resetProtectionForUpdate`. Bug it fixes: v1.4.8's SMS cleared only `KEY_ENABLED`, so Delay Mode
+  stayed ON after a remote deactivation.
+- `getConfig` now returns `adultLock`, `adultKeywordCount`, `adultDomainCount`;
+  `modules/focus-guard/index.js` exposes `setAdultLock(bool)`.
+- Home shows one accent line when the lock is on (built-in counts). i18n 238 strings / 289 entries.
+- Version 1.4.9 / versionCode 20; `version.json` 1.4.9; `index.html` ۱.۴.۹.
+- Verified: check-i18n OK, `npm run verify` 647 modules (Metro \u-escapes Persian — grep the
+  escaped form), prebuild 1.4.9 (20), Kotlin compiled only by CI (Termux cannot build Kotlin),
+  `android/` + `dist/` wiped.
+- NOT pushed: owner runs commit/push/tag (`git tag v1.4.9`).

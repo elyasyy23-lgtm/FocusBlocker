@@ -113,6 +113,8 @@ class FocusAccessibilityService : AccessibilityService() {
 
     private const val REASON_KEYWORD = "keyword"
     private const val REASON_DOMAIN = "domain"
+    /** v1.4.9: a hit from the built-in Strict Adult Content Lock list. */
+    private const val REASON_ADULT = "adult"
 
     private const val NOTIFICATION_ID = 44
     private const val NOTIFICATION_CHANNEL = "focus_guard_status"
@@ -230,6 +232,17 @@ class FocusAccessibilityService : AccessibilityService() {
    */
   private var keywordPatterns: List<Regex> = emptyList()
 
+  /**
+   * v1.4.9: when the Strict Adult Content Lock is on, the built-in
+   * [AdultFilter] list is compiled here as well. Keeping it in its own list
+   * means the user's own keywords are never rewritten, and a hit can still be
+   * reported as "adult" in the debug log.
+   */
+  private var adultPatterns: List<Regex> = emptyList()
+  private var adultLock = false
+  /** Only log the adult lock once per OFF→ON transition, not on every reload. */
+  private var adultLockLogged = false
+
   private var enabled = true
   private var lastBlockAt = 0L
   private var lastScanAt = 0L
@@ -309,10 +322,26 @@ class FocusAccessibilityService : AccessibilityService() {
 
   private fun refreshConfig() {
     keywords = FocusGuardStore.keywords(this)
-    domains = FocusGuardStore.domains(this)
+    adultLock = FocusGuardStore.adultLock(this)
+    // The built-in adult domains join the user's list for matching, but the
+    // stored list is never touched — switching the lock off restores exactly
+    // what the user typed.
+    val userDomains = FocusGuardStore.domains(this)
+    domains = if (adultLock) (userDomains + AdultFilter.DOMAINS).distinct() else userDomains
     excludedPackages = FocusGuardStore.excludedApps(this).toSet()
     enabled = FocusGuardStore.isEnabled(this)
     keywordPatterns = compileKeywordPatterns(keywords)
+    adultPatterns = if (adultLock) compileKeywordPatterns(AdultFilter.KEYWORDS) else emptyList()
+    if (adultLock && !adultLockLogged) {
+      adultLockLogged = true
+      FocusGuardStore.logEvent(
+        this, "adult_lock_on",
+        text = "strict adult lock active: ${adultPatterns.size} pattern(s) + " +
+          "${AdultFilter.DOMAINS.size} built-in domain(s)"
+      )
+    } else if (!adultLock) {
+      adultLockLogged = false
+    }
   }
 
   /**
@@ -485,7 +514,7 @@ class FocusAccessibilityService : AccessibilityService() {
     // browsing.
     if (guardStrictSettings(event)) return
 
-    if (!enabled || (keywords.isEmpty() && domains.isEmpty())) return
+    if (!enabled || (keywordPatterns.isEmpty() && domains.isEmpty())) return
 
     val eventPackage = event.packageName?.toString() ?: return
     // Rule 1: ignore our own app completely — the keyword/domain TextInputs on
@@ -506,7 +535,7 @@ class FocusAccessibilityService : AccessibilityService() {
     //    the Google search widget, the Chrome omnibox and Telegram/Rubika
     //    message bubbles. Every other event type keeps the v1.1.1 behavior and
     //    matches only input fields.
-    if (keywords.isNotEmpty()) {
+    if (keywordPatterns.isNotEmpty()) {
       val isTextChange = event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
       val source = safeSource(event)
       if (source != null) {
@@ -518,13 +547,15 @@ class FocusAccessibilityService : AccessibilityService() {
               // The IME (Gboard suggestions) fires text events while OUR setup
               // screen is the active window — never block inside our own app.
               if (!ownWindowActive()) {
+                val adultHit = matchesAdultKeyword(sourceText)
                 FocusGuardStore.logEvent(
-                  this, "keyword_detected", eventPackage,
-                  "“${sourceText ?: ""}” via ${if (isField) "input field" else "text change"}"
+                  this, if (adultHit) "adult_detected" else "keyword_detected", eventPackage,
+                  "“${sourceText ?: ""}” via ${if (isField) "input field" else "text change"}" +
+                    if (adultHit) " (adult lock list)" else ""
                 )
                 triggerBlock(
                   eventPackage,
-                  REASON_KEYWORD,
+                  if (adultHit) REASON_ADULT else REASON_KEYWORD,
                   if (isField) "input field" else "text change"
                 )
                 return
@@ -537,10 +568,12 @@ class FocusAccessibilityService : AccessibilityService() {
       } else if (isTextChange && matchesKeyword(eventText(event))) {
         // No source node on this event: the event still carries the changed text.
         if (!ownWindowActive()) {
+          val adultHit = matchesAdultKeyword(eventText(event))
           FocusGuardStore.logEvent(
-            this, "keyword_detected", eventPackage, "“${eventText(event) ?: ""}” via event text"
+            this, if (adultHit) "adult_detected" else "keyword_detected", eventPackage,
+            "“${eventText(event) ?: ""}” via event text" + if (adultHit) " (adult lock list)" else ""
           )
-          triggerBlock(eventPackage, REASON_KEYWORD, "text change")
+          triggerBlock(eventPackage, if (adultHit) REASON_ADULT else REASON_KEYWORD, "text change")
           return
         }
       }
@@ -580,6 +613,11 @@ class FocusAccessibilityService : AccessibilityService() {
         if (hit.reason == REASON_KEYWORD) {
           FocusGuardStore.logEvent(
             this, "keyword_detected", windowPackage, "“${hit.text}” via ${hit.detail}"
+          )
+        } else if (hit.reason == REASON_ADULT) {
+          FocusGuardStore.logEvent(
+            this, "adult_detected", windowPackage,
+            "“${hit.text}” via ${hit.detail} (adult lock list)"
           )
         } else {
           FocusGuardStore.logEvent(
@@ -690,9 +728,12 @@ class FocusAccessibilityService : AccessibilityService() {
       if (host != null) return Hit(REASON_DOMAIN, host, host)
     }
 
-    if (keywords.isNotEmpty()) {
+    if (keywordPatterns.isNotEmpty()) {
       for (text in inputTexts) {
-        if (matchesKeyword(text)) return Hit(REASON_KEYWORD, "input field", text.toString())
+        if (matchesKeyword(text)) {
+          val reason = if (matchesAdultKeyword(text)) REASON_ADULT else REASON_KEYWORD
+          return Hit(reason, "input field", text.toString())
+        }
       }
     }
 
@@ -711,15 +752,23 @@ class FocusAccessibilityService : AccessibilityService() {
     return TEXT_FIELD_CLASSES.contains(className)
   }
 
-  private fun matchesKeyword(raw: CharSequence?): Boolean {
-    if (raw.isNullOrEmpty() || keywordPatterns.isEmpty()) return false
+  /** User keywords PLUS the built-in adult list (v1.4.9) when the lock is on. */
+  private fun matchesKeyword(raw: CharSequence?): Boolean =
+    matchesPatterns(raw, keywordPatterns) || matchesAdultKeyword(raw)
+
+  /** True when the hit came from the built-in Strict Adult Content Lock list. */
+  private fun matchesAdultKeyword(raw: CharSequence?): Boolean =
+    adultPatterns.isNotEmpty() && matchesPatterns(raw, adultPatterns)
+
+  private fun matchesPatterns(raw: CharSequence?, patterns: List<Regex>): Boolean {
+    if (raw.isNullOrEmpty() || patterns.isEmpty()) return false
     val source = raw.toString()
     if (source.isEmpty()) return false
     // Both ZWNJ spellings of the same on-screen text, so a keyword typed with a
     // نیم‌فاصله still matches text that has none (and the other way round).
     val glued = normalizeForMatch(source, zwnjAsSpace = false)
     val spaced = normalizeForMatch(source, zwnjAsSpace = true)
-    for (pattern in keywordPatterns) {
+    for (pattern in patterns) {
       if (pattern.containsMatchIn(glued) || pattern.containsMatchIn(spaced)) return true
     }
     return false
@@ -901,10 +950,13 @@ class FocusAccessibilityService : AccessibilityService() {
     )
     Log.i(TAG, "blocked $packageName ($reason: $detail)")
 
-    val toast = if (reason == REASON_DOMAIN) {
-      FocusGuardStore.text(this, "Tavakkol: blocked $detail", "توکل: $detail مسدود شد")
-    } else {
-      FocusGuardStore.text(this, "Tavakkol: blocked keyword", "توکل: کلمهٔ مسدودکننده پیدا شد")
+    val toast = when (reason) {
+      REASON_DOMAIN ->
+        FocusGuardStore.text(this, "Tavakkol: blocked $detail", "توکل: $detail مسدود شد")
+      REASON_ADULT ->
+        FocusGuardStore.text(this, "Tavakkol: adult content blocked", "توکل: محتوای بزرگسالان مسدود شد")
+      else ->
+        FocusGuardStore.text(this, "Tavakkol: blocked keyword", "توکل: کلمهٔ مسدودکننده پیدا شد")
     }
     Toast.makeText(this, toast, Toast.LENGTH_SHORT).show()
 

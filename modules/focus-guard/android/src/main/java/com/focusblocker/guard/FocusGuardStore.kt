@@ -44,6 +44,10 @@ internal object FocusGuardStore {
   // guard state.
   private const val KEY_DELAY_MODE = "delay_mode"
   private const val KEY_MUSIC_MUTED = "music_muted"
+  // v1.4.9: the built-in "Strict Adult Content Lock" switch. It only ADDS the
+  // AdultFilter list to the guard — the user's own keyword/domain lists stay
+  // untouched. Turning it OFF is refused while Protection is on (module gate).
+  private const val KEY_ADULT_LOCK = "adult_lock"
   // v1.4.6: an app UPDATE must reset Protection OFF (so nobody can bypass the
   // guard by installing a new build). `KEY_VERSION_CODE` is the last versionCode
   // this device ran; `KEY_RESET_ON_UPDATE_PENDING` tells the JS layer to explain
@@ -421,17 +425,26 @@ internal object FocusGuardStore {
   }
 
   /**
-   * Forces Protection OFF, Delay Mode OFF and raises the one-shot
-   * "app updated" notice. Writes the store DIRECTLY (no Delay-Mode refusal):
-   * an update is an admin action, same rule as the SMS kill switch.
+   * v1.4.9 — the ONE write that ends the guard: Protection OFF + Delay Mode OFF
+   * in a single edit. Bypasses the Delay-Mode refusal on purpose, because the
+   * only callers are the partner SMS kill switch and the app-update reset — both
+   * are admin actions, not a user tapping a switch.
    */
-  fun resetProtectionForUpdate(context: Context) {
+  fun deactivateGuard(context: Context) {
     prefs(context).edit()
       .putBoolean(KEY_ENABLED, false)
       .putBoolean(KEY_DELAY_MODE, false)
-      .putBoolean(KEY_RESET_ON_UPDATE_PENDING, true)
       .apply()
     clearUnlockWindow(context)
+  }
+
+  /**
+   * Forces Protection OFF, Delay Mode OFF and raises the one-shot
+   * "app updated" notice.
+   */
+  fun resetProtectionForUpdate(context: Context) {
+    deactivateGuard(context)
+    prefs(context).edit().putBoolean(KEY_RESET_ON_UPDATE_PENDING, true).apply()
     recordVersionCode(context)
     logEvent(
       context,
@@ -510,6 +523,18 @@ internal object FocusGuardStore {
 
   fun setDelayMode(context: Context, enabled: Boolean) {
     prefs(context).edit().putBoolean(KEY_DELAY_MODE, enabled).apply()
+  }
+
+  /**
+   * v1.4.9: Strict Adult Content Lock. Read by the accessibility service on
+   * every config refresh; the OFF direction is refused by the module while
+   * Protection is on (the store itself stays a dumb setter so the update reset
+   * and the SMS kill switch are never blocked).
+   */
+  fun adultLock(context: Context): Boolean = prefs(context).getBoolean(KEY_ADULT_LOCK, false)
+
+  fun setAdultLock(context: Context, enabled: Boolean) {
+    prefs(context).edit().putBoolean(KEY_ADULT_LOCK, enabled).apply()
   }
 
   fun musicMuted(context: Context): Boolean = prefs(context).getBoolean(KEY_MUSIC_MUTED, false)

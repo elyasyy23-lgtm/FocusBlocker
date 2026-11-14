@@ -36,6 +36,9 @@ export const EMPTY_CONFIG = {
   remoteLastAt: 0,
   remoteCount: 0,
   delayMode: false,
+  adultLock: false,
+  adultKeywordCount: 0,
+  adultDomainCount: 0,
   musicMuted: false,
 };
 
@@ -269,6 +272,17 @@ export async function setDelayMode(enabled) {
 export async function disableDelayModeAfterChallenge() {
   if (!native) throw new Error('Native module missing — build a dev/release APK first.');
   return native.setDelayModeAfterDelayChallenge();
+}
+
+/**
+ * v1.4.9: Strict Adult Content Lock. ON = the built-in adult keyword/domain
+ * list joins the guard. The native layer refuses the OFF direction while
+ * Protection is on, so turning it on is a one-way door until the guard itself
+ * is switched off.
+ */
+export async function setAdultLock(enabled) {
+  if (!native) return false;
+  return native.setAdultLock(Boolean(enabled));
 }
 
 /** Background-music mute flag (the player itself lives in App.js). */

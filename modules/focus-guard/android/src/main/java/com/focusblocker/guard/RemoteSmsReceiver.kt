@@ -101,20 +101,31 @@ class RemoteSmsReceiver : BroadcastReceiver() {
 
     FocusGuardStore.recordRemoteDeactivation(context, fingerprint)
 
-    if (!FocusGuardStore.isEnabled(context)) {
+    // v1.4.9 — the partner's message must end the WHOLE guard, not just the
+    // Protection switch. Until v1.4.8 only Protection was written, so Delay Mode
+    // stayed ON (and therefore "locked" behind the typed challenge) after a
+    // remote deactivation. Both flags are now cleared in one store write.
+    val protectionWasOn = FocusGuardStore.isEnabled(context)
+    val delayWasOn = FocusGuardStore.delayMode(context)
+
+    if (!protectionWasOn && !delayWasOn) {
       FocusGuardStore.logEvent(
         context, "remote_already_off",
-        text = "partner SMS accepted but Protection was already off (…${last4(sender)})"
+        text = "partner SMS accepted but Protection and Delay Mode were already off (…${last4(sender)})"
       )
       return
     }
 
-    FocusGuardStore.setEnabled(context, false)
-    FocusGuardStore.clearUnlockWindow(context)
+    FocusGuardStore.deactivateGuard(context)
     FocusAccessibilityService.reload()
     FocusGuardStore.logEvent(
       context, "remote_deactivated",
-      text = "partner SMS turned Protection off (…${last4(sender)})"
+      text = "partner SMS turned OFF " +
+        listOfNotNull(
+          "Protection".takeIf { protectionWasOn },
+          "Delay Mode".takeIf { delayWasOn }
+        ).joinToString(" + ") +
+        " (…${last4(sender)})"
     )
     postDeactivatedNotification(context)
   }
@@ -189,8 +200,8 @@ class RemoteSmsReceiver : BroadcastReceiver() {
         .setContentText(
           FocusGuardStore.text(
             context,
-            "The partner SMS turned the guard off. Open Tavakkol to turn it back on.",
-            "پیامک همراه، محافظ را خاموش کرد. برای روشن کردن دوباره، توکل را باز کنید."
+            "The partner SMS turned Protection and Delay Mode off. Open Tavakkol to turn them back on.",
+            "پیامک همراه، محافظت و حالت تأخیر را خاموش کرد. برای روشن کردن دوباره، توکل را باز کنید."
           )
         )
         .setSmallIcon(android.R.drawable.ic_lock_lock)

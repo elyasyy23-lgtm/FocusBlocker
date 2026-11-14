@@ -163,6 +163,17 @@ export default function HomeScreen({
               </View>
             </View>
           </View>
+          {config.adultLock ? (
+            <Text style={[styles.heroHint, styles.adultOn, { textAlign: align }]}>
+              {t(
+                'Adult content lock is on — {{keywords}} built-in keywords and {{domains}} websites are blocked too',
+                {
+                  keywords: config.adultKeywordCount || 0,
+                  domains: config.adultDomainCount || 0,
+                }
+              )}
+            </Text>
+          ) : null}
         </View>
 
         {readOnly ? (
@@ -377,6 +388,11 @@ const styles = StyleSheet.create({
   heroOff: {
     color: COLORS.text,
   },
+  adultOn: {
+    color: COLORS.pageAccent,
+    fontWeight: '600',
+  },
+
   heroHint: {
     color: COLORS.muted,
     fontSize: 13,

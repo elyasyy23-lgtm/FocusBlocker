@@ -1,7 +1,7 @@
-# TASK — Tavakkol v1.4.8 (two-route Support Us sheet)
+# TASK — Tavakkol v1.4.9 (adult content lock + SMS kills the WHOLE guard)
 
-CURRENT RELEASE TARGET = **v1.4.8** (versionCode 19). See the v1.4.8 section at the bottom.
-v1.4.7 SHIPPED (commit 932b526, tag v1.4.7). (The v1.4.0 goal below is the historical first
+CURRENT RELEASE TARGET = **v1.4.9** (versionCode 20). See the v1.4.9 section at the bottom.
+v1.4.8 SHIPPED (commit 845c4de, tag v1.4.8). (The v1.4.0 goal below is the historical first
 task that created this file.)
 
 GOAL (owner's list, 2026-11-13):
@@ -71,7 +71,7 @@ Release live: `Tavakkol-release.apk` 31.1 MB
       arrived before the toggle was on is ignored; Help has no Support block; Share App sits at
       the top of Settings.
 
-NOW: v1.4.6 code complete + verified locally — owner push pending (commands below).
+NOW: v1.4.9 code complete + verified locally — owner push/tag pending (commands at the bottom).
 Docs page live: https://elyasyy23-lgtm.github.io/FocusBlocker/ (index.html, main /).
 
 ## v1.4.2 — Delay Mode + background music (2026-11-13)
@@ -314,16 +314,81 @@ Steps:
 - [x] Verify: `npm run verify` green (bundle contains the placeholder link, the wallet address and
       the new strings); `npm run prebuild:android` → versionName 1.4.8 / versionCode 19;
       `android/` + `dist/` wiped.
-- [ ] Push + tag (owner runs the handover block below) → both CI runs green.
+- [x] SHIPPED 2026-11-14: commit `845c4de` → main + tag `v1.4.8`; CI runs 43570283627 (main) +
+      43570293175 (tag) both SUCCESS → Release `Tavakkol v1.4.8`, `Tavakkol-release.apk` 35.3 MB
+      (37,018,059 bytes) live at
+      https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v1.4.8/Tavakkol-release.apk
+      (`releases/latest/...` 200 → v1.4.8). ZarinPal route still the guarded placeholder.
 - [ ] Owner: replace `DONATION_ZARINPAL_URL` with the real ZarinPal link, then on-device check the
       sheet in fa + en (both cards visible, Copy turns green, Close works, Back closes).
+
+## v1.4.9 — strict adult content lock + partner SMS stops the whole guard (2026-11-14)
+
+Owner's list:
+1. A THIRD blocking option in Settings — «قفل کامل محتوای بزرگسالان» (full adult content lock):
+   one switch that adds a built-in adult keyword/domain list on top of the user's own lists.
+   While Protection is ON it must LOCK ON — turning it off requires turning Protection off first.
+2. Bug: the partner SMS turns Protection off but Delay Mode stays ON, so the guard is still
+   "locked" behind the typed challenge. The SMS must end BOTH switches.
+3. Bump 1.4.9 + hand over the git commands.
+
+Decisions:
+- The built-in list is INJECTED at match time (`AdultFilter` merged in `refreshConfig`), never
+  copied into `keywords`/`domains` — the user's own lists stay exactly as typed, and switching the
+  lock off leaves no residue.
+- The OFF gate lives in NATIVE code (`setAdultLock(false)` throws while `FocusGuardStore.isEnabled`)
+  — the same lesson as v1.4.3: a gate that trusts React state loses. Turning it ON is always
+  allowed (a locked-on switch is the whole point).
+- Adult hits are logged as `adult_detected` (separate from `keyword_detected`) so the debug log can
+  tell which list fired; tapped-out toast says «محتوای بزرگسالان مسدود شد».
+- Honest limit stated in the UI: the guard reads TEXT and URLs only — no on-device image/video
+  classifier ships with the app, so the copy calls it a strong filter, not a detector.
+- New store write `FocusGuardStore.deactivateGuard(ctx)` = Protection OFF + Delay Mode OFF in one
+  edit. It is now the single body used by BOTH the partner SMS and the app-update reset.
+- Settings is unreachable while Protection is ON (v1.4.5), so the adult switch can be turned ON
+  before the guard goes on and can only come off after it is off — exactly the owner's rule.
+
+Steps:
+- [x] `AdultFilter.kt` (new object): English + Persian keyword list (whole-word matched, folded like
+      the v1.2.0 matcher) and bare-host domain list (suffix matched), curated to avoid ambiguous
+      hits.
+- [x] `FocusGuardStore.kt`: `KEY_ADULT_LOCK` + `adultLock()`/`setAdultLock()`; new
+      `deactivateGuard()` (Protection + Delay Mode in one write); `resetProtectionForUpdate` now
+      delegates to it.
+- [x] `RemoteSmsReceiver.kt`: reads both flags, calls `deactivateGuard()`, logs
+      `remote_deactivated … Protection + Delay Mode`, notification copy updated; `remote_already_off`
+      now means both were already off.
+- [x] `FocusAccessibilityService.kt`: `adultPatterns` + `adultLock` fields, adult list merged into
+      matching (`matchesKeyword` = user list OR adult list), `REASON_ADULT` + `adult_detected` log
+      type, adult toast, `matchesPatterns()` extracted, one-shot `adult_lock_on` log on transition.
+- [x] `FocusGuardModule.kt`: `adultLock`/`adultKeywordCount`/`adultDomainCount` in `getConfig`;
+      `setAdultLock` AsyncFunction that refuses OFF while Protection is on + `reload()`.
+- [x] `modules/focus-guard/index.js`: `EMPTY_CONFIG` fields + `setAdultLock()` bridge.
+- [x] `src/screens/SettingsScreen.js`: new Section «قفل کامل محتوای بزرگسالان» before Stats — Switch,
+      live native value, busy state, disabled once ON+Protection ON, native refusal translated.
+- [x] `src/screens/HomeScreen.js`: one accent line under the switches when the lock is on, showing
+      the built-in counts.
+- [x] i18n: 12 new keys → 238 UI strings / 289 translations.
+- [x] Version 1.4.9 / versionCode 20 (app.json, package.json, package-lock, buildInfo),
+      `version.json` → 1.4.9, `index.html` → ۱.۴.۹.
+- [x] Verify: check-i18n OK (238/289); `npm run verify` green (647 modules; bundle carries
+      `setAdultLock`, the Settings section and the Home line — Persian strings are \u-escaped by
+      Metro, so grep them via the escaped form); `npm run prebuild:android` → versionName 1.4.9 /
+      versionCode 20; Kotlin brace/quote balance checked by script (Termux cannot compile Kotlin —
+      the first CI run IS the compiler); `android/` + `dist/` wiped.
+- [ ] Owner push + tag v1.4.9 → CI builds `Tavakkol-release.apk`.
+- [ ] Owner on-device check: turn the adult lock ON, turn Protection ON → the switch is dead and the
+      Settings screen is unreachable; typing an adult keyword/opening an adult site closes the app
+      and the debug log shows `adult_detected (adult lock list)`; partner SMS turns Protection AND
+      Delay Mode off (`remote_deactivated … Protection + Delay Mode`), and only then the adult lock
+      can be switched off.
 
 ## Handover commands (owner)
 
 ```bash
 cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
-git add -A && git commit -m "v1.4.8: Support Us sheet with inside-Iran and outside-Iran options"
+git add -A && git commit -m "v1.4.9: strict adult content lock, partner SMS clears Delay Mode too"
 git fetch origin && git rebase origin/main
 git push origin main
-git tag v1.4.8 && git push origin v1.4.8
+git tag v1.4.9 && git push origin v1.4.9
 ```

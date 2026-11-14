@@ -68,6 +68,9 @@ class FocusGuardModule : Module() {
       config.put("remoteLastAt", FocusGuardStore.remoteLastAt(ctx).toDouble())
       config.put("remoteCount", FocusGuardStore.remoteCount(ctx))
       config.put("delayMode", FocusGuardStore.delayMode(ctx))
+      config.put("adultLock", FocusGuardStore.adultLock(ctx))
+      config.put("adultKeywordCount", AdultFilter.KEYWORDS.size)
+      config.put("adultDomainCount", AdultFilter.DOMAINS.size)
       config.put("musicMuted", FocusGuardStore.musicMuted(ctx))
       config.toString()
     }
@@ -283,6 +286,24 @@ class FocusGuardModule : Module() {
     /** v1.4.5: the post-challenge path — the challenge was typed, so OFF is allowed. */
     AsyncFunction("setDelayModeAfterDelayChallenge") {
       FocusGuardStore.setDelayMode(requireContext(), false)
+      true
+    }
+
+    /**
+     * v1.4.9: Strict Adult Content Lock. Turning it ON is always allowed; turning
+     * it OFF is refused while Protection is on, so the lock can only be lifted
+     * after the Protection switch itself has been turned off (partner PIN or the
+     * Delay-Mode challenge). Enforced natively — never trusted from JS state.
+     */
+    AsyncFunction("setAdultLock") { enabled: Boolean ->
+      val ctx = requireContext()
+      if (!enabled && FocusGuardStore.isEnabled(ctx)) {
+        throw IllegalStateException(
+          "Protection is on — turn Protection off before turning off the adult lock."
+        )
+      }
+      FocusGuardStore.setAdultLock(ctx, enabled)
+      FocusAccessibilityService.reload()
       true
     }
 

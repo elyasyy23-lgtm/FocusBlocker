@@ -393,6 +393,26 @@ const FA = {
   'Download or update problem?': 'مشکل در دانلود یا به‌روزرسانی؟',
   'If you encounter issues downloading or updating the app, please turn on your VPN.':
     'اگر در دانلود یا به‌روزرسانی برنامه به مشکل خوردید، لطفاً فیلترشکن خود را روشن کنید.',
+
+  // ------------------------------- v1.4.9: strict adult content lock
+  'Full adult content lock': 'قفل کامل محتوای بزرگسالان',
+  'Adult content lock': 'قفل محتوای بزرگسالان',
+  'Off': 'خاموش',
+  'On — {{keywords}} keywords and {{domains}} websites, plus your own lists':
+    'روشن — {{keywords}} کلمه و {{domains}} سایت، به‌علاوهٔ فهرست‌های خودتان',
+  'Adds a built-in list of adult keywords and websites on top of your own lists. It reads text and links only — images and video cannot be recognised, so treat it as a strong filter, not a detector.':
+    'یک فهرست آماده از کلمه‌ها و سایت‌های بزرگسالان به فهرست‌های خودتان اضافه می‌کند. این قفل فقط متن و لینک را می‌خواند — تصویر و ویدیو شناسایی نمی‌شود؛ پس آن را یک صافی قوی بدانید، نه یک شناساگر.',
+  'Protection is on — this lock stays on until Protection is turned off.':
+    'محافظت روشن است — این قفل تا خاموش نشدن محافظت، روشن می‌ماند.',
+  'Turn this on before you switch Protection on: from then on it can only be turned off after Protection is off.':
+    'این را پیش از روشن کردن محافظت روشن کنید؛ از آن پس فقط بعد از خاموش شدن محافظت می‌توان خاموشش کرد.',
+  'Protection is on — turn Protection off before turning off the adult lock.':
+    'محافظت روشن است — پیش از خاموش کردن قفل محتوای بزرگسالان، محافظت را خاموش کنید.',
+  'Adult content lock is ON.': 'قفل محتوای بزرگسالان روشن شد.',
+  'Adult content lock is OFF.': 'قفل محتوای بزرگسالان خاموش شد.',
+  'Could not change the adult lock.': 'تغییر قفل محتوای بزرگسالان ممکن نشد.',
+  'Adult content lock is on — {{keywords}} built-in keywords and {{domains}} websites are blocked too':
+    'قفل محتوای بزرگسالان روشن است — {{keywords}} کلمه و {{domains}} سایت آماده هم مسدود می‌شوند',
 };
 
 const DICT = { fa: FA };
