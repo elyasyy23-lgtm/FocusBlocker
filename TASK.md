@@ -1,7 +1,7 @@
-# TASK — Tavakkol v1.4.6 (reset Protection on update · Settings gear lock)
+# TASK — Tavakkol v1.4.7 (drawer fix · debug log on Home · Help rewrite)
 
-CURRENT RELEASE TARGET = **v1.4.6** (versionCode 17). See the v1.4.6 section at the bottom.
-v1.4.5 SHIPPED (commit f4daa21, tag v1.4.5). (The v1.4.0 goal below is the historical first
+CURRENT RELEASE TARGET = **v1.4.7** (versionCode 18). See the v1.4.7 section at the bottom.
+v1.4.6 SHIPPED (commit cde2147, tag v1.4.6). (The v1.4.0 goal below is the historical first
 task that created this file.)
 
 GOAL (owner's list, 2026-11-13):
@@ -217,16 +217,70 @@ Steps:
 - [x] Verify: check-i18n OK; `npm run verify` green (645 modules; bundle contains
       `consumeUpdateReset`, the update-reset string and the gear); prebuild versionName 1.4.6 /
       versionCode 17; module manifest parses; `android/` + `dist/` wiped.
-- [ ] Owner push + tag v1.4.6 → CI builds `Tavakkol-release.apk`.
+- [x] SHIPPED 2026-11-14: commit `cde2147` → main + tag `v1.4.6`; CI runs 43564247211 (main) +
+      43564250111 (tag) both SUCCESS → Release `Tavakkol v1.4.6`, `Tavakkol-release.apk` 35.3 MB
+      live at
+      https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v1.4.6/Tavakkol-release.apk
+      (`releases/latest/...` 302 → v1.4.6).
 - [ ] Owner on-device check: install v1.4.6 over v1.4.5 → Protection is OFF with the update
       notice; the ⚙️ gear shows locked while Protection is ON; drawer still opens.
+
+## v1.4.7 — drawer fix · Settings moved · update resets BOTH switches · debug log on Home · Help rewrite (2026-11-14)
+
+Owner's list:
+1. The hamburger (☰) drawer did not open — fix it, and put the Settings screen inside the drawer.
+2. Decimal point: the update must reset Protection **and** Delay Mode ON→OFF (v1.4.6 reset only
+   Protection).
+3. Move the Debug Log title + Show Logs button to the bottom of the **Home** screen (out of
+   Settings).
+4. Rewrite the Help screen: mention turning Delay Mode off after an update.
+
+Decisions:
+- The drawer is a **custom** component (`src/components/Drawer.js`, Animated + PanResponder from
+  v1.4.5 — there is no react-navigation in this project). The v1.4.5 overlay was a sibling View
+  with zIndex; on some Android builds the scroll ancestor kept the tap, so ☰ looked dead. It now
+  renders inside a transparent native `Modal` (own window, always on top, hardware Back closes it
+  via `onRequestClose`). The Modal stays mounted until the slide-out animation finishes.
+- Update reset writes SharedPreferences directly (`resetProtectionForUpdate`) and now clears
+  `KEY_DELAY_MODE` too — an update is an admin action, so it is allowed to bypass the Delay-Mode
+  gate (same as the SMS kill switch). The JS notice mentions both switches.
+- The ⚙️ gear was removed from Home; Settings is reached through the drawer (still gated while
+  Protection is ON). The debug log became a self-contained `DebugLogSection` so Home owns it while
+  Settings keeps nothing but the health line (that section was removed from Settings entirely).
+
+Steps:
+- [x] `src/components/Drawer.js`: Modal-based drawer (`mounted` state, slide-out then unmount).
+- [x] `src/screens/HomeScreen.js`: gear/badge removed, `onOpenSettings`/`settingsLocked` props
+      dropped, `onMessage` added, `<DebugLogSection … number={3}/>` at the very bottom.
+- [x] `src/components/DebugLogSection.js` (new) + `src/utils/debugLog.js` (new: `logTypeColor`,
+      `formatLogTime`, `shortPackage`, `formatHeartbeat`).
+- [x] `src/screens/SettingsScreen.js`: debug-log section, log modal, log/health styles, `FlatList`
+      import and all log state removed; imports `formatHeartbeat` from the new util.
+- [x] `FocusGuardStore.kt`: `resetProtectionForUpdate` clears `KEY_DELAY_MODE` (comment/log text
+      updated).
+- [x] `App.js`: HomeScreen gets `onMessage={setMessage}`; update-reset notice text now says both
+      switches were turned off.
+- [x] `src/screens/HelpScreen.js`: 7 numbered steps (Delay Mode, SMS remote control, excluded
+      apps, Settings lock & Partner PIN added) + a VPN note block.
+- [x] i18n: new/changed Persian entries; `scripts/check-i18n.js` scans `DebugLogSection.js`;
+      check green — 224 UI strings / 275 translations.
+- [x] Version 1.4.7 / versionCode 18 (app.json, package.json, package-lock, buildInfo),
+      `version.json` → 1.4.7, `index.html` labels → ۱.۴.۷.
+- [x] Verify: `npm run verify` green (647 modules, background_music.mp3 in assets);
+      `npm run prebuild:android` → versionName 1.4.7 / versionCode 18, app_name Tavakkol;
+      `android/` + `dist/` wiped.
+- [ ] Push + tag (owner runs the handover block below) → CI main run + tag run must both be green.
+- [ ] Owner on-device check: ☰ opens the drawer and slides correctly (RTL/fa too), drawer →
+      تنظیمات reaches Settings, Settings is locked while Protection is ON, Debug Log sits at the
+      bottom of Home, installing v1.4.7 over v1.4.6 turns Protection AND Delay Mode off with the
+      notice, Help shows 7 steps + the VPN note.
 
 ## Handover commands (owner)
 
 ```bash
 cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
-git add -A && git commit -m "v1.4.6: reset Protection on update + Settings gear lock"
+git add -A && git commit -m "v1.4.7: drawer via Modal, debug log on Home, update resets both switches, Help rewrite"
 git fetch origin && git rebase origin/main
 git push origin main
-git tag v1.4.6 && git push origin v1.4.6
+git tag v1.4.7 && git push origin v1.4.7
 ```

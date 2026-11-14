@@ -14,13 +14,16 @@ import { COLORS, textAlign } from '../theme';
 const BACKGROUND = require('../../assets/background.jpg');
 
 /**
- * Help screen (v1.3.0) — the five setup steps written in plain words, plus the
+ * Help screen (v1.3.0) — the setup steps written in plain words, plus the
  * prayer note. English strings are the i18n keys (see src/i18n.js); the
  * numbers and the description are rendered separately so each step reads as a
  * card instead of a wall of text. Wording is the owner's copy — keep it exact.
  *
  * v1.4.0: the "Support" block at the bottom is GONE (owner request) — support
  * lives only in Settings now, so this screen teaches and nothing else.
+ * v1.4.7: the steps now cover the real feature set — Delay Mode, Remote
+ * Control via SMS, Excluded Apps and the Settings lock while Protection is on —
+ * and a download/update note (turn the VPN on) sits at the very bottom.
  */
 const STEPS = [
   {
@@ -38,14 +41,24 @@ const STEPS = [
       "Tap 'Activate Device Admin'. This prevents the app from being uninstalled easily.",
   },
   {
-    title: 'Strict Lock & Partner PIN',
+    title: 'Delay Mode',
     body:
-      'Open Settings and set a Partner PIN. Give this PIN to your spouse or a trusted friend. ' +
-      'The app will ask for it every time it opens; Settings and the Protection switch never ask for it.',
+      'Turn on Delay Mode next to Protection on the main screen. From then on, turning Protection off — or turning Delay Mode itself off — needs typing a long protective text word by word. Paste is blocked and closing the window changes nothing, so a sudden impulse cannot disable the guard with one tap.',
+  },
+  {
+    title: 'Remote Control via SMS',
+    body:
+      'Open Settings → Remote Control, turn on Enable Remote Deactivation, enter a trusted phone number and a secret command (for example: TURN OFF), then save and allow SMS access. The partner phone sends one SMS containing the command and Protection turns off by itself. Each message is used only once, and SMS that arrived before you turned the switch on are ignored.',
   },
   {
     title: 'Excluded Apps',
-    body: 'Go to Settings to select apps (like Telegram or SMS) that should NOT be blocked.',
+    body:
+      'Open Settings → Excluded Apps and tick the apps that must never be blocked (for example Telegram or your SMS app). Checked apps are not inspected at all, so no keyword and no domain is blocked inside them.',
+  },
+  {
+    title: 'Settings Lock & Partner PIN',
+    body:
+      'While Protection is on, Settings stays closed: the drawer explains why and the lists on the main screen are read-only. Set a Partner PIN in Settings and give it to your spouse or a trusted friend — the app asks for it only when it opens, never inside the app.',
   },
 ];
 
@@ -91,6 +104,18 @@ export default function HelpScreen({ t, lang, onOpenDrawer }) {
             <Text style={[styles.stepBody, { textAlign: align }]}>{t(step.body)}</Text>
           </View>
         ))}
+
+        {/* v1.4.7: download/update note — the owner asked for this wording in
+            both languages, because an update can look "broken" when it is the
+            network that is filtered. */}
+        <View style={styles.vpnNote}>
+          <Text style={[styles.vpnTitle, { textAlign: align }]}>
+            {t('Download or update problem?')}
+          </Text>
+          <Text style={[styles.vpnText, { textAlign: align }]}>
+            {t('If you encounter issues downloading or updating the app, please turn on your VPN.')}
+          </Text>
+        </View>
 
         <View style={styles.noteWrap}>
           <GiftNote lang={lang} text={t('This app is completely free. Please remember us in your prayers.')} />
@@ -211,6 +236,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     marginBottom: 10,
+  },
+  vpnNote: {
+    marginTop: 20,
+    backgroundColor: 'rgba(58,44,8,0.92)',
+    borderColor: '#6B5110',
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+  },
+  vpnTitle: {
+    color: COLORS.warning,
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  vpnText: {
+    color: '#EAD9A6',
+    fontSize: 13,
+    lineHeight: 20,
   },
   noteWrap: {
     marginTop: 24,

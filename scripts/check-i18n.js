@@ -17,6 +17,7 @@ const UI_FILES = [
   path.join('src', 'screens', 'LockScreen.js'),
   path.join('src', 'components', 'Drawer.js'),
   path.join('src', 'components', 'DonateSheet.js'),
+  path.join('src', 'components', 'DebugLogSection.js'),
   path.join('src', 'components', 'ui.js'),
 ];
 

@@ -388,11 +388,14 @@ internal object FocusGuardStore {
   }
 
   // ---------------------------------------------------------------------
-  // v1.4.6: reset Protection on app update.
+  // v1.4.6: reset Protection on app update. v1.4.7: Delay Mode resets too.
   //
   // Installing a new build must NOT be a way to slip past the guard, so every
-  // update forces Protection OFF and the user turns it back on by hand. The
-  // reset is applied in three places (all idempotent):
+  // update forces Protection OFF and the user turns it back on by hand. Delay
+  // Mode is switched off in the same write: after an update both switches are
+  // OFF, so the fresh build starts from the plain one-tap state (the user
+  // re-enables whichever extra protection they want). The reset is applied in
+  // three places (all idempotent):
   //   1. the MY_PACKAGE_REPLACED broadcast in GuardWakeupReceiver (the canonical
   //      "this app was just updated" signal — fires even if the app was closed),
   //   2. `maybeResetOnUpdate` on the accessibility service connect and on every
@@ -417,16 +420,23 @@ internal object FocusGuardStore {
     prefs(context).edit().putLong(KEY_VERSION_CODE, currentVersionCode(context)).apply()
   }
 
-  /** Forces Protection OFF + raises the one-shot "app updated" notice. */
+  /**
+   * Forces Protection OFF, Delay Mode OFF and raises the one-shot
+   * "app updated" notice. Writes the store DIRECTLY (no Delay-Mode refusal):
+   * an update is an admin action, same rule as the SMS kill switch.
+   */
   fun resetProtectionForUpdate(context: Context) {
-    setEnabled(context, false)
+    prefs(context).edit()
+      .putBoolean(KEY_ENABLED, false)
+      .putBoolean(KEY_DELAY_MODE, false)
+      .putBoolean(KEY_RESET_ON_UPDATE_PENDING, true)
+      .apply()
     clearUnlockWindow(context)
-    prefs(context).edit().putBoolean(KEY_RESET_ON_UPDATE_PENDING, true).apply()
     recordVersionCode(context)
     logEvent(
       context,
       "protection_reset_on_update",
-      text = "app updated to version code ${currentVersionCode(context)} — Protection turned OFF"
+      text = "app updated to version code ${currentVersionCode(context)} — Protection and Delay Mode turned OFF"
     )
   }
 

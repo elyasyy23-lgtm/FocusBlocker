@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   ImageBackground,
   Modal,
   PermissionsAndroid,
@@ -21,73 +20,19 @@ import PinPad from '../components/PinPad';
 import { COLORS, textAlign } from '../theme';
 import { LANGUAGES } from '../i18n';
 import { VERSION_LABEL } from '../buildInfo';
+import { formatHeartbeat } from '../utils/debugLog';
 
 const BACKGROUND = require('../../assets/background.jpg');
-
-const LOG_TYPE_COLORS = {
-  service_connected: '#7DD3FC',
-  service_unbound: '#F87171',
-  service_destroyed: '#F87171',
-  service_interrupted: '#FBBF24',
-  fgs_started: '#4ADE80',
-  fgs_failed: '#F87171',
-  fgs_fallback: '#FBBF24',
-  watchdog_started: '#4ADE80',
-  watchdog_wakeup: '#7DD3FC',
-  watchdog_task_removed: '#7DD3FC',
-  watchdog_destroyed: '#F87171',
-  watchdog_failed: '#F87171',
-  guard_missing: '#F87171',
-  guard_recovered: '#4ADE80',
-  guard_alert: '#FBBF24',
-  guard_alert_failed: '#F87171',
-  alarm_failed: '#FBBF24',
-  job_failed: '#FBBF24',
-  job_tick: '#7DD3FC',
-  autostart_opened: '#8C9AAB',
-  keyword_detected: '#FBBF24',
-  domain_detected: '#FBBF24',
-  block_triggered: '#F87171',
-  block_recheck_back: '#FBBF24',
-  block_recheck_home: '#FBBF24',
-  block_recheck_clear: '#7DD3FC',
-  scan_failed: '#FBBF24',
-};
-
-function logTypeColor(type) {
-  return LOG_TYPE_COLORS[type] || COLORS.muted;
-}
-
-function formatLogTime(value) {
-  if (!value) return '--:--:--';
-  const date = new Date(value);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(
-    date.getMinutes()
-  )}:${pad(date.getSeconds())}`;
-}
-
-function shortPackage(pkg) {
-  const parts = String(pkg || '').split('.');
-  return parts.slice(-2).join('.');
-}
-
-/** "42s ago" / "12min ago" / "never" — how long the watchdog has been silent. */
-function formatHeartbeat(ageMs, t) {
-  if (ageMs === null || ageMs === undefined || ageMs < 0) return t('never');
-  const seconds = Math.round(ageMs / 1000);
-  if (seconds < 90) return t('{{seconds}}s ago', { seconds });
-  return t('{{minutes}}min ago', { minutes: Math.round(seconds / 60) });
-}
 
 /**
  * Settings screen (v1.4.5) — everything advanced, reached from the drawer.
  *
  * v1.4.5 moved the whole "system" half of the app here (accessibility service,
- * device admin, keep-alive, stats and the debug log) so the Home screen shows
- * only the two switches and the two lists. The screen is CLOSED entirely while
- * Protection is ON — App.js never routes here in that state and the drawer row
- * reports the reason instead.
+ * device admin, keep-alive, stats) so the Home screen shows only the two
+ * switches and the two lists. v1.4.7 moved the debug log back to the bottom of
+ * the Home screen (owner request) and removed the header gear — this screen is
+ * reached from the drawer only. It is CLOSED entirely while Protection is ON —
+ * App.js never routes here in that state and the drawer row reports the reason.
  */
 export default function SettingsScreen({
   t,
@@ -117,12 +62,9 @@ export default function SettingsScreen({
   // v1.3.2: only the first three apps are listed until "Show more" is tapped.
   const [showAllApps, setShowAllApps] = useState(false);
 
-  // v1.4.5: keep-alive health + debug log live here now.
+  // v1.4.5: keep-alive health. The debug log itself moved to the Home screen
+  // in v1.4.7 (owner request) — this screen only reads the health line.
   const [health, setHealth] = useState(null);
-  const [logsOpen, setLogsOpen] = useState(false);
-  const [logs, setLogs] = useState([]);
-  const [logsLoading, setLogsLoading] = useState(false);
-  const [clearingLogs, setClearingLogs] = useState(false);
   const [keepAliveBusy, setKeepAliveBusy] = useState(false);
 
   // v1.3.1: the Partner PIN is set/removed here.
@@ -200,8 +142,8 @@ export default function SettingsScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAvailable]);
 
-  // v1.4.5: health rides along on mount so the keep-alive + debug sections show
-  // live state without opening the log modal.
+  // v1.4.5: health rides along on mount so the keep-alive section shows live
+  // state (the debug log on Home reads it separately).
   useEffect(() => {
     FocusGuard.getServiceHealth()
       .then(setHealth)
@@ -492,52 +434,6 @@ export default function SettingsScreen({
     }
   };
 
-  const loadLogs = async () => {
-    setLogsLoading(true);
-    try {
-      const [nextLogs, nextHealth] = await Promise.all([
-        FocusGuard.getDebugLogs(),
-        FocusGuard.getServiceHealth(),
-      ]);
-      setLogs(nextLogs);
-      setHealth(nextHealth);
-    } catch (error) {
-      onMessage(error.message || t('Could not read the debug log.'));
-      setLogsOpen(false);
-    } finally {
-      setLogsLoading(false);
-    }
-  };
-
-  const openLogs = async () => {
-    setLogsOpen(true);
-    await loadLogs();
-  };
-
-  const closeLogs = () => setLogsOpen(false);
-
-  const clearLogs = async () => {
-    setClearingLogs(true);
-    try {
-      await FocusGuard.clearDebugLogs();
-      setLogs([]);
-    } catch (error) {
-      onMessage(error.message || t('Could not clear the log.'));
-    } finally {
-      setClearingLogs(false);
-    }
-  };
-
-  const fixBattery = async () => {
-    try {
-      await FocusGuard.requestIgnoreBatteryOptimizations();
-      onMessage(t('Confirm the system dialog so Android stops killing the guard.'));
-      setTimeout(loadLogs, 1500);
-    } catch (error) {
-      onMessage(error.message || t('Could not open the battery dialog.'));
-    }
-  };
-
   const startKeepAlive = async () => {
     setKeepAliveBusy(true);
     try {
@@ -709,45 +605,6 @@ export default function SettingsScreen({
               'One-time setup on Redmi / POCO / Xiaomi: 1) Autostart → Tavakkol ON, 2) Battery saver → No restrictions, 3) in Recents, pull Tavakkol down to lock it. Without Autostart even a foreground service gets killed within hours.'
             )}
           </Text>
-        </Section>
-
-        <Section
-          title={t('{{n}}. {{title}}', { n: 4, title: t('Debug Log') })}
-          subtitle={t(
-            'Everything the background guard does — service starts and stops, foreground-service state, watchdog wake-ups, keyword/domain hits and blocks — recorded on this device, never uploaded. Survives crashes and restarts.'
-          )}
-          lang={lang}>
-          {health ? (
-            <Text
-              style={[
-                styles.healthLine,
-                health.serviceRunning && health.foregroundActive
-                  ? styles.healthOk
-                  : styles.healthWarn,
-                { textAlign: align },
-              ]}>
-              {`${t('Service {{state}}', {
-                state: health.serviceRunning ? t('running') : t('NOT running'),
-              })} · ${
-                health.foregroundActive
-                  ? t('foreground notification active')
-                  : t('NO foreground notification')
-              } · ${t('watchdog {{state}} ({{age}})', {
-                state: health.watchdogRunning ? t('up') : t('DOWN'),
-                age: formatHeartbeat(health.heartbeatAgeMs, t),
-              })} · ${
-                health.batteryOptimizationIgnored
-                  ? t('battery unrestricted')
-                  : t('battery RESTRICTED — Android may kill the guard')
-              }`}
-            </Text>
-          ) : null}
-          <ActionButton
-            label={t('Show Logs')}
-            variant="secondary"
-            onPress={openLogs}
-            disabled={!isAvailable}
-          />
         </Section>
 
         <Section
@@ -1039,98 +896,6 @@ export default function SettingsScreen({
       </ScrollView>
 
       <Modal
-        visible={logsOpen}
-        animationType="slide"
-        onRequestClose={closeLogs}>
-        <View style={styles.logModalRoot}>
-          <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-          <View style={styles.logHeader}>
-            <View style={styles.logHeaderTitle}>
-              <Text style={styles.logTitle}>{t('Debug Log')}</Text>
-              <Text style={styles.logSubtitle}>{t('Last 100 events · newest first')}</Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('Close debug log')}
-              onPress={closeLogs}
-              style={({ pressed }) => [styles.logClose, pressed && styles.pressed]}>
-              <Text style={styles.logCloseText}>{t('Close')}</Text>
-            </Pressable>
-          </View>
-
-          {health ? (
-            <View style={styles.logHealth}>
-              <Text style={styles.logHealthText}>
-                {`${t('Accessibility: {{state}}', {
-                  state: health.accessibilityEnabled ? t('enabled') : t('DISABLED'),
-                })} · ${t('Guard bound: {{state}}', {
-                  state: health.serviceRunning ? t('yes') : t('no'),
-                })} · ${t('Foreground service: {{state}}', {
-                  state: health.foregroundActive ? t('running') : t('DOWN'),
-                })} · ${t('Watchdog: {{state}}', {
-                  state: health.watchdogRunning ? t('up') : t('DOWN'),
-                })} (${formatHeartbeat(health.heartbeatAgeMs, t)}) · ${t('Battery optimization')}: ${
-                  health.batteryOptimizationIgnored
-                    ? t('battery optimization off (safe)')
-                    : t('battery optimization on (kill risk)')
-                }`}
-              </Text>
-              {!health.batteryOptimizationIgnored ? (
-                <ActionButton
-                  label={t('Exclude from battery optimization')}
-                  variant="secondary"
-                  onPress={fixBattery}
-                />
-              ) : null}
-            </View>
-          ) : null}
-
-          {logsLoading ? (
-            <ActivityIndicator color={COLORS.accent} style={styles.logLoader} />
-          ) : (
-            <FlatList
-              data={logs}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.logList}
-              ListEmptyComponent={
-                <Text style={styles.logEmpty}>
-                  {t(
-                    'No events recorded yet. The log fills as soon as the guard runs — tap Refresh after using the phone, or Clear to start over.'
-                  )}
-                </Text>
-              }
-              renderItem={({ item }) => (
-                <View style={styles.logRow}>
-                  <Text style={styles.logTime}>{formatLogTime(item.t)}</Text>
-                  <Text style={[styles.logType, { color: logTypeColor(item.type) }]}>
-                    {item.type}
-                  </Text>
-                  <View style={styles.logBody}>
-                    {item.pkg ? <Text style={styles.logPkg}>{shortPackage(item.pkg)}</Text> : null}
-                    {item.text ? <Text style={styles.logText}>{item.text}</Text> : null}
-                  </View>
-                </View>
-              )}
-            />
-          )}
-
-          <View style={styles.logFooter}>
-            <View style={styles.logFooterButton}>
-              <ActionButton label={t('Refresh')} variant="secondary" onPress={loadLogs} busy={logsLoading} />
-            </View>
-            <View style={styles.logFooterButton}>
-              <ActionButton
-                label={t('Clear log')}
-                variant="secondary"
-                onPress={clearLogs}
-                busy={clearingLogs}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
         visible={pinDialog.mode !== null}
         transparent
         animationType="fade"
@@ -1341,17 +1106,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 12,
   },
-  healthLine: {
-    fontSize: 12,
-    lineHeight: 18,
-    marginBottom: 12,
-  },
-  healthOk: {
-    color: COLORS.accent,
-  },
-  healthWarn: {
-    color: COLORS.warning,
-  },
   excludedMeta: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1499,106 +1253,5 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginTop: 18,
     textAlign: 'center',
-  },
-  logModalRoot: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  logHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingTop: (StatusBar.currentHeight || 24) + 14,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  logHeaderTitle: {
-    flex: 1,
-  },
-  logTitle: {
-    color: COLORS.text,
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  logSubtitle: {
-    color: COLORS.muted,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  logClose: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  logCloseText: {
-    color: COLORS.accent,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  logHealth: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  logHealthText: {
-    color: COLORS.muted,
-    fontSize: 11,
-    lineHeight: 17,
-    marginBottom: 8,
-  },
-  logLoader: {
-    marginTop: 30,
-  },
-  logList: {
-    padding: 12,
-  },
-  logEmpty: {
-    color: COLORS.muted,
-    fontSize: 13,
-    lineHeight: 20,
-    padding: 16,
-    textAlign: 'center',
-  },
-  logRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    paddingVertical: 7,
-    paddingHorizontal: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(58,72,90,0.35)',
-  },
-  logTime: {
-    color: '#64748B',
-    fontSize: 10,
-    width: 74,
-  },
-  logType: {
-    fontSize: 11,
-    fontWeight: '700',
-    width: 130,
-  },
-  logBody: {
-    flex: 1,
-  },
-  logPkg: {
-    color: COLORS.muted,
-    fontSize: 11,
-  },
-  logText: {
-    color: COLORS.text,
-    fontSize: 12,
-  },
-  logFooter: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 14,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  logFooterButton: {
-    flex: 1,
   },
 });

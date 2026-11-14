@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { ActionButton, Chip, GiftNote, Section } from '../components/ui';
+import DebugLogSection from '../components/DebugLogSection';
 import { COLORS, textAlign } from '../theme';
 import { VERSION_LABEL } from '../buildInfo';
 
@@ -21,12 +22,14 @@ const BACKGROUND = require('../../assets/background.jpg');
  *
  * It shows ONLY what the user needs at a glance:
  *   - the two switches (Protection + Delay Mode),
- *   - the blocked keyword list and the blocked domain list.
+ *   - the blocked keyword list and the blocked domain list,
+ *   - the debug log at the very bottom (v1.4.7 — it was in Settings before).
  *
- * Everything advanced (accessibility service, device admin, keep-alive, stats,
- * the debug log, PIN, remote control, excluded apps) moved to Settings, which is
- * reachable from the drawer. While Protection is ON the two editors are locked
- * (read-only) and Settings is closed entirely — that is the v1.4.5 rule.
+ * Everything else advanced (accessibility service, device admin, keep-alive,
+ * stats, PIN, remote control, excluded apps) lives in Settings, which is reached
+ * from the drawer — there is no gear in the header any more (v1.4.7). While
+ * Protection is ON the two editors are locked (read-only) and Settings is closed
+ * entirely — that is the v1.4.5 rule.
  */
 export default function HomeScreen({
   t,
@@ -52,8 +55,7 @@ export default function HomeScreen({
   onToggleBlocking,
   onToggleDelayMode,
   onOpenDrawer,
-  onOpenSettings,
-  settingsLocked,
+  onMessage,
 }) {
   const align = textAlign(lang);
   const isRtl = lang === 'fa';
@@ -78,21 +80,6 @@ export default function HomeScreen({
             <Text style={[styles.brand, { textAlign: align }]}>{t('Tavakkol')}</Text>
             <Text style={[styles.brandSub, { textAlign: align }]}>{t('Personal guard')}</Text>
           </View>
-          {/* v1.4.6: the Settings gear. It stays visible while Protection is ON
-              but is locked — tapping it explains that Protection must be turned
-              off first (the drawer's Settings row behaves the same way). */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('Settings')}
-            onPress={onOpenSettings}
-            style={({ pressed }) => [
-              styles.hamburger,
-              settingsLocked && styles.gearLocked,
-              pressed && styles.pressed,
-            ]}>
-            <Text style={styles.hamburgerIcon}>⚙️</Text>
-            {settingsLocked ? <Text style={styles.lockBadge}>🔒</Text> : null}
-          </Pressable>
         </View>
 
         <Text style={[styles.tagline, { textAlign: align }]}>
@@ -263,6 +250,16 @@ export default function HomeScreen({
 
         {message ? <Text style={styles.message}>{message}</Text> : null}
 
+        {/* v1.4.7: the debug log moved here from Settings — visible, but at the
+            very bottom so it never gets in the way of the everyday screen. */}
+        <DebugLogSection
+          t={t}
+          lang={lang}
+          isAvailable={isAvailable}
+          onMessage={onMessage}
+          number={3}
+        />
+
         <Text style={[styles.footer, { textAlign: align }]}>
           {t(
             'Works fully offline. Any text that changes on screen is checked — search bars, address bars and chat messages. While the guard is running it keeps a small persistent notification: if that notification disappears, the guard was stopped. The watchdog, the 15-minute alarm, the 15-minute job and the boot receiver restart it on their own — and if the guard stays down for more than three minutes you get an alert instead of silently losing protection.'
@@ -310,15 +307,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     lineHeight: 26,
-  },
-  gearLocked: {
-    opacity: 0.55,
-  },
-  lockBadge: {
-    position: 'absolute',
-    right: 2,
-    bottom: 0,
-    fontSize: 12,
   },
   brandText: {
     flex: 1,

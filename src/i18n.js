@@ -372,8 +372,24 @@ const FA = {
   'Turn Delay Mode off': 'خاموش کردن حالت تاخیر',
   'Cancel — keep it on': 'انصراف — روشن بماند',
   // ------------------------------- v1.4.6: Protection resets OFF after an update
-  'The app was updated — Protection was turned off automatically. Turn it back on to keep the guard active.':
-    'برنامه به‌روزرسانی شد — محافظت به‌صورت خودکار خاموش شد. برای فعال ماندن محافظ، آن را دوباره روشن کنید.',
+  // v1.4.7: Delay Mode resets with it, so the notice names both switches.
+  'The app was updated — Protection and Delay Mode were turned off automatically. Turn Protection back on to keep the guard active.':
+    'برنامه به‌روزرسانی شد — محافظت و حالت تاخیر به‌صورت خودکار خاموش شدند. برای فعال ماندن محافظ، محافظت را دوباره روشن کنید.',
+
+  // ------------------------------- v1.4.7: Help screen rewritten for the real features
+  'Remote Control via SMS': 'کنترل از راه دور با پیامک',
+  'Turn on Delay Mode next to Protection on the main screen. From then on, turning Protection off — or turning Delay Mode itself off — needs typing a long protective text word by word. Paste is blocked and closing the window changes nothing, so a sudden impulse cannot disable the guard with one tap.':
+    'در صفحهٔ اصلی، کنار «محافظت»، حالت تاخیر را روشن کنید. از آن پس خاموش کردن محافظت — یا خاموش کردن خودِ حالت تاخیر — نیاز به تایپ کلمه‌به‌کلمهٔ یک متن طولانی دارد. چسباندن متن ممکن نیست و بستن پنجره چیزی را تغییر نمی‌دهد؛ پس یک وسوسهٔ ناگهانی نمی‌تواند محافظ را با یک ضربه خاموش کند.',
+  'Open Settings → Remote Control, turn on Enable Remote Deactivation, enter a trusted phone number and a secret command (for example: TURN OFF), then save and allow SMS access. The partner phone sends one SMS containing the command and Protection turns off by itself. Each message is used only once, and SMS that arrived before you turned the switch on are ignored.':
+    'به تنظیمات ← کنترل از راه دور بروید، «فعال‌سازی خاموش‌سازی از راه دور» را روشن کنید، شمارهٔ یک گوشی مورد اعتماد و یک دستور محرمانه (برای نمونه: TURN OFF) را وارد کنید، ذخیره کنید و اجازهٔ دسترسی به پیامک را بدهید. گوشی همراه یک پیامک حاوی دستور می‌فرستد و محافظت خودبه‌خود خاموش می‌شود. هر پیامک فقط یک بار بررسی می‌شود و پیامک‌هایی که پیش از روشن کردن کلید رسیده‌اند نادیده گرفته می‌شوند.',
+  'Open Settings → Excluded Apps and tick the apps that must never be blocked (for example Telegram or your SMS app). Checked apps are not inspected at all, so no keyword and no domain is blocked inside them.':
+    'به تنظیمات ← برنامه‌های مستثنی بروید و برنامه‌هایی را که هرگز نباید مسدود شوند تیک بزنید (برای نمونه تلگرام یا برنامهٔ پیامک). برنامه‌های تیک‌خورده اصلاً بررسی نمی‌شوند؛ پس هیچ کلمه یا سایتی داخل آن‌ها مسدود نمی‌شود.',
+  'Settings Lock & Partner PIN': 'قفل تنظیمات و رمز همراه',
+  'While Protection is on, Settings stays closed: the drawer explains why and the lists on the main screen are read-only. Set a Partner PIN in Settings and give it to your spouse or a trusted friend — the app asks for it only when it opens, never inside the app.':
+    'تا وقتی محافظت روشن است، تنظیمات بسته می‌ماند: منو دلیل آن را می‌گوید و فهرست‌های صفحهٔ اصلی فقط‌خواندنی می‌شوند. رمز همراه را در تنظیمات تعیین کنید و به همسر یا دوست مورد اعتمادتان بدهید — برنامه فقط هنگام باز شدن آن را می‌پرسد، نه در داخل برنامه.',
+  'Download or update problem?': 'مشکل در دانلود یا به‌روزرسانی؟',
+  'If you encounter issues downloading or updating the app, please turn on your VPN.':
+    'اگر در دانلود یا به‌روزرسانی برنامه به مشکل خوردید، لطفاً فیلترشکن خود را روشن کنید.',
 };
 
 const DICT = { fa: FA };

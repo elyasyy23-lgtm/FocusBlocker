@@ -563,3 +563,30 @@ the keyword/domain boxes stay read-only.
   `consumeUpdateReset`, the update-reset string and the ⚙️/🔒 glyphs); `npm run prebuild:android` →
   versionName 1.4.6 / versionCode 17; module manifest parses; `android/` + `dist/` wiped. Kotlin
   compiles only in CI. NOT pushed — owner runs the push/tag.
+
+## v1.4.7 — drawer in a Modal · Settings via drawer · update resets BOTH switches · debug log on Home · Help rewrite (2026-11-14)
+
+- **Drawer is custom, not react-navigation** (`src/components/Drawer.js`: Animated + PanResponder).
+  v1.4.5 rendered it as a sibling View with zIndex; on some Android builds the backdrop/scroll
+  ancestor swallowed the touch so ☰ looked dead. It now renders inside a transparent RN `Modal`
+  (`mounted` state keeps it alive through the slide-out, `onRequestClose` = hardware Back).
+  Panel side follows the language: LTR → left, fa/RTL → right (`closedX = ±PANEL_WIDTH`).
+- **Settings is reached only through the drawer** — the ⚙️ gear was removed from the Home header.
+  While Protection is ON the drawer row is still gated («... ابتدا محافظت را خاموش کنید»).
+- **Update reset now clears Delay Mode too**: `FocusGuardStore.resetProtectionForUpdate` writes
+  `KEY_ENABLED=false` + `KEY_DELAY_MODE=false` straight to prefs (bypasses the native Delay-Mode
+  refusal on purpose — an update is an admin action). `App.js`'s notice text says both switches
+  were turned off.
+- **Debug log lives on Home**: new `src/components/DebugLogSection.js` (Section + full-screen log
+  Modal: health line, Show Logs, battery fix, Refresh/Clear) at the very bottom of the Home
+  ScrollView, plus `src/utils/debugLog.js` with the shared helpers (`logTypeColor`,
+  `formatLogTime`, `shortPackage`, `formatHeartbeat`). `SettingsScreen.js` no longer has the log
+  section, its Modal, `FlatList`, or the log/health styles — it only uses `formatHeartbeat`.
+- **Help rewrite**: 7 numbered steps (added Delay Mode, SMS remote control, excluded apps,
+  Settings lock & Partner PIN) + a VPN note block (`vpnNote`/`vpnTitle`/`vpnText`).
+- i18n: 224 UI strings / 275 translations; `scripts/check-i18n.js` now scans
+  `DebugLogSection.js`.
+- Version 1.4.7 / versionCode 18 (app.json, package.json, package-lock, buildInfo);
+  `version.json` latestVersion 1.4.7; `index.html` labels ۱.۴.۷.
+- Verified: `npm run verify` green (647 modules); `npm run prebuild:android` → versionName 1.4.7 /
+  versionCode 18 / app_name Tavakkol; `android/` + `dist/` wiped. Kotlin compiles only in CI.

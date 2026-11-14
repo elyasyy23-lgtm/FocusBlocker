@@ -178,9 +178,11 @@ export default function App() {
   }, [refresh]);
 
   // v1.4.6: installing a new build forces Protection OFF (nobody may bypass the
-  // guard by updating). The native side raises a one-shot flag; we surface it in
-  // the user's language so the silent reset never looks like a bug. Runs once,
-  // after the first config load so the language is known.
+  // guard by updating). v1.4.7: Delay Mode is reset too, so an update also
+  // restores the one-tap-protection-off behaviour the new build ships with.
+  // The native side raises a one-shot flag; we surface it in the user's
+  // language so the silent reset never looks like a bug. Runs once, after the
+  // first config load so the language is known.
   useEffect(() => {
     if (loading || updateResetCheckedRef.current) return;
     updateResetCheckedRef.current = true;
@@ -188,7 +190,7 @@ export default function App() {
       if (reset) {
         setMessage(
           t(
-            'The app was updated — Protection was turned off automatically. Turn it back on to keep the guard active.'
+            'The app was updated — Protection and Delay Mode were turned off automatically. Turn Protection back on to keep the guard active.'
           )
         );
       }
@@ -740,8 +742,7 @@ export default function App() {
           onToggleBlocking={toggleBlocking}
           onToggleDelayMode={toggleDelayMode}
           onOpenDrawer={() => setDrawerOpen(true)}
-          onOpenSettings={() => navigate('settings')}
-          settingsLocked={settingsLocked}
+          onMessage={setMessage}
         />
       )}
 

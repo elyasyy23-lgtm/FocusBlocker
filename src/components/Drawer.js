@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
+  Modal,
   PanResponder,
   Pressable,
   ScrollView,
@@ -17,13 +18,17 @@ const PANEL_WIDTH = Math.min(320, Math.round(SCREEN_WIDTH * 0.82));
 const CLOSE_THRESHOLD = PANEL_WIDTH * 0.3;
 
 /**
- * Side drawer (v1.4.5) — one hamburger opens everything.
+ * Side drawer (v1.4.5, Modal-based since v1.4.7) — one hamburger opens everything.
  *
  * Built on React Native's own `Animated` + `PanResponder`: no navigation
  * library, no reanimated, nothing that needs a fresh native build to compile.
  * It slides from the left in English and from the right in Persian (the same
  * side as the hamburger), over a dimming backdrop. Tap the backdrop, swipe the
  * panel back, or pick an item to close it.
+ *
+ * v1.4.7: rendered inside a transparent `Modal`. The previous sibling-View
+ * overlay could lose the tap on some Android devices, so the hamburger looked
+ * dead; a Modal always sits in its own window above the screen.
  *
  * Settings is CLOSED while Protection is ON: its row shows a lock and tapping
  * it reports the reason (`onBlockedSettings`) instead of navigating.
@@ -44,6 +49,13 @@ export default function Drawer({
   const isRtl = lang === 'fa';
   const align = textAlign(lang);
 
+  // v1.4.7: the drawer lives inside a native Modal. The v1.4.5 overlay was a
+  // sibling View with zIndex, and on some Android builds the backdrop/scroll
+  // ancestor kept the touch, so tapping ☰ appeared to do nothing. A Modal is
+  // its own window: always on top, always receives taps — and the hardware
+  // Back button closes it through onRequestClose.
+  const [mounted, setMounted] = useState(false);
+
   // Closed position: off-screen to the side the panel lives on.
   const closedX = isRtl ? PANEL_WIDTH : -PANEL_WIDTH;
   const translateX = useRef(new Animated.Value(closedX)).current;
@@ -56,7 +68,12 @@ export default function Drawer({
   closeRef.current = onClose;
 
   useEffect(() => {
-    Animated.parallel([
+    if (open) setMounted(true);
+  }, [open]);
+
+  useEffect(() => {
+    if (!mounted) return undefined;
+    const animation = Animated.parallel([
       Animated.timing(translateX, {
         toValue: open ? 0 : closedX,
         duration: open ? 220 : 180,
@@ -67,9 +84,14 @@ export default function Drawer({
         duration: 220,
         useNativeDriver: true,
       }),
-    ]).start();
+    ]);
+    animation.start(({ finished }) => {
+      // Keep the Modal mounted until the slide-out finishes, then drop it.
+      if (finished && !open) setMounted(false);
+    });
+    return () => animation.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, closedX]);
+  }, [open, closedX, mounted]);
 
   const pan = useRef(
     PanResponder.create({
@@ -153,75 +175,81 @@ export default function Drawer({
   };
 
   return (
-    <View style={styles.host} pointerEvents={open ? 'auto' : 'none'}>
-      <Animated.View style={[styles.backdrop, { opacity: backdrop }]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('Close')}
-          style={StyleSheet.absoluteFill}
-          onPress={onClose}
-        />
-      </Animated.View>
+    <Modal
+      visible={mounted}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={onClose}>
+      <View style={styles.host}>
+        <Animated.View style={[styles.backdrop, { opacity: backdrop }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('Close')}
+            style={StyleSheet.absoluteFill}
+            onPress={onClose}
+          />
+        </Animated.View>
 
-      <Animated.View
-        {...pan.panHandlers}
-        style={[
-          styles.panel,
-          isRtl ? styles.panelRight : styles.panelLeft,
-          { transform: [{ translateX }] },
-        ]}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={[styles.brandRow, isRtl && styles.rowRtl]}>
-            <View style={styles.brandMark}>
-              <Text style={styles.brandMarkText}>T</Text>
+        <Animated.View
+          {...pan.panHandlers}
+          style={[
+            styles.panel,
+            isRtl ? styles.panelRight : styles.panelLeft,
+            { transform: [{ translateX }] },
+          ]}>
+          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <View style={[styles.brandRow, isRtl && styles.rowRtl]}>
+              <View style={styles.brandMark}>
+                <Text style={styles.brandMarkText}>T</Text>
+              </View>
+              <View style={styles.brandText}>
+                <Text style={[styles.brand, { textAlign: align }]}>{t('Tavakkol')}</Text>
+                <Text style={[styles.brandSub, { textAlign: align }]}>{t('Personal guard')}</Text>
+              </View>
             </View>
-            <View style={styles.brandText}>
-              <Text style={[styles.brand, { textAlign: align }]}>{t('Tavakkol')}</Text>
-              <Text style={[styles.brandSub, { textAlign: align }]}>{t('Personal guard')}</Text>
+
+            <View style={styles.group}>
+              {routes.map((route) =>
+                renderRow({
+                  key: route.name,
+                  label: route.label,
+                  glyph: route.glyph,
+                  locked: route.locked,
+                  active: currentScreen === route.name,
+                  onPress: () => pickRoute(route),
+                })
+              )}
             </View>
-          </View>
 
-          <View style={styles.group}>
-            {routes.map((route) =>
-              renderRow({
-                key: route.name,
-                label: route.label,
-                glyph: route.glyph,
-                locked: route.locked,
-                active: currentScreen === route.name,
-                onPress: () => pickRoute(route),
-              })
-            )}
-          </View>
+            <View style={styles.divider} />
 
-          <View style={styles.divider} />
+            <View style={styles.group}>
+              {actions.map((action) =>
+                renderRow({
+                  key: action.key,
+                  label: action.label,
+                  glyph: action.glyph,
+                  active: false,
+                  onPress: () => {
+                    onClose();
+                    if (action.onPress) action.onPress();
+                  },
+                })
+              )}
+            </View>
 
-          <View style={styles.group}>
-            {actions.map((action) =>
-              renderRow({
-                key: action.key,
-                label: action.label,
-                glyph: action.glyph,
-                active: false,
-                onPress: () => {
-                  onClose();
-                  if (action.onPress) action.onPress();
-                },
-              })
-            )}
-          </View>
-
-          <Text style={[styles.version, { textAlign: align }]}>{VERSION_LABEL}</Text>
-        </ScrollView>
-      </Animated.View>
-    </View>
+            <Text style={[styles.version, { textAlign: align }]}>{VERSION_LABEL}</Text>
+          </ScrollView>
+        </Animated.View>
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   host: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 40,
+    flex: 1,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
