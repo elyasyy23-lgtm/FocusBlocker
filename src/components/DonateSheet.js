@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from 'react';
-import { Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as FocusGuard from '../../modules/focus-guard';
 import { ActionButton } from './ui';
@@ -7,15 +7,37 @@ import { COLORS, textAlign } from '../theme';
 import { DONATION_NETWORK, DONATION_WALLET, DONATION_ZARINPAL_URL } from '../defaults';
 
 /**
- * Support Us sheet (v1.4.5) — a drawer action, not a Settings section.
+ * Support Us sheet (v1.4.5, two-option layout since v1.4.8).
  *
- * Two routes: inside Iran (ZarinPal) and outside Iran (crypto wallet). Both
- * destinations come from `src/defaults.js`; an empty value shows an honest
- * "not set yet" line rather than a placeholder address.
+ * A drawer action, not a Settings section. It shows BOTH routes at once instead
+ * of asking the supporter to pick a region first:
+ *   1. inside Iran  → the ZarinPal payment page (owner's link),
+ *   2. outside Iran → the USDT (TRC20) address with a Copy button.
+ *
+ * Both destinations come from `src/defaults.js`. An empty / placeholder value
+ * shows an honest "not set yet" line instead of opening somewhere the owner
+ * never approved.
  */
-export default function DonateSheet({ visible, mode, onClose, t, lang, onMessage }) {
+
+/**
+ * The owner's ZarinPal link starts as `https://zarinp.al/yourlink`. While it
+ * still contains the placeholder word, tapping the button must NOT open a dead
+ * page — it explains that the link is not set yet. Replace the constant in
+ * `src/defaults.js` and the button goes live with no code change here.
+ */
+function zarinpalLinkReady() {
+  if (!DONATION_ZARINPAL_URL) return false;
+  return !/yourlink/i.test(DONATION_ZARINPAL_URL);
+}
+
+export default function DonateSheet({ visible, onClose, t, lang, onMessage }) {
   const align = textAlign(lang);
   const [copied, setCopied] = useState(false);
+
+  // A fresh sheet never shows "Copied" from a previous visit.
+  useEffect(() => {
+    if (!visible) setCopied(false);
+  }, [visible]);
 
   const close = useCallback(() => {
     setCopied(false);
@@ -23,7 +45,10 @@ export default function DonateSheet({ visible, mode, onClose, t, lang, onMessage
   }, [onClose]);
 
   const openZarinpal = useCallback(async () => {
-    if (!DONATION_ZARINPAL_URL) return;
+    if (!zarinpalLinkReady()) {
+      onMessage(t('The domestic payment link is not set yet.'));
+      return;
+    }
     const opened = await FocusGuard.openUrl(DONATION_ZARINPAL_URL);
     if (!opened) {
       try {
@@ -35,6 +60,10 @@ export default function DonateSheet({ visible, mode, onClose, t, lang, onMessage
   }, [onMessage, t]);
 
   const copyWallet = useCallback(async () => {
+    if (!DONATION_WALLET) {
+      onMessage(t('The donation wallet address is not set yet.'));
+      return;
+    }
     try {
       await Clipboard.setStringAsync(DONATION_WALLET);
       setCopied(true);
@@ -47,40 +76,62 @@ export default function DonateSheet({ visible, mode, onClose, t, lang, onMessage
     <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <Text style={[styles.title, { textAlign: align }]}>
-            {mode === 'iran' ? t('Support from inside Iran') : t('Support from outside Iran')}
-          </Text>
-          <Text style={[styles.body, { textAlign: align }]}>
-            {t(
-              'Thank you for supporting Tavakkol with your donation. Every contribution, however small, keeps us going.'
-            )}
-          </Text>
-
-          {mode === 'iran' ? (
-            DONATION_ZARINPAL_URL ? (
-              <ActionButton label={t('Open the payment page')} onPress={openZarinpal} />
-            ) : (
-              <Text style={[styles.body, { textAlign: align }]}>
-                {t('The domestic payment link is not set yet.')}
-              </Text>
-            )
-          ) : DONATION_WALLET ? (
-            <>
-              <Text style={[styles.network, { textAlign: align }]}>{DONATION_NETWORK}</Text>
-              <Text selectable style={[styles.wallet, { textAlign: align }]}>
-                {DONATION_WALLET}
-              </Text>
-              <ActionButton
-                label={copied ? t('Copied') : t('Copy wallet address')}
-                onPress={copyWallet}
-                saved={copied}
-              />
-            </>
-          ) : (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}>
+            <Text style={[styles.title, { textAlign: align }]}>{t('Support Us')}</Text>
             <Text style={[styles.body, { textAlign: align }]}>
-              {t('The donation wallet address is not set yet.')}
+              {t(
+                'Thank you for supporting Tavakkol with your donation. Every contribution, however small, keeps us going.'
+              )}
             </Text>
-          )}
+
+            {/* ---------------------------------------------- inside Iran */}
+            <View style={styles.option}>
+              <View style={[styles.optionHead, lang === 'fa' && styles.optionHeadRtl]}>
+                <Text style={styles.optionGlyph}>🏦</Text>
+                <Text style={[styles.optionTitle, { textAlign: align }]}>
+                  {t('Support from inside Iran')}
+                </Text>
+              </View>
+              <Text style={[styles.optionSub, { textAlign: align }]}>
+                {t('Secure payment with ZarinPal.')}
+              </Text>
+              <ActionButton label={t('Open the payment page')} onPress={openZarinpal} />
+            </View>
+
+            {/* ----------------------------------------- outside Iran */}
+            <View style={styles.option}>
+              <View style={[styles.optionHead, lang === 'fa' && styles.optionHeadRtl]}>
+                <Text style={styles.optionGlyph}>🪙</Text>
+                <Text style={[styles.optionTitle, { textAlign: align }]}>
+                  {t('Support from outside Iran')}
+                </Text>
+              </View>
+              <Text style={[styles.optionSub, { textAlign: align }]}>
+                {t('Send USDT on the TRC20 network.')}
+              </Text>
+
+              {DONATION_WALLET ? (
+                <>
+                  <Text style={[styles.network, { textAlign: align }]}>{DONATION_NETWORK}</Text>
+                  <Text selectable style={[styles.wallet, { textAlign: align }]}>
+                    {DONATION_WALLET}
+                  </Text>
+                  <ActionButton
+                    label={copied ? t('Copied') : t('Copy wallet address')}
+                    onPress={copyWallet}
+                    saved={copied}
+                    variant="secondary"
+                  />
+                </>
+              ) : (
+                <Text style={[styles.body, { textAlign: align }]}>
+                  {t('The donation wallet address is not set yet.')}
+                </Text>
+              )}
+            </View>
+          </ScrollView>
 
           <Pressable
             accessibilityRole="button"
@@ -104,11 +155,15 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
+    maxHeight: '88%',
     backgroundColor: '#101820',
     borderRadius: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
     padding: 18,
+  },
+  scrollContent: {
+    paddingBottom: 4,
   },
   title: {
     color: COLORS.text,
@@ -122,6 +177,38 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginBottom: 10,
   },
+  option: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surfaceAlt,
+    padding: 14,
+    marginTop: 12,
+  },
+  optionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  optionHeadRtl: {
+    flexDirection: 'row-reverse',
+  },
+  optionGlyph: {
+    fontSize: 18,
+  },
+  optionTitle: {
+    flex: 1,
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  optionSub: {
+    color: COLORS.muted,
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 10,
+  },
   network: {
     color: COLORS.accent,
     fontSize: 12,
@@ -133,7 +220,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 14,
     lineHeight: 21,
-    backgroundColor: COLORS.surfaceAlt,
+    backgroundColor: 'rgba(12,18,24,0.9)',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,

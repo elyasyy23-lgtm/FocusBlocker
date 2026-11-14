@@ -1,7 +1,7 @@
-# TASK — Tavakkol v1.4.7 (drawer fix · debug log on Home · Help rewrite)
+# TASK — Tavakkol v1.4.8 (two-route Support Us sheet)
 
-CURRENT RELEASE TARGET = **v1.4.7** (versionCode 18). See the v1.4.7 section at the bottom.
-v1.4.6 SHIPPED (commit cde2147, tag v1.4.6). (The v1.4.0 goal below is the historical first
+CURRENT RELEASE TARGET = **v1.4.8** (versionCode 19). See the v1.4.8 section at the bottom.
+v1.4.7 SHIPPED (commit 932b526, tag v1.4.7). (The v1.4.0 goal below is the historical first
 task that created this file.)
 
 GOAL (owner's list, 2026-11-13):
@@ -269,18 +269,61 @@ Steps:
 - [x] Verify: `npm run verify` green (647 modules, background_music.mp3 in assets);
       `npm run prebuild:android` → versionName 1.4.7 / versionCode 18, app_name Tavakkol;
       `android/` + `dist/` wiped.
-- [ ] Push + tag (owner runs the handover block below) → CI main run + tag run must both be green.
+- [x] SHIPPED 2026-11-14: commit `932b526` → main + tag `v1.4.7`; CI runs 43567184620 (main) +
+      43567187479 (tag) both SUCCESS → Release `Tavakkol v1.4.7`, `Tavakkol-release.apk` 35.3 MB
+      (37,016,643 bytes) live at
+      https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v1.4.7/Tavakkol-release.apk
+      (`releases/latest/...` 200 → v1.4.7).
 - [ ] Owner on-device check: ☰ opens the drawer and slides correctly (RTL/fa too), drawer →
       تنظیمات reaches Settings, Settings is locked while Protection is ON, Debug Log sits at the
       bottom of Home, installing v1.4.7 over v1.4.6 turns Protection AND Delay Mode off with the
       notice, Help shows 7 steps + the VPN note.
 
+## v1.4.8 — Support Us sheet shows BOTH routes (inside Iran + outside Iran) (2026-11-14)
+
+Owner's list:
+1. Tapping «حمایت از ما» in the drawer opens ONE sheet with two clear options:
+   a) «حمایت از حامیان داخل ایران» → ZarinPal link (placeholder `https://zarinp.al/yourlink`),
+   b) «حمایت از حامیان خارج از کشور» → USDT (TRC20) `TANP1ibS4DsF2C1p1rBGAZ5MrGZyS5sUmU` + Copy.
+2. Same clean look as the old DonateSheet; keep the owner's Persian thank-you text.
+3. Bump 1.4.8 + hand over the git commands.
+
+Decisions:
+- No region "mode" any more: both blocks are visible at once (the old sheet opened one route at a
+  time and the drawer hard-wired `openDonate('iran')`, so the crypto route was unreachable).
+  `App.js` state is a plain `donateOpen` boolean; `Drawer.onSupport={openDonate}`.
+- The ZarinPal constant now holds the owner's agreed placeholder, and `zarinpalLinkReady()` in
+  `DonateSheet.js` refuses to open any URL still containing `yourlink` — the button stays visible
+  and shows «لینک پرداخت داخلی هنوز تنظیم نشده است». Paste the real link in `src/defaults.js` and
+  it goes live with no other change (still never invent a destination).
+- Card is `maxHeight: 88%` + inner `ScrollView` so both blocks fit on short screens; Close row
+  stays pinned under the scroll area. Wallet text is `selectable`; Copy uses expo-clipboard and
+  flips the button to green «کپی شد».
+
+Steps:
+- [x] `src/components/DonateSheet.js` rewritten: title «حمایت از ما»، owner's thank-you paragraph،
+      two bordered option cards (🏦 ZarinPal / 🪙 USDT TRC20), wallet box + Copy, Close.
+- [x] `src/defaults.js`: `DONATION_ZARINPAL_URL = 'https://zarinp.al/yourlink'` + comment saying
+      exactly where to paste the real link; wallet unchanged (validated address).
+- [x] `App.js`: `donateMode` → `donateOpen` boolean, `openDonate()` takes no argument, Drawer
+      `onSupport={openDonate}`, DonateSheet props lose `mode`.
+- [x] i18n: 2 new keys ('Secure payment with ZarinPal.', 'Send USDT on the TRC20 network.') →
+      226 UI strings / 277 entries.
+- [x] Version 1.4.8 / versionCode 19 (app.json, package.json, package-lock, buildInfo),
+      `version.json` → 1.4.8, `index.html` → ۱.۴.۸.
+- [x] Verify: `npm run verify` green (bundle contains the placeholder link, the wallet address and
+      the new strings); `npm run prebuild:android` → versionName 1.4.8 / versionCode 19;
+      `android/` + `dist/` wiped.
+- [ ] Push + tag (owner runs the handover block below) → both CI runs green.
+- [ ] Owner: replace `DONATION_ZARINPAL_URL` with the real ZarinPal link, then on-device check the
+      sheet in fa + en (both cards visible, Copy turns green, Close works, Back closes).
+
 ## Handover commands (owner)
 
 ```bash
 cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
-git add -A && git commit -m "v1.4.7: drawer via Modal, debug log on Home, update resets both switches, Help rewrite"
+git add -A && git commit -m "v1.4.8: Support Us sheet with inside-Iran and outside-Iran options"
 git fetch origin && git rebase origin/main
 git push origin main
-git tag v1.4.7 && git push origin v1.4.7
+git tag v1.4.8 && git push origin v1.4.8
 ```

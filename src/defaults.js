@@ -44,9 +44,12 @@ export const DONATION_NETWORK = 'USDT (TRC20)';
 
 /**
  * v1.3.2 — domestic (inside Iran) donation route: the owner's ZarinPal payment
- * link. Same rule as the wallet: never invent a destination. Intentionally
- * empty (owner decision 2026-11-13) — the "Support from inside Iran" button
- * opens a sheet that says the link is not set yet, instead of sending money
- * somewhere the owner never approved.
+ * link. Same rule as the wallet: never invent a destination.
+ *
+ * v1.4.8 — the owner asked for the button to exist now, so this holds the
+ * agreed PLACEHOLDER. `DonateSheet` detects the word "yourlink" and refuses to
+ * open it: the button stays visible and explains that the link is not set yet.
+ * PASTE THE OWNER'S REAL LINK HERE (e.g. https://zarinp.al/1234567) and the
+ * button goes live — no other change needed.
  */
-export const DONATION_ZARINPAL_URL = '';
+export const DONATION_ZARINPAL_URL = 'https://zarinp.al/yourlink';

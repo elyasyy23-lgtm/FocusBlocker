@@ -590,3 +590,27 @@ the keyword/domain boxes stay read-only.
   `version.json` latestVersion 1.4.7; `index.html` labels ۱.۴.۷.
 - Verified: `npm run verify` green (647 modules); `npm run prebuild:android` → versionName 1.4.7 /
   versionCode 18 / app_name Tavakkol; `android/` + `dist/` wiped. Kotlin compiles only in CI.
+- SHIPPED 2026-11-14: commit `932b526` → main + tag `v1.4.7`; CI runs 43567184620 (main) +
+  43567187479 (tag) both SUCCESS → Release `Tavakkol v1.4.7`, `Tavakkol-release.apk` 35.3 MB live
+  at https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v1.4.7/Tavakkol-release.apk
+  (`releases/latest/...` 200). Pending owner on-device check.
+
+## v1.4.8 — Support Us sheet shows BOTH donation routes at once (2026-11-14)
+
+- `src/components/DonateSheet.js` no longer takes a `mode`: one sheet, two bordered option cards —
+  🏦 «حمایت از حامیان داخل ایران» (ZarinPal payment page) and 🪙 «حمایت از حامیان خارج از کشور»
+  (USDT TRC20 address + Copy). Owner's thank-you paragraph stays at the top; Close row is pinned
+  under an inner `ScrollView` (card `maxHeight: 88%`) so both cards fit short screens.
+- `App.js`: `donateMode` → `donateOpen` boolean; `openDonate()` no argument; the drawer action is
+  `onSupport={openDonate}` (the old `openDonate('iran')` made the crypto route unreachable).
+- `src/defaults.js`: `DONATION_ZARINPAL_URL = 'https://zarinp.al/yourlink'` (agreed placeholder) and
+  `DonateSheet.zarinpalLinkReady()` refuses to open a URL containing `yourlink` → the button stays
+  visible and shows «لینک پرداخت داخلی هنوز تنظیم نشده است» (never send money to an unapproved
+  destination). Replace the constant with the real `https://zarinp.al/<id>` to go live.
+- Wallet `TANP1ibS4DsF2C1p1rBGAZ5MrGZyS5sUmU` / `USDT (TRC20)` unchanged; Copy = expo-clipboard,
+  button flips to green «کپی شد», state resets when the sheet closes.
+- i18n: 2 new keys → 226 UI strings / 277 entries.
+- Version 1.4.8 / versionCode 19 (app.json, package.json, package-lock, buildInfo);
+  `version.json` 1.4.8; `index.html` ۱.۴.۸.
+- Verified: `npm run verify` green (bundle has the placeholder link, wallet and new strings);
+  `npm run prebuild:android` → 1.4.8 (19); `android/` + `dist/` wiped.

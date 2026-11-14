@@ -105,7 +105,8 @@ export default function App() {
   // v1.4.5: the side drawer.
   const [drawerOpen, setDrawerOpen] = useState(false);
   // v1.4.5: Support Us is a drawer action now, so its sheet lives up here.
-  const [donateMode, setDonateMode] = useState(null);
+  // v1.4.8: the sheet shows BOTH routes at once, so there is no "mode" any more.
+  const [donateOpen, setDonateOpen] = useState(false);
 
   // v1.4.2 Delay Mode: the challenge lives behind a modal; nothing is written
   // to the native store until the typed text matches exactly. v1.4.5: the same
@@ -612,7 +613,7 @@ export default function App() {
     }
   }, [t]);
 
-  const openDonate = useCallback((mode) => setDonateMode(mode), []);
+  const openDonate = useCallback(() => setDonateOpen(true), []);
 
   const navigate = useCallback(
     (name) => {
@@ -757,13 +758,12 @@ export default function App() {
         onBlockedSettings={blockedSettings}
         onShare={shareApp}
         onContact={contactDeveloper}
-        onSupport={() => openDonate('iran')}
+        onSupport={openDonate}
       />
 
       <DonateSheet
-        visible={donateMode !== null}
-        mode={donateMode}
-        onClose={() => setDonateMode(null)}
+        visible={donateOpen}
+        onClose={() => setDonateOpen(false)}
         t={t}
         lang={lang}
         onMessage={setMessage}

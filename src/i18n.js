@@ -232,6 +232,9 @@ const FA = {
     'از اینکه با حمایت خود، به ادامه توسعه برنامه توکل کمک می‌کنید سپاسگزاریم. هر کمک شما، هر چقدر هم کوچک، باعث دلگرمی ماست.',
   'Copy wallet address': 'کپی کردن آدرس کیف پول',
   Copied: 'کپی شد',
+  // v1.4.8 — the Support Us sheet shows both routes at once.
+  'Secure payment with ZarinPal.': 'پرداخت امن با زرین‌پال.',
+  'Send USDT on the TRC20 network.': 'ارسال تتر (USDT) روی شبکهٔ TRC20.',
 
   // ------------------------------------------- v1.3.1: strict lock / PIN
   'Tavakkol is locked': 'برنامه توکل قفل است',
