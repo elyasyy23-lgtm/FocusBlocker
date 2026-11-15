@@ -699,9 +699,11 @@ service check + 3 s polling), flipping to «متوقف» immediately when the gu
       `watchdogForeground` / two `setInterval(...,3000)`), prebuild 1.4.20 (30), app_name Tavakkol,
       manifests parse, index.html JS+JSON-LD parse, tag balance OK, Kotlin balance 0/0, android/ +
       dist/ wiped.
-- [ ] NOT pushed — owner runs the push/tag.
+- [x] SHIPPED 2026-11-15: commit `f4ed478` → main + tag `v1.4.20`; CI 43698767433 (main) +
+      43698789262 (tag) both SUCCESS → Release `Tavakkol v1.4.20` live, `Tavakkol-release.apk`
+      37,029,387 bytes (`releases/latest/...` 302 → v1.4.20, Pages `version.json` = 1.4.20).
 
-NOW: code complete + verified; waiting for the owner to push + tag v1.4.20.
+NOW: SHIPPED. Pending owner on-device check.
 
 ```bash
 cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
@@ -710,3 +712,41 @@ git fetch origin && git rebase origin/main
 git push origin main
 git tag v1.4.20 && git push origin v1.4.20
 ```
+
+---
+
+# v1.4.21 — APK signed with v1 + v2 + v3 schemes (2026-11-15)
+
+GOAL (owner): the downloaded v1.4.20 APK fails to install on the phone with «Package appears to be
+invalid». Triage proved the artifact is valid and the signing key never changed (same cert SHA-256
+on v1.4.9 / v1.4.16 / v1.4.19 / v1.4.20). Owner chose the hardened rebuild: sign the APK with
+**v1 + v2 + v3** schemes (the documented fix for OEM installers that reject v2-only APKs), ship it,
+and hand over the exact SHA-256 so the owner can verify the download.
+
+- [x] Triage (artifact side, all clean): cert digest identical across releases → key unchanged;
+      v2-only signature; no `testOnly`/`debuggable`; minSdk 24 / targetSdk 36 / compileSdk 37;
+      arm64-v8a + armeabi-v7a; `resources.arsc` stored + 4-aligned; native libs 16 KB-aligned;
+      `unzip -t` + `zipalign` clean; `releases/latest/...` byte-identical to the tag asset.
+- [x] `plugins/withSigningSchemes.js` (new): `withAppBuildGradle` injects `enableV1Signing true`,
+      `enableV2Signing true`, `enableV3Signing true` after `keyPassword 'android'` in
+      `signingConfigs.debug` (the block the `release` buildType reuses). Idempotent + anchor guard.
+- [x] `app.json` → `plugins: ["expo-audio", "./plugins/withSigningSchemes"]`; version 1.4.21 /
+      versionCode 31.
+- [x] Version 1.4.21 / code 31 everywhere (app.json, package.json, package-lock ×2, buildInfo),
+      `version.json` 1.4.21, `index.html` ۱.۴.۲۱ (fa ×3 + en ×3).
+- [x] Verified: `npx expo prebuild --platform android --clean --no-install` shows the three flags in
+      `signingConfigs.debug` + versionCode 31 / versionName 1.4.21; check-i18n OK (244/304);
+      `npm run verify` green (1.2 MB bundle); `android/` + `dist/` wiped. Kotlin/AGP compile in CI.
+- [ ] Push main + tag v1.4.21, watch BOTH CI runs to green.
+- [ ] Download the release APK → `apksigner verify` must report v1 + v2 + v3 true → report the
+      SHA-256 to the owner so they can verify their download is intact.
+
+```bash
+cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
+git add -A && git commit -m "v1.4.21: sign APK with v1+v2+v3 schemes (config plugin)"
+git fetch origin && git rebase origin/main
+git push origin main
+git tag v1.4.21 && git push origin v1.4.21
+```
+
+NOW: code complete + verified; pushing + tagging, then CI watch and the SHA-256 hand-off.

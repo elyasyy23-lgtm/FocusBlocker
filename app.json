@@ -2,7 +2,7 @@
   "expo": {
     "name": "Tavakkol",
     "slug": "focusblocker",
-    "version": "1.4.20",
+    "version": "1.4.21",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "com.focusblocker.app",
-      "versionCode": 30,
+      "versionCode": 31,
       "adaptiveIcon": {
         "backgroundColor": "#0B0F14",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -38,7 +38,8 @@
     },
     "owner": "elyasyass",
     "plugins": [
-      "expo-audio"
+      "expo-audio",
+      "./plugins/withSigningSchemes"
     ]
   }
 }
