@@ -422,6 +422,12 @@ class FocusGuardModule : Module() {
         if (heartbeat <= 0L) -1.0 else (System.currentTimeMillis() - heartbeat).toDouble()
       )
       health.put("batteryOptimizationIgnored", isBatteryOptimizationIgnored(ctx))
+      // v1.4.19 boot test: `bootAt` is when THIS device booted (derived from
+      // elapsedRealtime), `bootBroadcastAt` is the boot we were actually told
+      // about. JS compares the two — equal boot session means the ROM started
+      // Tavakkol by itself; an older stamp means it did not.
+      health.put("bootAt", FocusGuardStore.currentBootAt().toDouble())
+      health.put("bootBroadcastAt", FocusGuardStore.bootBroadcastAt(ctx).toDouble())
       health.put("sdkInt", Build.VERSION.SDK_INT)
       health.put("manufacturer", Build.MANUFACTURER ?: "")
       health.put("brand", Build.BRAND ?: "")

@@ -39,5 +39,15 @@ class GuardWakeupReceiver : BroadcastReceiver() {
     GuardScheduler.scheduleAll(context)
     GuardScheduler.maybeLogWakeup(context, "watchdog_wakeup", source)
     GuardWatchdogService.start(context, source)
+    // v1.4.19 boot test: a REAL boot broadcast (never an alarm tick or an app
+    // update) is the evidence the app reads later — "the system started
+    // Tavakkol after this boot". MIUI/HyperOS only delivers it when the user
+    // allowed autostart, so its absence is exactly the failure we report.
+    if (action == Intent.ACTION_BOOT_COMPLETED ||
+      action == "android.intent.action.QUICKBOOT_POWERON" ||
+      action == "com.htc.intent.action.QUICKBOOT_POWERON"
+    ) {
+      FocusGuardStore.recordBootBroadcast(context)
+    }
   }
 }

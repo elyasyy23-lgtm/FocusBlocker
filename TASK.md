@@ -597,3 +597,81 @@ git fetch origin && git rebase origin/main
 git push origin main
 git tag v1.4.17 && git push origin v1.4.17
 ```
+
+---
+
+# v1.4.18 — Autostart own card + green reminder switch (2026-11-15)
+
+GOAL (owner): modify ONLY the «اجرای خودکار (Xiaomi)» block — never touch «زنده‌نگه‌داشتن»
+(Keep-alive). (1) make it a completely separate card with its own border/background; (2) add a
+green toggle inside the card next to the title; (3) the toggle reflects the real Autostart status
+if readable, else stores the user's own preference; (4) keep the vendor button and the setup text
+inside the new card.
+
+- [x] Move the block OUT of the Keep-alive `<Section>` into a standalone `cardBox` sibling
+      (Keep-alive section otherwise untouched).
+- [x] Green `Switch` on the title row (accent #4ADE80), RTL-aware.
+- [x] Native pref `autostart` (FocusGuardStore) + `getConfig` field + `setAutostart` AsyncFunction
+      + JS `setAutostart` + `EMPTY_CONFIG.autostart`. Android has no API to read the OEM autostart
+      switch → the toggle is an honest user-set reminder.
+- [x] `SettingsScreen`: `autostartOn` state (seeded from config, re-synced), optimistic
+      `toggleAutostart` with revert-on-failure; button + setup text kept inside the card.
+- [x] i18n +3 keys (240 strings / 300 translations).
+- [x] Version 1.4.18 / code 28 (app.json, package.json, package-lock, buildInfo), version.json,
+      index.html ۱.۴.۱۸ (fa ×3 + en ×3).
+- [x] Verified: check-i18n OK, `npm run verify` green (647 modules), prebuild 1.4.18 (28),
+      app_name Tavakkol, manifest parses, android/ + dist/ wiped.
+- [ ] NOT pushed — owner runs the push/tag.
+
+NOW: code complete + verified; waiting for the owner to push + tag v1.4.18.
+
+```bash
+cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
+git add -A && git commit -m "v1.4.18: Autostart own card with a green reminder switch"
+git fetch origin && git rebase origin/main
+git push origin main
+git tag v1.4.18 && git push origin v1.4.18
+```
+
+---
+
+# v1.4.19 — Autostart card: live status pill + boot test, switch removed (2026-11-15)
+
+GOAL (owner): the «اجرای خودکار (Xiaomi)» card stays completely independent; REMOVE the manual
+green toggle; show instead (a) a live status pill exactly like the «وضعیت سرویس» card — green
+«در حال اجرا» / red «متوقف» — driven by the REAL foreground-service status, and (b) a boot-test
+line «سیستم توکل را پس از آخرین ریاستارت خودکار اجرا کرد ✓ [زمان]» or «✗ — اجرای خودکار را روشن
+کنید». Keep the «باز کردن تنظیمات اجرای خودکار» button and the setup text inside the card.
+NOTE: v1.4.18 was never committed, so this single diff ships v1.4.17 → v1.4.19 (the v1.4.18 switch
+is introduced and removed inside the same change; its sibling-card layout is what survives).
+
+- [x] Delete the switch everywhere: `autostartOn`/`autostartBusy`/`toggleAutostart` (SettingsScreen),
+      `KEY_AUTOSTART`/`autostart()`/`setAutostart()` (FocusGuardStore.kt), `config.put("autostart")` +
+      `AsyncFunction("setAutostart")` (FocusGuardModule.kt), `EMPTY_CONFIG.autostart` + the JS
+      `setAutostart()` bridge (index.js), the 3 reminder strings (i18n.js).
+- [x] Live pill from the real foreground service: `StatusPill active={health.foregroundActive}` with
+      `Running`/`Stopped`; SettingsScreen's `getServiceHealth()` read is now polled every 4 s.
+- [x] Boot test (measured, not guessed): `recordBootBroadcast()` on a REAL boot broadcast
+      (BOOT_COMPLETED / QUICKBOOT_POWERON — never an alarm tick or MY_PACKAGE_REPLACED) writes
+      `boot_broadcast_at`; `currentBootAt()` derives the current boot from `elapsedRealtime`;
+      `getServiceHealth` returns `bootAt` + `bootBroadcastAt`; JS compares (10 min back / 60 min
+      forward window) → ✓ with the boot time, or «✗ — اجرای خودکار را روشن کنید», or the honest
+      not-checked-yet state when no boot has ever been seen.
+- [x] `formatClock()` helper in `src/utils/debugLog.js`; `formatNumber(..., lang)` → «۱۲:۳۴» in fa.
+- [x] i18n 241 strings / 301 translations (+4, −3).
+- [x] Version 1.4.19 / code 29 (app.json, package.json, package-lock ×2, buildInfo), version.json,
+      index.html ۱.۴.۱۹ (fa ×3 + en ×3).
+- [x] Verified: check-i18n OK, `npm run verify` green (647 modules, bundle has `bootBroadcastAt` /
+      `bootAt` / `formatClock` / the ✓ line), prebuild 1.4.19 (29), app_name Tavakkol, both manifests
+      parse, Kotlin brace/paren balance 0/0, no stale `autostart` refs, android/ + dist/ wiped.
+- [ ] NOT pushed — owner runs the push/tag.
+
+NOW: code complete + verified; waiting for the owner to push + tag v1.4.19.
+
+```bash
+cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
+git add -A && git commit -m "v1.4.19: Autostart live status pill + boot test (switch removed)"
+git fetch origin && git rebase origin/main
+git push origin main
+git tag v1.4.19 && git push origin v1.4.19
+```

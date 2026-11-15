@@ -351,6 +351,11 @@ export const EMPTY_HEALTH = {
   manufacturer: '',
   brand: '',
   autostartAvailable: false,
+  // v1.4.19 boot test: `bootAt` = when this device booted, `bootBroadcastAt` =
+  // the boot the system actually announced to us (0 = never). JS compares them
+  // to decide whether the ROM started Tavakkol by itself after the last restart.
+  bootAt: 0,
+  bootBroadcastAt: 0,
 };
 
 function parseJson(raw, fallback) {

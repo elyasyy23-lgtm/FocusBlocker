@@ -119,6 +119,16 @@ const FA = {
   // ------------------------------------------------------------ health text
   // v1.4.17: title of the Autostart card (the manufacturer is filled in at runtime).
   'Autostart ({{manufacturer}})': 'اجرای خودکار ({{manufacturer}})',
+  // v1.4.19: the Autostart card reports two MEASURED things — the live
+  // foreground-service pill and the boot-test result (did the system start
+  // Tavakkol by itself after the last restart?).
+  'The background service that keeps the guard alive':
+    'سرویس پس‌زمینه‌ای که محافظ را زنده نگه می‌دارد',
+  'The system started Tavakkol automatically after the last restart ✓ {{time}}':
+    'سیستم توکل را پس از آخرین ری‌استارت خودکار اجرا کرد ✓ {{time}}',
+  '✗ — turn Autostart on': '✗ — اجرای خودکار را روشن کنید',
+  'Not checked yet — the result appears after the next restart.':
+    'هنوز بررسی نشده — نتیجه پس از ری‌استارت بعدی نمایش داده می‌شود.',
   'Service {{state}}': 'سرویس {{state}}',
   running: 'در حال اجرا',
   'NOT running': 'اجرا نمی‌شود',

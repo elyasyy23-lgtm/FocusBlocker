@@ -1043,3 +1043,81 @@ bytes live at https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v
 owner on-device check: update prompt downloads with NO "Download file again?" warning, the Autostart
 card matches the Service Status card, and the Home Protection card shows the stats line + a dotted
 service-status line + the Protection-only switch caption.
+
+## v1.4.18 — Autostart as its own card + green reminder switch (2026-11-15)
+
+Owner request: ONLY the «اجرای خودکار (Xiaomi)» block changes; the «زنده‌نگه‌داشتن» (Keep-alive)
+section must not be touched.
+
+1. **Completely separate card.** The Autostart block was nested INSIDE the Keep-alive `<Section>`
+   (v1.4.17's `cardBox`). It is now a sibling — a standalone `<View style={styles.cardBox}>`
+   placed right after the Keep-alive `</Section>` and before the Stats section — so it has its own
+   border/background and no longer reads as part of Keep-alive. The Keep-alive section itself is
+   byte-identical (watchdog status row + «Start keep-alive now»).
+2. **Green switch inside the card**, on the same row as the title (title + hint on the left,
+   `Switch` on the right; `styles.statusRow` + `isRtl && styles.headerRtl` for RTL). Same visual
+   contract as every other switch: `trackColor {false: COLORS.border, true: COLORS.accentSoft}`,
+   `thumbColor = COLORS.accent (#4ADE80)` when on.
+3. **Honest status — a user preference, not a system read.** Android exposes NO API for an OEM
+   autostart (MIUI/HyperOS) switch, so the toggle stores the user's own marking:
+   - `FocusGuardStore.kt`: `KEY_AUTOSTART = "autostart"` + `autostart()` / `setAutostart()`
+     (SharedPreferences, survives restarts).
+   - `FocusGuardModule.kt`: `getConfig` returns `autostart`; new `AsyncFunction("setAutostart")`.
+   - `modules/focus-guard/index.js`: `EMPTY_CONFIG.autostart = false` + `setAutostart(allowed)`.
+   - `SettingsScreen.js`: `autostartOn` state seeded from `config.autostart` (a `useEffect` re-syncs
+     on every config refresh), `toggleAutostart(next)` moves the switch OPTIMISTICALLY, persists,
+     calls `onRefresh()`, and reverts + messages on failure. Hint text says it is the user's own
+     marking («On — you marked Tavakkol as allowed to start itself» / «Off — turn this on after you
+     allow Tavakkol on the next screen»).
+4. The button («باز کردن تنظیمات اجرای خودکار ({{manufacturer}})») and the long MIUI setup text
+   stay inside the same card, below the switch row.
+
+- i18n 240 strings / 300 translations (+3: the two switch hints, the save-failure message).
+- Version 1.4.18 / versionCode 28 (app.json, package.json, package-lock, buildInfo),
+  `version.json` 1.4.18, `index.html` ۱.۴.۱۸ (fa ×3 + en ×3).
+- Verified: check-i18n OK (240/300); `npm run verify` green (647 modules, 1.2 MB — bundle contains
+  `setAutostart` + the new hint strings); `npm run prebuild:android` → versionName 1.4.18 /
+  versionCode 28, app_name Tavakkol; module manifest parses; Kotlin brace/paren balance 0/0;
+  `android/` + `dist/` wiped. Kotlin compiles only in CI.
+
+## v1.4.19 — Autostart card: measured status instead of a hand-set switch (2026-11-15)
+
+Owner request: make the «اجرای خودکار (Xiaomi)» card fully independent, REMOVE the manual green
+toggle, and show two MEASURED things — a live foreground-service pill exactly like the
+«وضعیت سرویس» card, plus a boot-test line proving whether the system started Tavakkol by itself
+after the last restart. The vendor button and the setup text stay. **v1.4.18 was never committed**,
+so this release ships v1.4.17 → v1.4.19 in one go (the v1.4.18 switch is introduced and removed
+inside the same diff — the sibling-card layout from v1.4.18 is what survives).
+
+- **The switch is gone**: `autostartOn` / `autostartBusy` / `toggleAutostart` deleted from
+  `SettingsScreen.js`; `KEY_AUTOSTART` + `autostart()` / `setAutostart()` deleted from
+  `FocusGuardStore.kt`; `config.put("autostart", …)` + `AsyncFunction("setAutostart")` deleted from
+  `FocusGuardModule.kt`; `EMPTY_CONFIG.autostart` + the `setAutostart()` bridge deleted from
+  `modules/focus-guard/index.js`; the 3 reminder strings deleted from `src/i18n.js`.
+- **Live pill** (real foreground service, not a preference): `StatusPill active={Boolean(health &&
+  health.foregroundActive)}` with `Running` / `Stopped` — the same labels as the Service Status
+  card. `SettingsScreen`'s health read is now POLLED every 4 s (was mount-only), so the pill and the
+  boot line stay live while the screen is open.
+- **Boot test — measured, not guessed.** Android has no API to read an OEM autostart toggle, so the
+  app records EVIDENCE: `FocusGuardStore.recordBootBroadcast()` stamps `boot_broadcast_at` whenever
+  `GuardWakeupReceiver` receives a REAL boot broadcast (`BOOT_COMPLETED` / `QUICKBOOT_POWERON` —
+  never an alarm tick or `MY_PACKAGE_REPLACED`). `FocusGuardStore.currentBootAt()` derives the
+  current boot's wall-clock time from `elapsedRealtime` (no permission, no receiver).
+  `getServiceHealth` returns `bootAt` + `bootBroadcastAt`; JS compares them: same boot session →
+  «سیستم توکل را پس از آخرین ریاستارت خودکار اجرا کرد ✓ {{time}}» (green), an older stamp →
+  «✗ — اجرای خودکار را روشن کنید» (red), never seen a boot → «هنوز بررسی نشده — نتیجه پس از
+  ریاستارت بعدی نمایش داده می‌شود.» (muted). Window: 10 min back / 60 min forward (MIUI can deliver
+  the boot broadcast minutes late and a clock correction shifts `bootAt`).
+  Honest limit: on a ROM that blocks autostart the broadcast simply never arrives — which IS the
+  failure the card reports; nothing is invented.
+- `src/utils/debugLog.js`: new `formatClock(value)` → "12:34" (the boot time shown in the line;
+  `formatNumber(..., lang)` turns it into «۱۲:۳۴» in Persian).
+- i18n 241 UI strings / 301 translations (+4: the pill hint, the ✓ line, the ✗ line, the
+  not-checked line; −3 reminder strings).
+- Version 1.4.19 / versionCode 29 (app.json, package.json, package-lock ×2, buildInfo),
+  `version.json` 1.4.19, `index.html` ۱.۴.۱۹ (fa ×3 + en ×3).
+- Verified: check-i18n OK (241/301); `npm run verify` green (647 modules, 1.2 MB — bundle contains
+  `bootBroadcastAt`, `bootAt`, `formatClock`, `foregroundActive`, the ✓ line); `npm run prebuild:android`
+  → versionName 1.4.19 / versionCode 29, app_name Tavakkol (fa توکل); both manifests parse; Kotlin
+  brace/paren balance 0/0 on the three touched files; no stale `autostart` reference left anywhere;
+  `android/` + `dist/` wiped. Kotlin compiles only in CI.

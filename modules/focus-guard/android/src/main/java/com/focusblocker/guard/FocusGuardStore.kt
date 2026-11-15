@@ -3,6 +3,7 @@ package com.focusblocker.guard
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
+import android.os.SystemClock
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -44,6 +45,14 @@ internal object FocusGuardStore {
   // guard state.
   private const val KEY_DELAY_MODE = "delay_mode"
   private const val KEY_MUSIC_MUTED = "music_muted"
+  // v1.4.19: the Autostart BOOT TEST. Android exposes NO API to read an OEM
+  // autostart (MIUI/HyperOS) toggle, so instead of guessing we MEASURE: this
+  // stamp is written by the manifest receiver the moment the SYSTEM delivers a
+  // real boot broadcast to us. On a ROM that blocks autostart the broadcast
+  // never arrives, so the stamp stays on the previous boot — and comparing it
+  // with `currentBootAt()` (derived from elapsedRealtime) proves which boot
+  // session Tavakkol was actually started by.
+  private const val KEY_BOOT_BROADCAST_AT = "boot_broadcast_at"
   // v1.4.9: the built-in "Strict Adult Content Lock" switch. It only ADDS the
   // AdultFilter list to the guard — the user's own keyword/domain lists stay
   // untouched. Turning it OFF is refused while Protection is on (module gate).
@@ -547,6 +556,27 @@ internal object FocusGuardStore {
   fun setMusicMuted(context: Context, muted: Boolean) {
     prefs(context).edit().putBoolean(KEY_MUSIC_MUTED, muted).apply()
   }
+
+  /**
+   * v1.4.19 boot test, write side: called from `GuardWakeupReceiver` when the
+   * system hands us a REAL boot broadcast (BOOT_COMPLETED / QUICKBOOT_POWERON).
+   * That arrival IS the test result — nothing else is needed to prove that the
+   * ROM let Tavakkol start itself.
+   */
+  fun recordBootBroadcast(context: Context) {
+    prefs(context).edit().putLong(KEY_BOOT_BROADCAST_AT, System.currentTimeMillis()).apply()
+  }
+
+  /** Wall-clock time of the last boot broadcast we were told about, 0 = never. */
+  fun bootBroadcastAt(context: Context): Long = prefs(context).getLong(KEY_BOOT_BROADCAST_AT, 0L)
+
+  /**
+   * v1.4.19 boot test, read side: the wall-clock moment this device booted,
+   * derived from elapsedRealtime (which counts from boot and keeps running while
+   * the phone sleeps). Needs no permission and no receiver — it is the honest
+   * reference the stored boot stamp is compared against, at any later moment.
+   */
+  fun currentBootAt(): Long = System.currentTimeMillis() - SystemClock.elapsedRealtime()
 
   // ---------------------------------------------------------------------
   // Watchdog heartbeat (v1.1.4): written by GuardWatchdogService every 30 s.

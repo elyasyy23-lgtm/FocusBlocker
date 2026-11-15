@@ -64,6 +64,17 @@ export function shortPackage(pkg) {
   return parts.slice(-2).join('.');
 }
 
+/**
+ * v1.4.19: the boot test's clock stamp — just the local time of day
+ * ("12:34"), which is what the Autostart card shows after a restart.
+ */
+export function formatClock(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 /** "42s ago" / "12min ago" / "never" — how long the watchdog has been silent. */
 export function formatHeartbeat(ageMs, t) {
   if (ageMs === null || ageMs === undefined || ageMs < 0) return t('never');

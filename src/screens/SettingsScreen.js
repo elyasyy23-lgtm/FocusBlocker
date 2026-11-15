@@ -18,9 +18,9 @@ import * as FocusGuard from '../../modules/focus-guard';
 import { ActionButton, Section, StatusPill } from '../components/ui';
 import PinPad from '../components/PinPad';
 import { COLORS, textAlign } from '../theme';
-import { LANGUAGES } from '../i18n';
+import { LANGUAGES, formatNumber } from '../i18n';
 import { VERSION_LABEL } from '../buildInfo';
-import { formatHeartbeat } from '../utils/debugLog';
+import { formatClock, formatHeartbeat } from '../utils/debugLog';
 
 const BACKGROUND = require('../../assets/background.jpg');
 
@@ -150,10 +150,23 @@ export default function SettingsScreen({
 
   // v1.4.5: health rides along on mount so the keep-alive section shows live
   // state (the debug log on Home reads it separately).
+  // v1.4.19: it is POLLED now — the Autostart card shows a live foreground-service
+  // pill plus the boot-test result, so a one-shot read would go stale on screen.
   useEffect(() => {
-    FocusGuard.getServiceHealth()
-      .then(setHealth)
-      .catch(() => {});
+    let alive = true;
+    const read = () => {
+      FocusGuard.getServiceHealth()
+        .then((value) => {
+          if (alive) setHealth(value);
+        })
+        .catch(() => {});
+    };
+    read();
+    const timer = setInterval(read, 4000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
   }, []);
 
   const excludedSet = useMemo(() => new Set(excluded), [excluded]);
@@ -478,6 +491,37 @@ export default function SettingsScreen({
     lastBlockReason: '',
   };
 
+  /*
+    v1.4.19 boot test (owner request). Android gives no API to READ an OEM
+    autostart switch, so instead of guessing we MEASURE: the native receiver
+    stamps `bootBroadcastAt` every time the system actually delivers a boot
+    broadcast to Tavakkol, and `bootAt` is when the device booted (derived from
+    elapsedRealtime). Same boot session → the ROM started us by itself; an older
+    stamp → it did not. Nothing is invented, and "never seen a boot" is shown as
+    its own honest state.
+
+    The window is deliberately generous: MIUI can deliver the boot broadcast
+    minutes late, and a clock correction after boot shifts `bootAt` slightly.
+    10 minutes back still cleanly separates "this boot" from "a previous boot",
+    60 minutes forward absorbs a late/backdated system clock.
+  */
+  const BOOT_EARLY_MS = 10 * 60 * 1000;
+  const BOOT_LATE_MS = 60 * 60 * 1000;
+  const bootBroadcastAt = Number(health && health.bootBroadcastAt) || 0;
+  const bootAt = Number(health && health.bootAt) || 0;
+  const bootChecked = bootBroadcastAt > 0;
+  const autoStarted =
+    bootChecked &&
+    bootBroadcastAt >= bootAt - BOOT_EARLY_MS &&
+    bootBroadcastAt <= bootAt + BOOT_LATE_MS;
+  const bootLine = !bootChecked
+    ? t('Not checked yet — the result appears after the next restart.')
+    : autoStarted
+      ? t('The system started Tavakkol automatically after the last restart ✓ {{time}}', {
+          time: formatNumber(formatClock(bootBroadcastAt), lang),
+        })
+      : t('✗ — turn Autostart on');
+
   return (
     <ImageBackground source={BACKGROUND} style={styles.root} resizeMode="cover">
       <View style={styles.overlay} />
@@ -593,36 +637,60 @@ export default function SettingsScreen({
             busy={keepAliveBusy}
             disabled={!isAvailable}
           />
-          {/*
-            v1.4.17 (owner request): the Autostart button gets its OWN card, styled
-            exactly like the Service Status card (same background, border, radius
-            and padding), with a title above it and the explanation inside.
-          */}
-          <View style={styles.cardBox}>
-            <Text style={[styles.statusTitle, { textAlign: align }]}>
-              {t('Autostart ({{manufacturer}})', {
-                manufacturer: health && health.manufacturer ? health.manufacturer : 'Xiaomi',
-              })}
-            </Text>
-            <ActionButton
-              label={
-                health && health.manufacturer
-                  ? t('Open Autostart settings ({{manufacturer}})', {
-                      manufacturer: health.manufacturer,
-                    })
-                  : t('Open Autostart settings')
-              }
-              variant="secondary"
-              onPress={openAutostart}
-              disabled={!isAvailable}
-            />
-            <Text style={[styles.statusHint, { textAlign: align }]}>
-              {t(
-                'One-time setup on Redmi / POCO / Xiaomi: 1) Autostart → Tavakkol ON, 2) Battery saver → No restrictions, 3) in Recents, pull Tavakkol down to lock it. Without Autostart even a foreground service gets killed within hours.'
-              )}
-            </Text>
-          </View>
         </Section>
+
+        {/*
+          v1.4.18/v1.4.19 (owner request): the Autostart block is a COMPLETELY
+          SEPARATE card — a sibling of the Keep-alive section, never nested in it,
+          with its own border/background. v1.4.19 dropped the hand-set reminder
+          switch and shows two MEASURED things instead: a live pill for the real
+          foreground service, and a boot-test line proving whether the system
+          started Tavakkol by itself after the last restart. The vendor button
+          and the setup text stay. The Keep-alive section above is untouched.
+        */}
+        <View style={styles.cardBox}>
+          <View style={[styles.statusRow, isRtl && styles.headerRtl]}>
+            <View style={styles.statusTextWrap}>
+              <Text style={[styles.statusTitle, { textAlign: align }]}>
+                {t('Autostart ({{manufacturer}})', {
+                  manufacturer: health && health.manufacturer ? health.manufacturer : 'Xiaomi',
+                })}
+              </Text>
+              <Text style={[styles.statusHint, { textAlign: align }]}>
+                {t('The background service that keeps the guard alive')}
+              </Text>
+            </View>
+            <StatusPill
+              active={Boolean(health && health.foregroundActive)}
+              labels={[t('Running'), t('Stopped')]}
+            />
+          </View>
+          <Text
+            style={[
+              styles.bootLine,
+              { textAlign: align },
+              autoStarted ? styles.bootLineOk : bootChecked ? styles.bootLineBad : null,
+            ]}>
+            {bootLine}
+          </Text>
+          <ActionButton
+            label={
+              health && health.manufacturer
+                ? t('Open Autostart settings ({{manufacturer}})', {
+                    manufacturer: health.manufacturer,
+                  })
+                : t('Open Autostart settings')
+            }
+            variant="secondary"
+            onPress={openAutostart}
+            disabled={!isAvailable}
+          />
+          <Text style={[styles.statusHint, { textAlign: align }]}>
+            {t(
+              'One-time setup on Redmi / POCO / Xiaomi: 1) Autostart → Tavakkol ON, 2) Battery saver → No restrictions, 3) in Recents, pull Tavakkol down to lock it. Without Autostart even a foreground service gets killed within hours.'
+            )}
+          </Text>
+        </View>
 
         <Section
           lang={lang}
@@ -1135,6 +1203,22 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     fontSize: 12,
     marginTop: 3,
+  },
+  // v1.4.19: the boot-test result line inside the Autostart card. Green when the
+  // system really started Tavakkol after the last restart, red when it did not,
+  // muted while there is nothing to report yet.
+  bootLine: {
+    color: COLORS.muted,
+    fontSize: 12.5,
+    lineHeight: 19,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  bootLineOk: {
+    color: COLORS.accent,
+  },
+  bootLineBad: {
+    color: COLORS.danger,
   },
   statsRow: {
     flexDirection: 'row',
