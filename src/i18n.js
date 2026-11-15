@@ -41,6 +41,10 @@ const FA = {
   'Not active yet': 'هنوز فعال نیست',
   'Blocker paused': 'محافظ متوقف شده',
   'Accessibility service is running': 'سرویس دسترسی‌پذیری روشن است',
+  // v1.4.16: the service is switched on in the system but the guard is not bound —
+  // the exact state after MIUI/HyperOS powerkeeper kills the process.
+  'The system stopped the service — open Tavakkol or check Autostart to restart it':
+    'سیستم سرویس را متوقف کرده است — توکل را باز کنید یا Autostart را بررسی کنید تا دوباره راه بیفتد',
   'Service is off — enable it below': 'سرویس خاموش است — پایین‌تر روشن کنید',
   '{{keywords}} keyword(s) + {{domains}} domain(s) watched': '{{keywords}} کلمه و {{domains}} سایت زیر نظر',
   '{{count}} block(s) so far': '{{count}} بار مسدودسازی تا اینجا',
@@ -60,6 +64,11 @@ const FA = {
   'This is what lets the app read the screen and press Back. Android shows a warning — that warning is normal for any accessibility app.':
     'این همان چیزی است که به برنامه اجازه می‌دهد صفحه را بخواند و دکمهٔ بازگشت را بزند. اندروید یک هشدار نشان می‌دهد؛ این هشدار برای همهٔ برنامه‌های دسترسی‌پذیری طبیعی است.',
   'Service status': 'وضعیت سرویس',
+  // v1.4.16: the live bound state (not the system toggle) drives this pill.
+  Running: 'در حال اجرا',
+  Stopped: 'متوقف',
+  'Enabled in the system, but the guard is not running — the system may have stopped it.':
+    'در سیستم روشن است، اما محافظ در حال اجرا نیست — ممکن است سیستم آن را متوقف کرده باشد.',
   Settings: 'تنظیمات',
   Enabled: 'روشن',
   Disabled: 'خاموش',

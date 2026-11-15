@@ -57,6 +57,11 @@ class FocusGuardModule : Module() {
       config.put("lastBlockReason", FocusGuardStore.lastBlockReason(ctx) ?: JSONObject.NULL)
       config.put("lastBlockAt", FocusGuardStore.lastBlockAt(ctx).toDouble())
       config.put("accessibilityEnabled", isAccessibilityEnabled(ctx))
+      // v1.4.16: the LIVE bound state — true only while the guard is actually
+      // connected in this process. `accessibilityEnabled` above only reflects the
+      // system toggle, which stays "on" after MIUI/HyperOS powerkeeper kills the
+      // process — that is exactly what made the status show green while dead.
+      config.put("serviceRunning", FocusAccessibilityService.isRunning)
       config.put("deviceAdminActive", isDeviceAdminActive(ctx))
       config.put("excludedApps", JSONArray(FocusGuardStore.excludedApps(ctx)))
       config.put("language", FocusGuardStore.language(ctx))

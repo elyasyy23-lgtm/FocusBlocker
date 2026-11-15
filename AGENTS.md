@@ -969,3 +969,39 @@ but clearly secondary to the CTA. Mobile (≤420px) drops to `.78rem` / `9px 11p
 element: the ⚠️ is part of the owner's text and must survive the i18n swap.
 
 
+
+## v1.4.16 — live Service Status (real bound state, not the system toggle)
+
+**Bug (owner):** the «وضعیت سرویس» / Home Protection hint stayed GREEN («سرویس دسترسیپذیری
+روشن است») even after MIUI/HyperOS powerkeeper killed the guard process. Root cause: the status
+was driven by `config.accessibilityEnabled`, which is only the SYSTEM TOGGLE — Android keeps it
+`true` after the process is killed. The honest signal is the service's own bound flag.
+
+- **Native**: `FocusGuardModule.getConfig` now also returns `serviceRunning =
+  FocusAccessibilityService.isRunning` (the `@Volatile` companion flag, set in
+  `onServiceConnected`, cleared in `onUnbind`/`onDestroy`/`onInterrupt`) — next to the existing
+  `getServiceHealth().serviceRunning`. `modules/focus-guard/index.js` `EMPTY_CONFIG` gains
+  `serviceRunning: false`.
+- **App.js**: new `health` state + `refreshHealth()` (`FocusGuard.getServiceHealth()`), refreshed
+  on mount and on every AppState → active, and POLLED every 4 s while `appState === 'active'`
+  (`setInterval`, cleared on background/unmount) so the hint flips red without leaving the app.
+  Derived `serviceRunning`/`accessibilityEnabled` prefer `health`, fall back to `config` before the
+  first read. `blockingReady` now requires `serviceRunning` (the hero shows "Active" only when the
+  guard is genuinely bound). Both values are passed to HomeScreen + SettingsScreen as props.
+- **HomeScreen**: the Protection hint is three-state — green «سرویس دسترسیپذیری روشن است» when
+  running; red «سیستم سرویس را متوقف کرده است…» when enabled but NOT running (the kill case);
+  red «سرویس خاموش است — آن را در تنظیمات فعال کنید» when never enabled. New `switchHintOk` /
+  `switchHintBad` styles (`COLORS.accent` / `COLORS.danger`).
+- **SettingsScreen**: the «وضعیت سرویس» `StatusPill` is bound to `Boolean(serviceRunning)` with
+  labels «در حال اجرا» / «متوقف» (was `cfg.accessibilityEnabled` with Enabled/Disabled), and the
+  hint explains the enabled-but-stopped case.
+- i18n 235 UI strings / 295 translations (+4: the stopped-by-system hint, the enabled-but-not-
+  running hint, `Running`, `Stopped`).
+- Version 1.4.16 / versionCode 26 (app.json, package.json, package-lock, buildInfo),
+  `version.json` 1.4.16, `index.html` ۱.۴.۱۶ (3 spots + 3 EN dictionary spots).
+- Verified: check-i18n OK; `npm run verify` green (647 modules; bundle contains `serviceRunning`,
+  the two new hint strings); `npm run prebuild:android` → versionName 1.4.16 / versionCode 26,
+  app_name Tavakkol; autolinking resolves `focus-guard`; module manifest parses; Kotlin brace/paren
+  balance 0/0; `android/` + `dist/` wiped. Kotlin compiles only in CI.
+- Lesson: a status indicator must read the AUTHORITATIVE live signal (the service's bound flag),
+  never a cached config value that the OS leaves stale after a kill.

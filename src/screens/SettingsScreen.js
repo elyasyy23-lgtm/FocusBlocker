@@ -50,6 +50,10 @@ export default function SettingsScreen({
   onToggleMusicMuted,
   // v1.4.5: live config (statuses/stats) + a way to refresh it after a change
   config,
+  // v1.4.16: live guard state (polled in App.js) — the service-status pill must
+  // show the REAL bound state, not the system toggle that survives a kill.
+  serviceRunning,
+  accessibilityEnabled,
   onRefresh,
 }) {
   const align = textAlign(lang);
@@ -505,13 +509,25 @@ export default function SettingsScreen({
           <View style={styles.statusRow}>
             <View style={styles.statusTextWrap}>
               <Text style={[styles.statusTitle, { textAlign: align }]}>{t('Service status')}</Text>
+              {/*
+                v1.4.16: green "Running" only while the guard is really bound.
+                `accessibilityEnabled` (the system toggle) stays on after MIUI
+                stops the process, which is why the old pill showed Enabled/green
+                on a dead guard.
+              */}
               <Text style={[styles.statusHint, { textAlign: align }]}>
-                {t('Settings → Accessibility → Installed apps')}
+                {serviceRunning
+                  ? t('Settings → Accessibility → Installed apps')
+                  : accessibilityEnabled
+                    ? t(
+                        'Enabled in the system, but the guard is not running — the system may have stopped it.'
+                      )
+                    : t('Service is off — enable it in Settings')}
               </Text>
             </View>
             <StatusPill
-              active={cfg.accessibilityEnabled}
-              labels={[t('Enabled'), t('Disabled')]}
+              active={Boolean(serviceRunning)}
+              labels={[t('Running'), t('Stopped')]}
             />
           </View>
           <ActionButton

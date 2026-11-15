@@ -92,6 +92,11 @@ function normalizeDomain(raw) {
 
 export default function App() {
   const [config, setConfig] = useState(FocusGuard.EMPTY_CONFIG);
+  // v1.4.16: live guard health. `config.accessibilityEnabled` only says the system
+  // toggle is on; `health.serviceRunning` says whether the guard is REALLY bound
+  // right now — so the status can go red the moment the system stops it (the
+  // MIUI/HyperOS powerkeeper case) instead of staying green on a stale flag.
+  const [health, setHealth] = useState(null);
   const [keywordsText, setKeywordsText] = useState('');
   const [domainsText, setDomainsText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -165,12 +170,26 @@ export default function App() {
     }
   }, []);
 
+  // v1.4.16: the live bound state of the accessibility service. This is the only
+  // honest "is the guard working right now" signal — the system toggle can be on
+  // while the process is dead. A failed read is never fatal.
+  const refreshHealth = useCallback(async () => {
+    try {
+      const next = await FocusGuard.getServiceHealth();
+      setHealth(next);
+    } catch (error) {
+      // keep the last known value
+    }
+  }, []);
+
   useEffect(() => {
     refresh();
+    refreshHealth();
     const subscription = AppState.addEventListener('change', (state) => {
       setAppState(state);
       if (state === 'active') {
         refresh();
+        refreshHealth();
       } else {
         // Leaving the app locks it again — the next return needs the PIN.
         setSessionUnlocked(false);
@@ -178,7 +197,16 @@ export default function App() {
       }
     });
     return () => subscription.remove();
-  }, [refresh]);
+  }, [refresh, refreshHealth]);
+
+  // v1.4.16: poll while the app is on screen so the status stays live — the
+  // guard can be stopped by the system at any moment, and the hint must flip to
+  // red without the user leaving and coming back.
+  useEffect(() => {
+    if (appState !== 'active' || !FocusGuard.isAvailable) return undefined;
+    const id = setInterval(refreshHealth, 4000);
+    return () => clearInterval(id);
+  }, [appState, refreshHealth]);
 
   // v1.4.6: installing a new build forces Protection OFF (nobody may bypass the
   // guard by updating). v1.4.7: Delay Mode is reset too, so an update also
@@ -678,8 +706,17 @@ export default function App() {
   const keywordsSaved = !loading && keywordsText === config.keywords.join(', ');
   const domainsSaved = !loading && domainsText === config.domains.join(', ');
 
+  // v1.4.16: prefer the live health read (polled), fall back to the config
+  // snapshot before the first health arrives.
+  const serviceRunning = health ? health.serviceRunning : config.serviceRunning;
+  const accessibilityEnabled = health
+    ? health.accessibilityEnabled
+    : config.accessibilityEnabled;
+
+  // "Active" only when the guard is genuinely running — not merely switched on
+  // in system settings.
   const blockingReady =
-    config.accessibilityEnabled &&
+    serviceRunning &&
     config.enabled &&
     (config.keywords.length > 0 || config.domains.length > 0);
 
@@ -733,6 +770,8 @@ export default function App() {
           musicMuted={config.musicMuted}
           onToggleMusicMuted={toggleMusicMuted}
           config={config}
+          serviceRunning={serviceRunning}
+          accessibilityEnabled={accessibilityEnabled}
           onRefresh={refresh}
         />
       ) : (
@@ -741,6 +780,8 @@ export default function App() {
           lang={lang}
           isAvailable={FocusGuard.isAvailable}
           config={config}
+          serviceRunning={serviceRunning}
+          accessibilityEnabled={accessibilityEnabled}
           keywordsText={keywordsText}
           onChangeKeywords={(value) => {
             keywordsDirtyRef.current = true;

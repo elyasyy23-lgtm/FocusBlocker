@@ -530,3 +530,36 @@ git fetch origin && git rebase origin/main
 git push origin main
 git tag v1.4.12 && git push origin v1.4.12
 ```
+
+---
+
+# v1.4.16 — live Service Status (2026-11-15)
+
+GOAL (owner): the «وضعیت سرویس» indicator must show the REAL state — RED/«خاموش» the moment
+MIUI/HyperOS stops the guard — instead of staying green on the stale system toggle. Then bump
+to v1.4.16 and hand over the push/build commands.
+
+- [x] Native: `FocusGuardModule.getConfig` returns `serviceRunning =
+      FocusAccessibilityService.isRunning`; `EMPTY_CONFIG` gains `serviceRunning: false`.
+- [x] App.js: `health` state + `refreshHealth()` (getServiceHealth) on mount / foreground, POLLED
+      every 4 s while active; derived `serviceRunning`/`accessibilityEnabled` prefer health;
+      `blockingReady` requires `serviceRunning`; props passed to Home + Settings.
+- [x] HomeScreen: three-state Protection hint (green running / red stopped-by-system / red off),
+      `switchHintOk` + `switchHintBad` styles.
+- [x] SettingsScreen: StatusPill bound to `serviceRunning` («در حال اجرا» / «متوقف») + hint.
+- [x] i18n +4 keys (235 strings / 295 translations).
+- [x] Version 1.4.16 / code 26 (app.json, package.json, package-lock, buildInfo), version.json,
+      index.html ۱.۴.۱۶ (fa + en).
+- [x] Verified: check-i18n OK, `npm run verify` green (647 modules), prebuild 1.4.16 (26),
+      autolinking OK, manifest parses, Kotlin balance 0/0, android/ + dist/ wiped.
+- [ ] NOT pushed — owner runs the push/tag, then watches CI.
+
+NOW: code complete + verified; waiting for the owner to push + tag v1.4.16.
+
+```bash
+cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
+git add -A && git commit -m "v1.4.16: live service status (real bound state, not system toggle)"
+git fetch origin && git rebase origin/main
+git push origin main
+git tag v1.4.16 && git push origin v1.4.16
+```

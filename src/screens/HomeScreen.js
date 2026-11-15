@@ -37,6 +37,9 @@ export default function HomeScreen({
   lang,
   isAvailable,
   config,
+  // v1.4.16: live guard state from the polled health read (not the config flag).
+  serviceRunning,
+  accessibilityEnabled,
   keywordsText,
   onChangeKeywords,
   domainsText,
@@ -131,10 +134,26 @@ export default function HomeScreen({
           <View style={[styles.switchGrid, isRtl && styles.switchGridRtl]}>
             <View style={styles.switchCell}>
               <Text style={[styles.switchTitle, { textAlign: align }]}>{t('Protection')}</Text>
-              <Text style={[styles.switchHint, { textAlign: align }]}>
-                {config.accessibilityEnabled
+              {/*
+                v1.4.16: the status must reflect the LIVE bound state, not the
+                system toggle. `accessibilityEnabled` stays true after MIUI kills
+                the process, which is why the old green hint lied. Now: green when
+                the guard is really running, red when the system stopped it, red
+                when it was never switched on.
+              */}
+              <Text
+                style={[
+                  styles.switchHint,
+                  serviceRunning ? styles.switchHintOk : styles.switchHintBad,
+                  { textAlign: align },
+                ]}>
+                {serviceRunning
                   ? t('Accessibility service is running')
-                  : t('Service is off — enable it in Settings')}
+                  : accessibilityEnabled
+                    ? t(
+                        'The system stopped the service — open Tavakkol or check Autostart to restart it'
+                      )
+                    : t('Service is off — enable it in Settings')}
               </Text>
               <View style={styles.switchControl}>
                 <Switch
@@ -497,6 +516,16 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     fontSize: 12,
     marginTop: 3,
+  },
+  // v1.4.16: the guard is actually running — green.
+  switchHintOk: {
+    color: COLORS.accent,
+    fontWeight: '600',
+  },
+  // v1.4.16: not running (stopped by the system, or never enabled) — red.
+  switchHintBad: {
+    color: COLORS.danger,
+    fontWeight: '600',
   },
   lockedBox: {
     marginTop: 16,

@@ -25,6 +25,9 @@ export const EMPTY_CONFIG = {
   lastBlockReason: null,
   lastBlockAt: 0,
   accessibilityEnabled: false,
+  // v1.4.16: the live bound state (is the guard actually connected right now),
+  // distinct from `accessibilityEnabled` (is the system toggle on).
+  serviceRunning: false,
   deviceAdminActive: false,
   excludedApps: [],
   language: 'fa',
