@@ -46,6 +46,9 @@ const FA = {
   'The system stopped the service — open Tavakkol or check Autostart to restart it':
     'سیستم سرویس را متوقف کرده است — توکل را باز کنید یا Autostart را بررسی کنید تا دوباره راه بیفتد',
   'Service is off — enable it below': 'سرویس خاموش است — پایین‌تر روشن کنید',
+  // v1.4.17: the Protection switch acts ONLY on Protection — the service status
+  // is shown separately above it, so the label removes the ambiguity.
+  'This switch only turns Protection on and off': 'این کلید فقط محافظت را روشن و خاموش می‌کند',
   '{{keywords}} keyword(s) + {{domains}} domain(s) watched': '{{keywords}} کلمه و {{domains}} سایت زیر نظر',
   '{{count}} block(s) so far': '{{count}} بار مسدودسازی تا اینجا',
 
@@ -114,6 +117,8 @@ const FA = {
     'کاملاً آفلاین کار می‌کند. هر متنی که روی صفحه تغییر کند بررسی می‌شود: کادر جستجو، نوار آدرس و پیام‌های چت. تا وقتی محافظ روشن است یک اعلان کوچک و همیشگی دارد؛ اگر آن اعلان از بین رفت یعنی محافظ متوقف شده است. نگهبان، زنگ ۱۵ دقیقه‌ای، کار ۱۵ دقیقه‌ای و گیرندهٔ روشن شدن گوشی خودشان دوباره راه‌اندازی می‌کنند و اگر محافظ بیش از سه دقیقه خاموش بماند هشدار می‌گیرید، نه سکوت.',
 
   // ------------------------------------------------------------ health text
+  // v1.4.17: title of the Autostart card (the manufacturer is filled in at runtime).
+  'Autostart ({{manufacturer}})': 'اجرای خودکار ({{manufacturer}})',
   'Service {{state}}': 'سرویس {{state}}',
   running: 'در حال اجرا',
   'NOT running': 'اجرا نمی‌شود',

@@ -1005,3 +1005,33 @@ was driven by `config.accessibilityEnabled`, which is only the SYSTEM TOGGLE —
   balance 0/0; `android/` + `dist/` wiped. Kotlin compiles only in CI.
 - Lesson: a status indicator must read the AUTHORITATIVE live signal (the service's bound flag),
   never a cached config value that the OS leaves stale after a kill.
+
+## v1.4.17 — update-URL version tag · Autostart card · clear Protection card (2026-11-15)
+
+Three owner requests in one release:
+
+1. **Update prompt: no more "Download file again?" warning.** The manifest always points at
+   `releases/latest/download/Tavakkol-release.apk`, so the filename never changes and Chrome
+   asked to re-download the same file. `App.js` now tags the URL with the version before opening
+   it: `const separator = url.includes('?') ? '&' : '?'; const versionedUrl =
+   `${url}${separator}v=${encodeURIComponent(latest)}``. A distinct query string = a fresh file
+   every release. (String concat, not `URL`/`searchParams` — Hermes' URL is incomplete.)
+2. **Autostart button is now its own card** (`SettingsScreen.js`): new `cardBox` style =
+   `backgroundColor COLORS.surface`, `borderRadius 18`, `borderWidth 1`, `borderColor COLORS.border`,
+   `padding 16` — byte-for-byte the same as the Section body (the Service Status card). The block
+   has a title `Autostart ({{manufacturer}})` (reuses `statusTitle`), the existing secondary
+   button, and the setup text (reuses `statusHint`).
+3. **Home Protection card layout** (`HomeScreen.js`): the stats line (`heroHint`) and the service
+   status are now separate — the status is its OWN `statusRow` with a coloured `statusDot`
+   (green `COLORS.accent` when running / red `COLORS.danger` otherwise) + `statusText`, with
+   `marginTop 10` so it never reads as part of the counts. The Protection switch cell's hint is
+   now `This switch only turns Protection on and off` (new key) so the switch is unambiguous.
+   Removed the v1.4.16 `switchHintOk`/`switchHintBad` styles (superseded by the badge).
+
+- i18n 237 strings / 297 translations (+2: the switch caption, the Autostart card title).
+- Version 1.4.17 / versionCode 27 (app.json, package.json, package-lock, buildInfo),
+  `version.json` 1.4.17, `index.html` ۱.۴.۱۷ (fa + 3 EN dictionary spots).
+- Verified: check-i18n OK; `npm run verify` green (bundle contains the two new strings,
+  `statusDotOk`, and `v=${encodeURIComponent(...)}`); `npm run prebuild:android` → versionName
+  1.4.17 / versionCode 27, app_name Tavakkol; `android/` + `dist/` wiped. Kotlin unchanged this
+  release (JS-only) — still compiled only in CI.

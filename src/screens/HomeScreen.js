@@ -121,6 +121,7 @@ export default function HomeScreen({
             ]}>
             {blockingReady ? t('Active') : t('Not active yet')}
           </Text>
+          {/* v1.4.17: the stats line — one clean line, only about the lists. */}
           <Text style={[styles.heroHint, { textAlign: align }]}>
             {config.enabled
               ? t('{{keywords}} keyword(s) + {{domains}} domain(s) watched', {
@@ -131,29 +132,41 @@ export default function HomeScreen({
             {' · '}
             {t('{{count}} block(s) so far', { count: config.blockCount })}
           </Text>
+
+          {/*
+            v1.4.17 (owner request): the service status gets its OWN badge row with
+            a coloured dot, separated from the stats above. Before, it was a plain
+            line sitting right under the counts and read as if it described them.
+            The dot reads the LIVE bound state (v1.4.16): green = really running,
+            red = the system stopped it, red = never enabled.
+          */}
+          <View style={[styles.statusRow, isRtl && styles.statusRowRtl]}>
+            <View
+              style={[styles.statusDot, serviceRunning ? styles.statusDotOk : styles.statusDotBad]}
+            />
+            <Text
+              style={[
+                styles.statusText,
+                serviceRunning ? styles.statusTextOk : styles.statusTextBad,
+                { textAlign: align },
+              ]}>
+              {serviceRunning
+                ? t('Accessibility service is running')
+                : accessibilityEnabled
+                  ? t(
+                      'The system stopped the service — open Tavakkol or check Autostart to restart it'
+                    )
+                  : t('Service is off — enable it in Settings')}
+            </Text>
+          </View>
+
           <View style={[styles.switchGrid, isRtl && styles.switchGridRtl]}>
             <View style={styles.switchCell}>
               <Text style={[styles.switchTitle, { textAlign: align }]}>{t('Protection')}</Text>
-              {/*
-                v1.4.16: the status must reflect the LIVE bound state, not the
-                system toggle. `accessibilityEnabled` stays true after MIUI kills
-                the process, which is why the old green hint lied. Now: green when
-                the guard is really running, red when the system stopped it, red
-                when it was never switched on.
-              */}
-              <Text
-                style={[
-                  styles.switchHint,
-                  serviceRunning ? styles.switchHintOk : styles.switchHintBad,
-                  { textAlign: align },
-                ]}>
-                {serviceRunning
-                  ? t('Accessibility service is running')
-                  : accessibilityEnabled
-                    ? t(
-                        'The system stopped the service — open Tavakkol or check Autostart to restart it'
-                      )
-                    : t('Service is off — enable it in Settings')}
+              {/* v1.4.17: this switch is ONLY for Protection — say so, so it is not
+                  mistaken for the service-status badge shown above. */}
+              <Text style={[styles.switchHint, { textAlign: align }]}>
+                {t('This switch only turns Protection on and off')}
               </Text>
               <View style={styles.switchControl}>
                 <Switch
@@ -517,15 +530,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 3,
   },
-  // v1.4.16: the guard is actually running — green.
-  switchHintOk: {
-    color: COLORS.accent,
-    fontWeight: '600',
+  // v1.4.17: the service status sits on its OWN row with a coloured dot, so it
+  // can never be read as part of the stats line above it.
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
   },
-  // v1.4.16: not running (stopped by the system, or never enabled) — red.
-  switchHintBad: {
-    color: COLORS.danger,
+  statusRowRtl: {
+    flexDirection: 'row-reverse',
+  },
+  statusDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+  },
+  statusDotOk: {
+    backgroundColor: COLORS.accent,
+  },
+  statusDotBad: {
+    backgroundColor: COLORS.danger,
+  },
+  statusText: {
+    flex: 1,
+    fontSize: 13,
     fontWeight: '600',
+    lineHeight: 18,
+  },
+  statusTextOk: {
+    color: COLORS.accent,
+  },
+  statusTextBad: {
+    color: COLORS.danger,
   },
   lockedBox: {
     marginTop: 16,

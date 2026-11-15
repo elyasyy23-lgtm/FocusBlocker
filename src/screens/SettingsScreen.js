@@ -593,23 +593,35 @@ export default function SettingsScreen({
             busy={keepAliveBusy}
             disabled={!isAvailable}
           />
-          <ActionButton
-            label={
-              health && health.manufacturer
-                ? t('Open Autostart settings ({{manufacturer}})', {
-                    manufacturer: health.manufacturer,
-                  })
-                : t('Open Autostart settings')
-            }
-            variant="secondary"
-            onPress={openAutostart}
-            disabled={!isAvailable}
-          />
-          <Text style={[styles.hint, { textAlign: align }]}>
-            {t(
-              'One-time setup on Redmi / POCO / Xiaomi: 1) Autostart → Tavakkol ON, 2) Battery saver → No restrictions, 3) in Recents, pull Tavakkol down to lock it. Without Autostart even a foreground service gets killed within hours.'
-            )}
-          </Text>
+          {/*
+            v1.4.17 (owner request): the Autostart button gets its OWN card, styled
+            exactly like the Service Status card (same background, border, radius
+            and padding), with a title above it and the explanation inside.
+          */}
+          <View style={styles.cardBox}>
+            <Text style={[styles.statusTitle, { textAlign: align }]}>
+              {t('Autostart ({{manufacturer}})', {
+                manufacturer: health && health.manufacturer ? health.manufacturer : 'Xiaomi',
+              })}
+            </Text>
+            <ActionButton
+              label={
+                health && health.manufacturer
+                  ? t('Open Autostart settings ({{manufacturer}})', {
+                      manufacturer: health.manufacturer,
+                    })
+                  : t('Open Autostart settings')
+              }
+              variant="secondary"
+              onPress={openAutostart}
+              disabled={!isAvailable}
+            />
+            <Text style={[styles.statusHint, { textAlign: align }]}>
+              {t(
+                'One-time setup on Redmi / POCO / Xiaomi: 1) Autostart → Tavakkol ON, 2) Battery saver → No restrictions, 3) in Recents, pull Tavakkol down to lock it. Without Autostart even a foreground service gets killed within hours.'
+              )}
+            </Text>
+          </View>
         </Section>
 
         <Section
@@ -1092,6 +1104,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     marginTop: 12,
     marginBottom: 6,
+  },
+  // v1.4.17: a bordered card identical to the Service Status card (which is the
+  // Section body) — same background, border, radius and padding. Used by the
+  // Autostart block so the two look like a matched pair.
+  cardBox: {
+    marginTop: 12,
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 16,
   },
   statusRow: {
     flexDirection: 'row',

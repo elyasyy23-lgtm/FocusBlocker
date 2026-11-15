@@ -303,7 +303,13 @@ export default function App() {
         // the browser at an http/intent URL.
         if (!/^https:\/\//i.test(url)) return;
         if (!isNewerVersion(latest, VERSION)) return;
-        if (!cancelled) setUpdateInfo({ latest, url });
+        // v1.4.17: tag the APK URL with the version. The manifest always points at
+        // `releases/latest/download/Tavakkol-release.apk`, so the filename never
+        // changes — without this Chrome shows a "Download file again?" prompt on
+        // every update. A distinct query string makes each release a fresh file.
+        const separator = url.includes('?') ? '&' : '?';
+        const versionedUrl = `${url}${separator}v=${encodeURIComponent(latest)}`;
+        if (!cancelled) setUpdateInfo({ latest, url: versionedUrl });
       } catch (error) {
         // Silent by design.
       } finally {

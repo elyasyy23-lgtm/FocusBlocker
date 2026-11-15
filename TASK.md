@@ -563,3 +563,34 @@ git fetch origin && git rebase origin/main
 git push origin main
 git tag v1.4.16 && git push origin v1.4.16
 ```
+
+---
+
+# v1.4.17 — update-URL version tag · Autostart card · clear Protection card (2026-11-15)
+
+GOAL (owner, 3 items): (1) update prompt must not trigger Chrome's "Download file again?" —
+add the version as a query param; (2) the «باز کردن تنظیمات اجرای خودکار» button must sit in its
+own card styled exactly like the Service Status card, with a title «اجرای خودکار (Xiaomi)»;
+(3) the Home Protection card must separate the stats line from the service-status line, give the
+status a green dot, and make clear the switch belongs ONLY to Protection.
+
+- [x] App.js: append `?v=<latestVersion>` to the download URL before opening it.
+- [x] SettingsScreen: `cardBox` (surface/border 1/radius 18/padding 16) + title
+      `Autostart ({{manufacturer}})` + button + setup text.
+- [x] HomeScreen: `statusRow` + `statusDot` (green/red) + `statusText` as its own badge row;
+      Protection switch caption `This switch only turns Protection on and off`.
+- [x] i18n +2 keys (237 strings / 297 translations).
+- [x] Version 1.4.17 / code 27 (app.json, package.json, package-lock, buildInfo), version.json,
+      index.html ۱.۴.۱۷ (fa + en).
+- [x] Verified: check-i18n OK, `npm run verify` green, prebuild 1.4.17 (27), android/ + dist/ wiped.
+- [ ] NOT pushed — owner runs the push/tag.
+
+NOW: code complete + verified; waiting for the owner to push + tag v1.4.17.
+
+```bash
+cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
+git add -A && git commit -m "v1.4.17: update-URL version tag, autostart card, clearer Protection card"
+git fetch origin && git rebase origin/main
+git push origin main
+git tag v1.4.17 && git push origin v1.4.17
+```
