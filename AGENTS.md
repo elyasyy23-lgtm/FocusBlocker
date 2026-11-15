@@ -1035,3 +1035,11 @@ Three owner requests in one release:
   `statusDotOk`, and `v=${encodeURIComponent(...)}`); `npm run prebuild:android` → versionName
   1.4.17 / versionCode 27, app_name Tavakkol; `android/` + `dist/` wiped. Kotlin unchanged this
   release (JS-only) — still compiled only in CI.
+
+**SHIPPED 2026-11-15**: commit `4bd8b33` → main + tag `v1.4.17`; CI 43686358371 (main) +
+43686361522 (tag) both SUCCESS → Release `Tavakkol v1.4.17`, `Tavakkol-release.apk` 37,027,063
+bytes live at https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v1.4.17/Tavakkol-release.apk
+(`releases/latest/...` 302 → v1.4.17, Pages `version.json` = 1.4.17, index.html ۱.۴.۱۷). Pending
+owner on-device check: update prompt downloads with NO "Download file again?" warning, the Autostart
+card matches the Service Status card, and the Home Protection card shows the stats line + a dotted
+service-status line + the Protection-only switch caption.

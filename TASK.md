@@ -583,9 +583,12 @@ status a green dot, and make clear the switch belongs ONLY to Protection.
 - [x] Version 1.4.17 / code 27 (app.json, package.json, package-lock, buildInfo), version.json,
       index.html ۱.۴.۱۷ (fa + en).
 - [x] Verified: check-i18n OK, `npm run verify` green, prebuild 1.4.17 (27), android/ + dist/ wiped.
-- [ ] NOT pushed — owner runs the push/tag.
+- [x] SHIPPED 2026-11-15 — commit `4bd8b33` → main + tag `v1.4.17`; CI 43686358371 (main)
+      + 43686361522 (tag) both SUCCESS; Release `Tavakkol v1.4.17`, apk 37,027,063 bytes;
+      `releases/latest/...` 302 → v1.4.17; Pages version.json 1.4.17.
 
-NOW: code complete + verified; waiting for the owner to push + tag v1.4.17.
+NOW: DONE + shipped. Pending owner on-device check (no re-download warning, autostart card,
+Protection card layout).
 
 ```bash
 cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
