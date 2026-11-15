@@ -345,6 +345,9 @@ export const EMPTY_HEALTH = {
   foregroundActive: false,
   watchdogRunning: false,
   watchdogForeground: false,
+  // v1.4.20: true when the running/foreground values came from the system's own
+  // service list (real-time), false when they are the in-process fallback flags.
+  systemCheck: false,
   heartbeatAgeMs: -1,
   batteryOptimizationIgnored: false,
   sdkInt: 0,

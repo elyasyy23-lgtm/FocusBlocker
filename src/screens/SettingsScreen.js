@@ -152,6 +152,8 @@ export default function SettingsScreen({
   // state (the debug log on Home reads it separately).
   // v1.4.19: it is POLLED now — the Autostart card shows a live foreground-service
   // pill plus the boot-test result, so a one-shot read would go stale on screen.
+  // v1.4.20: every 3 s, and the native side answers from the system's own service
+  // list, so a service the OS killed flips the pill to red within one poll.
   useEffect(() => {
     let alive = true;
     const read = () => {
@@ -162,7 +164,7 @@ export default function SettingsScreen({
         .catch(() => {});
     };
     read();
-    const timer = setInterval(read, 4000);
+    const timer = setInterval(read, 3000);
     return () => {
       alive = false;
       clearInterval(timer);

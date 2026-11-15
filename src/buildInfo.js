@@ -4,7 +4,7 @@
  * these values too.
  */
 export const APP_NAME = 'Tavakkol';
-export const VERSION = '1.4.19';
-export const VERSION_CODE = 29;
+export const VERSION = '1.4.20';
+export const VERSION_CODE = 30;
 
 export const VERSION_LABEL = `${VERSION} (${VERSION_CODE})`;

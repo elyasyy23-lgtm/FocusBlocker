@@ -149,6 +149,11 @@ const FA = {
   no: 'خیر',
   'Foreground service: {{state}}': 'سرویس پیش‌زمینه: {{state}}',
   'Watchdog: {{state}}': 'نگهبان: {{state}}',
+  // v1.4.20: where the live status came from — the system's own service list
+  // (real-time) or the in-process flags (fallback).
+  'checked via {{source}}': 'بررسی از طریق {{source}}',
+  'the system list': 'فهرست سیستم',
+  'app flags': 'پرچم‌های برنامه',
 
   // --------------------------------------------------------------- messages
   'Could not read the native configuration.': 'خواندن تنظیمات داخلی ممکن نشد.',

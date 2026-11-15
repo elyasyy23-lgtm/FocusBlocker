@@ -1,5 +1,6 @@
 package com.focusblocker.guard
 
+import android.app.ActivityManager
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
@@ -408,19 +409,51 @@ class FocusGuardModule : Module() {
     AsyncFunction("getServiceHealth") {
       val ctx = requireContext()
       val health = JSONObject()
+      // v1.4.20: prefer the system's own service list over the in-process
+      // companion flags — those go stale when the OS kills a service without
+      // killing the process (see runningServiceState). `null` = the platform
+      // refused the call, so we fall back to the flags.
+      val watchdogState = runningServiceState(ctx, GuardWatchdogService::class.java.name)
+      val heartbeat = FocusGuardStore.lastHeartbeat(ctx)
+      val heartbeatAgeMs =
+        if (heartbeat <= 0L) -1.0 else (System.currentTimeMillis() - heartbeat).toDouble()
+      // The watchdog writes a heartbeat every 30 s, so a fresh stamp proves the
+      // service loop is genuinely ticking even when the system list is
+      // unavailable or restricted on an OEM ROM. 75 s tolerates one missed beat.
+      val heartbeatFresh = heartbeatAgeMs in 0.0..75_000.0
+      val watchdogRunning: Boolean
+      val watchdogForeground: Boolean
+      if (watchdogState == null) {
+        // The system list is unavailable — the flags are all we have.
+        watchdogRunning = GuardWatchdogService.isRunning
+        watchdogForeground = GuardWatchdogService.isForeground
+      } else if (watchdogState[0]) {
+        // The system lists the service: its values are the truth.
+        watchdogRunning = true
+        watchdogForeground = watchdogState[1]
+      } else if (heartbeatFresh) {
+        // The list says "gone" but the heartbeat is still ticking — the call is
+        // likely restricted here, so trust the loop rather than lie red.
+        watchdogRunning = true
+        watchdogForeground = GuardWatchdogService.isForeground
+      } else {
+        // Really gone: neither the system list nor the heartbeat sees it.
+        watchdogRunning = false
+        watchdogForeground = false
+      }
+      // The accessibility service can hold its own fallback foreground state,
+      // but only while it is really bound (`isRunning` is cleared on unbind).
+      val accessibilityFallback =
+        FocusAccessibilityService.isRunning && FocusAccessibilityService.isForegroundActive
       health.put("accessibilityEnabled", isAccessibilityEnabled(ctx))
       health.put("serviceRunning", FocusAccessibilityService.isRunning)
-      health.put(
-        "foregroundActive",
-        FocusAccessibilityService.isForegroundActive || GuardWatchdogService.isForeground
-      )
-      health.put("watchdogRunning", GuardWatchdogService.isRunning)
-      health.put("watchdogForeground", GuardWatchdogService.isForeground)
-      val heartbeat = FocusGuardStore.lastHeartbeat(ctx)
-      health.put(
-        "heartbeatAgeMs",
-        if (heartbeat <= 0L) -1.0 else (System.currentTimeMillis() - heartbeat).toDouble()
-      )
+      health.put("foregroundActive", watchdogForeground || accessibilityFallback)
+      health.put("watchdogRunning", watchdogRunning)
+      health.put("watchdogForeground", watchdogForeground)
+      // True when the running/foreground values came from the system list, false
+      // when they are the (possibly stale) in-process flags — debug-log signal.
+      health.put("systemCheck", watchdogState != null)
+      health.put("heartbeatAgeMs", heartbeatAgeMs)
       health.put("batteryOptimizationIgnored", isBatteryOptimizationIgnored(ctx))
       // v1.4.19 boot test: `bootAt` is when THIS device booted (derived from
       // elapsedRealtime), `bootBroadcastAt` is the boot we were actually told
@@ -587,5 +620,32 @@ class FocusGuardModule : Module() {
   private fun isBatteryOptimizationIgnored(ctx: Context): Boolean {
     val manager = ctx.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return false
     return manager.isIgnoringBatteryOptimizations(ctx.packageName)
+  }
+
+  /**
+   * v1.4.20: the system's OWN service list — the authoritative, real-time answer
+   * to "is this service actually alive right now".
+   *
+   * The companion flags (`GuardWatchdogService.isRunning` / `isForeground`) live
+   * in THIS process, so they can go stale: MIUI/HyperOS powerkeeper can kill the
+   * accessibility service or the foreground service object without tearing the
+   * whole process down (the watchdog itself keeps the process alive), which left
+   * `isForeground = true` on a dead service and a green pill that never flipped.
+   * `getRunningServices` is restricted to the caller's own services since
+   * Android O — exactly what we need, and it updates immediately.
+   *
+   * Returns `[running, foreground]` for the given service class, or `null` when
+   * the platform refuses the call (the caller then falls back to the flags).
+   */
+  private fun runningServiceState(ctx: Context, className: String): BooleanArray? {
+    return try {
+      val manager = ctx.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return null
+      @Suppress("DEPRECATION")
+      val services = manager.getRunningServices(Int.MAX_VALUE) ?: return null
+      val info = services.firstOrNull { it.service?.className == className }
+      booleanArrayOf(info != null, info?.foreground == true)
+    } catch (error: Throwable) {
+      null
+    }
   }
 }

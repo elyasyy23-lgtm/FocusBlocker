@@ -125,7 +125,9 @@ export default function DebugLogSection({ t, lang, isAvailable, onMessage, numbe
             health.batteryOptimizationIgnored
               ? t('battery unrestricted')
               : t('battery RESTRICTED — Android may kill the guard')
-          }`}
+          } · ${t('checked via {{source}}', {
+            source: health.systemCheck ? t('the system list') : t('app flags'),
+          })}`}
         </Text>
       ) : null}
       <ActionButton

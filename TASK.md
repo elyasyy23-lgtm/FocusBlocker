@@ -675,3 +675,38 @@ git fetch origin && git rebase origin/main
 git push origin main
 git tag v1.4.19 && git push origin v1.4.19
 ```
+
+SHIPPED 2026-11-15: commit `8690afb` → main + tag `v1.4.19`; CI 43693585620 (main) + 43693608966
+(tag) both SUCCESS → Release `Tavakkol v1.4.19` live, `Tavakkol-release.apk` 37,029,139 bytes
+(`releases/latest/...` 302 → v1.4.19, Pages `version.json` = 1.4.19).
+
+---
+
+## TASK — v1.4.20 (2026-11-15)
+GOAL: two owner fixes — (1) the website download URL must carry a unique `?v=<version>` so Chrome
+stops showing "Download file again?"; (2) the Autostart status pill must be REAL-TIME (native
+service check + 3 s polling), flipping to «متوقف» immediately when the guard is dead.
+
+- [x] FIX 2 native: `runningServiceState()` (ActivityManager) + `getServiceHealth` rewrite +
+      heartbeat-freshness fallback (75 s) + `systemCheck` field; `EMPTY_HEALTH.systemCheck`.
+- [x] FIX 2 JS: poll 4000 → 3000 ms in App.js + SettingsScreen.js; DebugLogSection health line
+      shows the source (`checked via {{source}}`).
+- [x] FIX 1 web: `id="apk-cta"` + `versionedUrl(base, tag)` + releases-API rewrite of the href.
+- [x] i18n +3 keys (244 strings / 304 translations).
+- [x] Version 1.4.20 / code 30 (app.json, package.json, package-lock ×2, buildInfo), version.json,
+      index.html ۱.۴.۲۰ (fa ×3 + en ×3).
+- [x] Verified: check-i18n OK, `npm run verify` green (bundle has `systemCheck` / `checked via` /
+      `watchdogForeground` / two `setInterval(...,3000)`), prebuild 1.4.20 (30), app_name Tavakkol,
+      manifests parse, index.html JS+JSON-LD parse, tag balance OK, Kotlin balance 0/0, android/ +
+      dist/ wiped.
+- [ ] NOT pushed — owner runs the push/tag.
+
+NOW: code complete + verified; waiting for the owner to push + tag v1.4.20.
+
+```bash
+cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
+git add -A && git commit -m "v1.4.20: real-time service-status polling + unique download URL"
+git fetch origin && git rebase origin/main
+git push origin main
+git tag v1.4.20 && git push origin v1.4.20
+```

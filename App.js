@@ -202,9 +202,12 @@ export default function App() {
   // v1.4.16: poll while the app is on screen so the status stays live — the
   // guard can be stopped by the system at any moment, and the hint must flip to
   // red without the user leaving and coming back.
+  // v1.4.20: every 3 s (was 4 s) and the native side now answers from the
+  // system's own service list, so a killed foreground service shows red within
+  // one poll instead of staying green until the app is reopened.
   useEffect(() => {
     if (appState !== 'active' || !FocusGuard.isAvailable) return undefined;
-    const id = setInterval(refreshHealth, 4000);
+    const id = setInterval(refreshHealth, 3000);
     return () => clearInterval(id);
   }, [appState, refreshHealth]);
 
@@ -303,10 +306,11 @@ export default function App() {
         // the browser at an http/intent URL.
         if (!/^https:\/\//i.test(url)) return;
         if (!isNewerVersion(latest, VERSION)) return;
-        // v1.4.17: tag the APK URL with the version. The manifest always points at
-        // `releases/latest/download/Tavakkol-release.apk`, so the filename never
-        // changes — without this Chrome shows a "Download file again?" prompt on
-        // every update. A distinct query string makes each release a fresh file.
+        // v1.4.17 / v1.4.20: tag the APK URL with the version. The manifest always
+        // points at `releases/latest/download/Tavakkol-release.apk`, so the
+        // filename never changes — without this Chrome shows a "Download file
+        // again?" prompt on every update. A distinct query string makes each
+        // release a fresh file. The website's download button does the same.
         const separator = url.includes('?') ? '&' : '?';
         const versionedUrl = `${url}${separator}v=${encodeURIComponent(latest)}`;
         if (!cancelled) setUpdateInfo({ latest, url: versionedUrl });

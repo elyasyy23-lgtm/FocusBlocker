@@ -1121,3 +1121,45 @@ inside the same diff — the sibling-card layout from v1.4.18 is what survives).
   → versionName 1.4.19 / versionCode 29, app_name Tavakkol (fa توکل); both manifests parse; Kotlin
   brace/paren balance 0/0 on the three touched files; no stale `autostart` reference left anywhere;
   `android/` + `dist/` wiped. Kotlin compiles only in CI.
+- SHIPPED 2026-11-15: commit `8690afb` → main + tag `v1.4.19`; CI runs 43693585620 (main) +
+  43693608966 (tag) both SUCCESS → Release `Tavakkol v1.4.19`, `Tavakkol-release.apk` 37,029,139
+  bytes live at
+  https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v1.4.19/Tavakkol-release.apk
+  (`releases/latest/...` 302 → v1.4.19, Pages `version.json` = 1.4.19, Pages index = ۱.۴.۱۹).
+  Pending owner on-device check: Autostart card shows the live pill «در حال اجرا»/«متوقف» and, after
+  a real restart, the boot line «...پس از آخرین ریاستارت خودکار اجرا کرد ✓ ۱۲:۳۴» (or ✗ when the
+  ROM blocked it).
+
+## v1.4.20 — real-time service status + unique download URL (2026-11-15)
+Two owner fixes.
+- **FIX 2 — the status pill is now REAL-TIME.** The pill was driven by the in-process companion
+  flags (`GuardWatchdogService.isRunning/isForeground`), which go stale when MIUI/HyperOS kills a
+  service without killing the process. `FocusGuardModule.kt` now asks the SYSTEM: new private
+  `runningServiceState(ctx, className): BooleanArray?` calls
+  `ActivityManager.getRunningServices(Int.MAX_VALUE)` (deprecated, but since Android O it is
+  restricted to the caller's own services) → `booleanArrayOf(info != null, info?.foreground == true)`,
+  `null` when the platform refuses. `getServiceHealth` resolution order: system list present → its
+  values are the truth; list says "gone" but `heartbeatFresh` (heartbeat within 75 s — the watchdog
+  beats every 30 s) → trust the loop rather than lie red; otherwise really gone. New
+  `systemCheck` field (true = values came from the system list) + `foregroundActive =
+  watchdogForeground || (FocusAccessibilityService.isRunning && isForegroundActive)`.
+  `modules/focus-guard/index.js` `EMPTY_HEALTH.systemCheck = false`. Poll interval 4000 → 3000 ms in
+  `App.js` and `src/screens/SettingsScreen.js`. `DebugLogSection.js` health line gained
+  «بررسی از طریق فهرست سیستم / پرچم‌های برنامه» (`checked via {{source}}`, `the system list`,
+  `app flags`).
+- **FIX 1 — no more Chrome "Download file again?"** on the website. `index.html`: the CTA anchor got
+  `id="apk-cta"`, a `versionedUrl(base, tag)` helper appends `?v=<release.tag_name>`, and the
+  releases-API fetch rewrites `cta.href` from the live tag. The anchor still points at
+  `releases/latest/download/Tavakkol-release.apk`, so it works even when JS never runs. The app side
+  (`App.js` `versionedUrl` with `?v=${encodeURIComponent(latest)}`) already existed since v1.4.17.
+- i18n 244 UI strings / 304 translations (+3: `checked via {{source}}`, `the system list`,
+  `app flags`).
+- Version 1.4.20 / versionCode 30 (app.json, package.json, package-lock ×2, buildInfo),
+  `version.json` 1.4.20, `index.html` ۱.۴.۲۰ (fa ×3 + en ×3).
+- Verified: check-i18n OK (244/304); `npm run verify` green (bundle contains `systemCheck`,
+  `checked via`, `watchdogForeground`, and two `setInterval(...,3000)` polls); `npm run
+  prebuild:android` → versionName 1.4.20 / versionCode 30, app_name Tavakkol (fa توکل); both
+  manifests parse; 4 inline JS blocks + 3 JSON-LD blocks in `index.html` all parse; div/a tag balance
+  OK; Kotlin brace/paren balance 0/0 on `FocusGuardModule.kt` + `GuardWatchdogService.kt`;
+  `android/` + `dist/` wiped. Kotlin compiles only in CI.
+- NOT pushed — owner runs the push/tag.
