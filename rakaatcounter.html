@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title id="page-title">رکعت‌شمار | شمارندهٔ خودکار رکعت و سجده برای اندروید</title>
+<meta name="description" id="meta-description" content="رکعت‌شمار یک برنامهٔ رایگان اندروید است که با حسگر نور، سجده را می‌شناسد و رکعت‌های نماز را خودش می‌شمارد. بدون تبلیغ، بدون اینترنت.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://elyasyy23-lgtm.github.io/FocusBlocker/rakaatcounter.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="توکل" id="og-site-name">
+<meta property="og:locale" content="fa_IR">
+<meta property="og:url" content="https://elyasyy23-lgtm.github.io/FocusBlocker/rakaatcounter.html">
+<meta property="og:title" id="og-title" content="رکعت‌شمار | شمارندهٔ خودکار رکعت و سجده">
+<meta property="og:description" id="og-description" content="با حسگر نور، سجده را می‌شناسد و رکعت‌ها را می‌شمارد. رایگان، بدون تبلیغ و کاملاً آفلاین.">
+<meta property="og:image" content="https://elyasyy23-lgtm.github.io/FocusBlocker/assets/rakaat-icon.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" id="tw-title" content="رکعت‌شمار | شمارندهٔ خودکار رکعت و سجده">
+<meta name="twitter:description" id="tw-description" content="با حسگر نور، سجده را می‌شناسد و رکعت‌ها را می‌شمارد. رایگان، بدون تبلیغ و کاملاً آفلاین.">
+<meta name="twitter:image" content="https://elyasyy23-lgtm.github.io/FocusBlocker/assets/rakaat-icon.png">
+<meta name="theme-color" content="#0F172A">
+<!-- Language bootstrap: same key as the home page, so the visitor's choice
+     follows them from the grid into an app page (and back) with no flash. -->
+<script>
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem('tavakkol_lang'); } catch (error) {}
+    var lang = saved === 'en' ? 'en' : 'fa';
+    window.TAVAKKOL_LANG = lang;
+    if (lang === 'en') {
+      document.documentElement.classList.add('lang-en');
+      document.documentElement.lang = 'en';
+      document.documentElement.dir = 'ltr';
+    }
+  })();
+</script>
+<!-- Traffic stats: same Umami site id as the home page. -->
+<script>
+  var TAVAKKOL_UMAMI_ID = 'a9e61d4a-7e53-45e4-9078-f6af538b6c68';
+  if (TAVAKKOL_UMAMI_ID) {
+    var umami = document.createElement('script');
+    umami.async = true;
+    umami.src = 'https://cloud.umami.is/script.js';
+    umami.setAttribute('data-website-id', TAVAKKOL_UMAMI_ID);
+    document.head.appendChild(umami);
+  }
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "رکعت‌شمار",
+  "alternateName": "RakaatCounter",
+  "url": "https://elyasyy23-lgtm.github.io/FocusBlocker/rakaatcounter.html",
+  "applicationCategory": "LifestyleApplication",
+  "operatingSystem": "Android 7+",
+  "inLanguage": "fa-IR",
+  "description": "شمارندهٔ خودکار رکعت و سجده برای نماز، با تشخیص سجده از روی نور محیط. رایگان، بدون تبلیغ و کاملاً آفلاین.",
+  "featureList": "تشخیص خودکار سجده با حسگر نور، ترتیب سنت و فرض و وتر بر پایهٔ مذهب، قبله‌نما، حالت شب",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "IRR" },
+  "downloadUrl": "https://elyasyy23-lgtm.github.io/FocusBlocker/RakaatCounter-release.apk",
+  "softwareVersion": "1.6.0",
+  "fileSize": "49MB"
+}
+</script>
+<link rel="icon" href="assets/rakaat-icon.png">
+<link rel="preload" href="assets/fonts/Vazirmatn-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="head-left">
+      <a class="brand" href="index.html" style="text-decoration:none;color:inherit">
+        <img src="assets/web-icon.png" alt="نشان توکل" width="34" height="34" decoding="async" data-i18n-alt="brand.alt">
+        <div>
+          <span data-i18n="header.name">توکل</span><br>
+          <small data-i18n="header.tagline">نگهبانِ گوشی خودت</small>
+        </div>
+      </a>
+      <div class="lang" role="group" aria-label="Language / زبان">
+        <button type="button" data-lang="fa" lang="fa" aria-pressed="true">فارسی</button>
+        <button type="button" data-lang="en" lang="en" aria-pressed="false">EN</button>
+      </div>
+    </div>
+    <div class="ver" data-i18n="header.version">نسخهٔ ۱.۶.۰ · اندروید</div>
+  </header>
+
+  <main>
+    <div class="detail-top">
+      <a class="back" href="index.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6"/>
+        </svg>
+        <span data-i18n="back.home">بازگشت به خانه</span>
+      </a>
+      <span class="ver" data-i18n="detail.free">رایگان · بدون تبلیغ</span>
+    </div>
+
+    <section class="appcard appcard-wide">
+      <div class="appcard-body">
+        <span class="appbadge" data-i18n="app.badge">اندروید · رایگان · آفلاین</span>
+        <h1 data-i18n="app.name">رکعت‌شمار — RakaatCounter</h1>
+        <p class="applede" data-i18n="app.lede">
+          گوشی را کنار سجاده بگذار و نمازت را بخوان. برنامه با حسگر نور، هر سجده را می‌شناسد
+          و رکعت‌ها را خودش می‌شمارد؛ دیگر لازم نیست نگران فراموش‌شدن شمارهٔ رکعت باشی.
+        </p>
+        <ul class="appfeat">
+          <li data-i18n="app.f1">تشخیص خودکار سجده با نور محیط — بدون دست‌زدن به گوشی</li>
+          <li data-i18n="app.f2">پنج نماز روزانه با تعداد رکعت درست، بر پایهٔ مذهب انتخابی</li>
+          <li data-i18n="app.f3">قبله‌نما، حالت شب، لرزش و شمارندهٔ سجده</li>
+          <li data-i18n="app.f4">کاملاً آفلاین — هیچ اطلاعاتی از گوشی بیرون نمی‌رود</li>
+        </ul>
+        <div class="appactions">
+          <a class="cta cta-app" id="rakaat-cta" href="RakaatCounter-release.apk" data-repo="elyasyy23-lgtm/RakaatCounter" download="RakaatCounter-release.apk">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/>
+            </svg>
+            <span data-i18n="app.cta">دانلود APK — ۴۹ مگابایت</span>
+          </a>
+          <p class="meta appmeta">
+            <span data-i18n="app.version">نسخه <b>۱.۶.۰</b></span>
+            <span data-i18n="app.android">اندروید <b>۷ به بالا</b></span>
+            <span data-i18n="app.size">حجم <b>۴۹ مگابایت</b></span>
+          </p>
+        </div>
+        <p class="cta-note appnote" data-i18n="app.note">
+          فایل مستقیم از همین سایت دانلود می‌شود، بدون واسطه. اگر گوگل هنگام نصب هشدار داد،
+          روی «Install anyway» بزن؛ نصبِ خارج از فروشگاه همیشه این پیام را نشان می‌دهد.
+        </p>
+      </div>
+      <div class="appcard-art">
+        <img src="assets/rakaat-icon.png" alt="آیکون رکعت‌شمار" width="176" height="176" decoding="async" data-i18n-alt="app.alt">
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head reveal">
+        <h2 data-i18n="feat.title">چطور کار می‌کند؟</h2>
+        <p data-i18n="feat.sub">یک حسگر، یک قانون ساده: سجده یعنی سایه.</p>
+      </div>
+      <div class="featgrid">
+        <article class="featcard reveal">
+          <b data-i18n="feat.c1.title">سجده را از نور می‌شناسد</b>
+          <p data-i18n="feat.c1.body">در آغاز هر نماز، ۱۰ ثانیه نور اتاق سنجیده می‌شود؛ بعد از آن هر بار که جلوی حسگر تاریک شود یعنی سر به سجده رفته‌ای. دو سجده = یک رکعت.</p>
+        </article>
+        <article class="featcard reveal">
+          <b data-i18n="feat.c2.title">ترتیب چهار مذهب</b>
+          <p data-i18n="feat.c2.body">سنت و فرض و وتر به ترتیب درست، برای حنفی، شافعی، مالکی و حنبلی. نمازهای پنجگانه با همان تعداد رکعت واقعی.</p>
+        </article>
+        <article class="featcard reveal">
+          <b data-i18n="feat.c3.title">قبله‌نما</b>
+          <p data-i18n="feat.c3.body">جهت قبله با قطب‌نمای گوشی؛ یک بار اجازه بده، از آن به بعد حتی بدون اینترنت هم کار می‌کند.</p>
+        </article>
+        <article class="featcard reveal">
+          <b data-i18n="feat.c4.title">آرام و بی‌سر‌و‌صدا</b>
+          <p data-i18n="feat.c4.body">حالت شب، لرزش کوتاه هنگام کامل‌شدن هر بخش، و لاگ عیب‌یابی برای وقتی حسگر گوشی اذیت می‌کند.</p>
+        </article>
+        <article class="featcard reveal">
+          <b data-i18n="feat.c5.title">بدون اینترنت</b>
+          <p data-i18n="feat.c5.body">هیچ حسابی، هیچ سروری، هیچ تحلیلی. برنامه در حالت پرواز هم کامل کار می‌کند.</p>
+        </article>
+        <article class="featcard reveal">
+          <b data-i18n="feat.c6.title">برای هر نماز، شمارش تازه</b>
+          <p data-i18n="feat.c6.body">شمارنده در پایان هر نماز یا با زدن «پایان نماز» صفر می‌شود؛ نماز بعدی از صفر شروع می‌شود.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="steps">
+      <div class="section-head reveal">
+        <h2 data-i18n="install.title">نصب در سه قدم</h2>
+        <p data-i18n="install.sub">بدون حساب، بدون ثبت‌نام.</p>
+      </div>
+      <ol class="steps-list">
+        <li class="reveal"><span class="num">۱</span><span><b data-i18n="install.s1.title">فایل را دانلود کن</b><span data-i18n="install.s1.body">دکمهٔ «دانلود APK» را بزن؛ فایل در پوشهٔ دانلود گوشی ذخیره می‌شود.</span></span></li>
+        <li class="reveal"><span class="num">۲</span><span><b data-i18n="install.s2.title">اجازهٔ نصب بده</b><span data-i18n="install.s2.body">اگر اندروید هشدار داد، برای مرورگر «نصب از منابع نامشخص» را روشن کن و روی Install anyway بزن.</span></span></li>
+        <li class="reveal"><span class="num">۳</span><span><b data-i18n="install.s3.title">کالیبراسیون و شروع</b><span data-i18n="install.s3.body">برنامه را باز کن، یک نماز را انتخاب کن و گوشی را ۱۰ ثانیه در همان جایی که نماز می‌خوانی نگه دار.</span></span></li>
+      </ol>
+    </section>
+
+    <section class="ctaband reveal">
+      <div>
+        <h2 data-i18n="band.title">آمادهٔ شمردن رکعت‌ها بدون استرس؟</h2>
+        <p data-i18n="band.sub">رایگان است، تبلیغ ندارد و روی گوشی خودت اجرا می‌شود.</p>
+      </div>
+      <a class="cta cta-app" href="RakaatCounter-release.apk" data-repo="elyasyy23-lgtm/RakaatCounter" download="RakaatCounter-release.apk">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/>
+        </svg>
+        <span data-i18n="band.cta">دانلود APK</span>
+      </a>
+    </section>
+  </main>
+
+  <footer>
+    <div class="foot">
+      <span data-i18n="footer.text">توکل — محافظ رایگان گوشی، بدون تبلیغ و بدون جمع‌آوری اطلاعات.</span>
+      <span data-i18n="footer.contact">
+        ارتباط با سازنده در روبیکا:
+        <a href="https://rubika.ir/yasmajyd" target="_blank" rel="noopener">@yasmajyd</a>
+      </span>
+    </div>
+    <p class="wordmark" data-i18n="footer.wordmark">توکل</p>
+    <p class="foot foot-meta">
+      <span data-i18n="footer.meta">رکعت‌شمار · نسخهٔ ۱.۶.۰ · آبان ۱۴۰۵</span>
+      <a class="stats-link" href="index.html" data-i18n="footer.home">صفحهٔ اصلی</a>
+    </p>
+  </footer>
+
+</div>
+
+<script>
+  window.I18N_EN = {
+    'meta.title': `RakaatCounter | Automatic rak'ah and prostration counter for Android`,
+    'meta.description': `RakaatCounter is a free Android app that recognises each prostration from the room light and counts your prayer rak'ahs by itself. No ads, no internet.`,
+    'meta.siteName': `Tavakkol`,
+
+    'brand.alt': `Tavakkol app logo`,
+    'header.name': `Tavakkol`,
+    'header.tagline': `Your phone's own guardian`,
+    'header.version': `Version 1.6.0 · Android`,
+
+    'back.home': `Back to home`,
+    'detail.free': `Free · No ads`,
+
+    'app.badge': `Android · Free · Offline`,
+    'app.name': `RakaatCounter — rak'ah counter`,
+    'app.lede': `Put the phone beside your prayer mat and pray. The app reads the room light, recognises every prostration and counts the rak'ahs, so you never lose track of which one you are in.`,
+    'app.f1': `Automatic prostration detection from the ambient light — no need to touch the phone`,
+    'app.f2': `The five daily prayers with the correct rak'ah count, following the school of law you pick`,
+    'app.f3': `Qibla compass, night mode, vibration and a prostration counter`,
+    'app.f4': `Fully offline — nothing ever leaves your phone`,
+    'app.cta': `Download APK — 49 MB`,
+    'app.version': `Version <b>1.6.0</b>`,
+    'app.android': `Android <b>7 and up</b>`,
+    'app.size': `Size <b>49 MB</b>`,
+    'app.note': `The file comes straight from this site, with nothing in between. If Google warns you during install, tap “Install anyway” — every app installed from outside the store shows that message.`,
+    'app.alt': `RakaatCounter app icon`,
+
+    'feat.title': `How does it work?`,
+    'feat.sub': `One sensor, one simple rule: a prostration means a shadow.`,
+    'feat.c1.title': `It recognises a prostration from the light`,
+    'feat.c1.body': `At the start of each prayer it measures the room light for ten seconds. After that, every time the sensor goes dark your head has gone down. Two prostrations make one rak'ah.`,
+    'feat.c2.title': `The order of all four schools`,
+    'feat.c2.body': `Sunnah, fard and witr in the right order for Hanafi, Shafi'i, Maliki and Hanbali, with the real rak'ah count for each of the five prayers.`,
+    'feat.c3.title': `Qibla compass`,
+    'feat.c3.body': `The Qibla direction from your phone's compass; allow it once and it keeps working offline afterwards.`,
+    'feat.c4.title': `Quiet by design`,
+    'feat.c4.body': `Night mode, a short vibration when a part completes, and a debug log for the times your phone's sensor misbehaves.`,
+    'feat.c5.title': `No internet needed`,
+    'feat.c5.body': `No account, no server, no analytics. The app works completely in airplane mode.`,
+    'feat.c6.title': `A fresh count for every prayer`,
+    'feat.c6.body': `The counter resets when the prayer ends or when you tap Stop prayer, so the next prayer starts from zero.`,
+
+    'install.title': `Install in three steps`,
+    'install.sub': `No account, no sign-up.`,
+    'install.s1.title': `Download the file`,
+    'install.s1.body': `Tap “Download APK”; the file is saved in your phone's Downloads folder.`,
+    'install.s2.title': `Allow the install`,
+    'install.s2.body': `If Android warns you, turn on “Install from unknown sources” for your browser and tap Install anyway.`,
+    'install.s3.title': `Calibrate and pray`,
+    'install.s3.body': `Open the app, pick a prayer, and hold the phone for ten seconds in the spot where you normally pray.`,
+
+    'band.title': `Ready to count your rak'ahs without the stress?`,
+    'band.sub': `It is free, has no ads, and runs entirely on your own phone.`,
+    'band.cta': `Download APK`,
+
+    'footer.text': `Tavakkol — a free phone guardian, no ads and no data collection.`,
+    'footer.contact': `Contact the developer on Rubika: <a href="https://rubika.ir/yasmajyd" target="_blank" rel="noopener">@yasmajyd</a>`,
+    'footer.wordmark': `Tavakkol`,
+    'footer.meta': `RakaatCounter · version 1.6.0 · November 2026`,
+    'footer.home': `Home page`
+  };
+</script>
+<script src="assets/i18n.js" defer></script>
+<script src="assets/apk-links.js" defer></script>
+</body>
+</html>
