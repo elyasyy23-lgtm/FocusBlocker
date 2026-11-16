@@ -1279,3 +1279,34 @@ Home is now a small app store, not a single-app page:
 - Engine note: `assets/i18n.js` also translates `placeholder` via `data-i18n-placeholder`.
 - Verification lives at `$TMPDIR/domtest/test-appstore.mjs` (38 checks: search fa/en/no-match/reset,
   EN+FA round trip, hero, 5 shots, 6 table rows, exact hash, clipboard payload).
+
+## Detail page = APKPure-style (2026-11-16, site v3)
+
+`rakaatcounter.html` now follows the APKPure app-page structure, top to bottom:
+
+1. **Breadcrumb** `.crumbs` — back pill + خانه / برنامه‌ها / رکعت‌شمار (`aria-current="page"`) +
+   free/download pill on the far side.
+2. **Hero** — 146px icon, h1, a `version · by developer · updated` meta line, feature pills,
+   a `.hero-verify` link ("فایل تأییدشده") that jumps to `#tech`, big Download + version/size meta,
+   install note.
+3. **Screenshots** — horizontal rail, 5 phone-aspect placeholders (real screenshots replace these
+   later; keep `.shot` and the `data-i18n` labels when swapping in `<img>`).
+4. **About the app** — 3 paragraphs + checklist.
+5. **What's new in 1.6.0** — `.version-tag` + `.newslist` of 5 REAL changes (calibration, Qibla,
+   per-prayer reset, on-screen completion, log copy). Update this block on every release.
+6. **How it works** — `.featgrid` feature cards.
+7. **Technical table** — 8 rows: version, size in bytes, updated, package, requires Android,
+   category, developer, SHA-256 + copy button. The hash is the release asset's own digest.
+8. **Install in three steps** — `.steps-list`.
+9. **More apps from us** — `.simgrid` with the Tavakkol card (`assets/web-icon.png` → `index.html`)
+   and an "All apps" card (`index.html#apps`). Add one `.simcard` per future app.
+10. **CTA band**.
+
+**Sticky download bar** (`#sticky-dl`): appears only after the hero Download button scrolls above
+the viewport (scroll handler → 120 ms throttle → `getBoundingClientRect().bottom < 0`), adds
+`body.has-stickybar` (76px bottom padding) and hides again when the hero button returns. Full-width
+strip on phones, centred floating pill ≥821px. Reduced-motion users get no animation.
+To keep it honest, never let it show before the hero CTA has actually left the screen.
+
+Verification: `$TMPDIR/domtest/test-appstore.mjs` now runs 61 checks (structure, hash exactness,
+i18n both ways, plus the sticky-bar show/hide logic driven by a stubbed `getBoundingClientRect`).

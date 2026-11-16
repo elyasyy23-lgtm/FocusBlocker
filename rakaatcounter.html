@@ -60,7 +60,8 @@
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "IRR" },
   "downloadUrl": "https://elyasyy23-lgtm.github.io/FocusBlocker/RakaatCounter-release.apk",
   "softwareVersion": "1.6.0",
-  "fileSize": "49MB"
+  "fileSize": "51374968",
+  "dateModified": "2026-11-16"
 }
 </script>
 <link rel="icon" href="assets/rakaat-icon.png">
@@ -88,15 +89,20 @@
   </header>
 
   <main>
-    <div class="detail-top">
+    <nav class="crumbs" aria-label="مسیر صفحه" data-i18n-aria="crumbs.aria">
       <a class="back" href="index.html">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M15 18l-6-6 6-6"/>
         </svg>
         <span data-i18n="back.home">بازگشت به خانه</span>
       </a>
+      <ol class="crumb-list">
+        <li><a href="index.html" data-i18n="crumbs.home">خانه</a></li>
+        <li><a href="index.html#apps" data-i18n="crumbs.apps">برنامه‌ها</a></li>
+        <li aria-current="page" data-i18n="crumbs.current">رکعت‌شمار</li>
+      </ol>
       <span class="ver" data-i18n="detail.free">رایگان · بدون تبلیغ</span>
-    </div>
+    </nav>
 
     <section class="apphero">
       <div class="apphero-iconwrap">
@@ -105,12 +111,24 @@
       <div class="apphero-body">
         <span class="appbadge" data-i18n="app.badge">اندروید · رایگان · آفلاین</span>
         <h1 data-i18n="app.name">رکعت‌شمار — RakaatCounter</h1>
-        <p class="apphero-dev" data-i18n="app.dev">توکل · رایگان و بدون تبلیغ</p>
+        <p class="apphero-meta">
+          <span data-i18n="app.metaversion">نسخهٔ ۱.۶.۰</span>
+          <span class="dot" aria-hidden="true">·</span>
+          <span data-i18n="app.by">توسط توکل</span>
+          <span class="dot" aria-hidden="true">·</span>
+          <span><time datetime="2026-11-16" data-i18n="app.updated">۱۶ نوامبر ۲۰۲۶</time></span>
+        </p>
         <div class="apphero-pills">
           <span data-i18n="app.pill1">کاملاً آفلاین</span>
           <span data-i18n="app.pill2">بدون تبلیغ</span>
           <span data-i18n="app.pill3">اندروید ۷+</span>
         </div>
+        <a class="hero-verify" href="#tech">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 6 9 17l-5-5"/>
+          </svg>
+          <span data-i18n="app.verify">فایل تأییدشده · هش SHA-256 در جدول فنی</span>
+        </a>
         <div class="apphero-actions">
           <a class="cta cta-app" id="rakaat-cta" href="RakaatCounter-release.apk" data-repo="elyasyy23-lgtm/RakaatCounter" download="RakaatCounter-release.apk">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -196,6 +214,23 @@
       </div>
     </section>
 
+    <section class="whatsnew-wrap" id="whats-new">
+      <div class="section-head reveal">
+        <h2 data-i18n="news.title">تازه در نسخهٔ ۱.۶.۰</h2>
+        <p data-i18n="news.sub">آخرین تغییرهایی که به همین نسخه رسیده است.</p>
+      </div>
+      <div class="panel reveal">
+        <span class="version-tag" data-i18n="news.tag">۱.۶.۰ · ۱۶ نوامبر ۲۰۲۶</span>
+        <ul class="newslist">
+          <li data-i18n="news.i1">کالیبراسیون ساده شد: به‌جای دو مرحلهٔ جدا، یک اندازه‌گیری ۱۰ ثانیه‌ای از نور اتاق و آستانه‌ها خودکار حساب می‌شوند.</li>
+          <li data-i18n="news.i2">جهت قبله اصلاح شد و قطب‌نما فقط وقتی روشن می‌شود که خودت بخواهی؛ یک بار اجازهٔ موقعیت کافی است.</li>
+          <li data-i18n="news.i3">شمارنده در پایان هر نماز یا با زدن «پایان نماز» صفر می‌شود؛ هر نماز از صفر شروع می‌شود.</li>
+          <li data-i18n="news.i4">پایان نماز روی خود صفحه نمایش داده می‌شود (بدون پنجرهٔ سیستمی) و سجده‌های کوتاه‌تر از نیم‌ثانیه شمرده نمی‌شوند.</li>
+          <li data-i18n="news.i5">صفحهٔ گزارش رویدادها اضافه شد و با دکمهٔ «کپی لاگ» می‌توانی همهٔ خطوط را یک‌جا کپی کنی.</li>
+        </ul>
+      </div>
+    </section>
+
     <section>
       <div class="section-head reveal">
         <h2 data-i18n="feat.title">چطور کار می‌کند؟</h2>
@@ -259,6 +294,14 @@
               <td data-i18n="tech.androidval">۷.۰ به بالا (minSdk 24)</td>
             </tr>
             <tr>
+              <th scope="row" data-i18n="tech.category">دسته‌بندی</th>
+              <td data-i18n="tech.categoryval">سبک زندگی · نماز و عبادت</td>
+            </tr>
+            <tr>
+              <th scope="row" data-i18n="tech.developer">سازنده</th>
+              <td data-i18n="tech.developerval">توکل (elyasyy23-lgtm)</td>
+            </tr>
+            <tr>
               <th scope="row" data-i18n="tech.hash">هش SHA-256</th>
               <td class="mono">
                 <span id="apk-hash">ccee68368239928a75f9d044040d954830c9eb270d09e9b9926281902bbb5d78</span>
@@ -290,6 +333,36 @@
       </ol>
     </section>
 
+    <section class="similar">
+      <div class="section-head reveal">
+        <h2 data-i18n="similar.title">برنامه‌های دیگر ما</h2>
+        <p data-i18n="similar.sub">از همین سازنده، روی همین سایت.</p>
+      </div>
+      <div class="simgrid">
+        <a class="simcard reveal" href="index.html">
+          <img src="assets/web-icon.png" alt="آیکون توکل" width="52" height="52" loading="lazy" decoding="async" data-i18n-alt="similar.tav.alt">
+          <span class="simcard-body">
+            <b data-i18n="similar.tav.name">توکل</b>
+            <small data-i18n="similar.tav.desc">محافظ گوشی در برابر محتوای بزرگسالان و عادت‌های پرهزینه.</small>
+          </span>
+          <span class="simcard-go" data-i18n="similar.tav.cta">مشاهده</span>
+        </a>
+        <a class="simcard reveal" href="index.html#apps">
+          <span class="simcard-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/>
+              <rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>
+            </svg>
+          </span>
+          <span class="simcard-body">
+            <b data-i18n="similar.all.name">همهٔ برنامه‌ها</b>
+            <small data-i18n="similar.all.desc">فهرست کامل برنامه‌های سایت در یک نگاه.</small>
+          </span>
+          <span class="simcard-go" data-i18n="similar.all.cta">باز کردن</span>
+        </a>
+      </div>
+    </section>
+
     <section class="ctaband reveal">
       <div>
         <h2 data-i18n="band.title">آمادهٔ شمردن رکعت‌ها بدون استرس؟</h2>
@@ -319,6 +392,17 @@
     </p>
   </footer>
 
+  <div class="stickydl" id="sticky-dl" hidden>
+    <img src="assets/rakaat-icon.png" alt="" width="38" height="38" aria-hidden="true" decoding="async">
+    <span class="stickydl-text">
+      <b data-i18n="sticky.name">رکعت‌شمار</b>
+      <small data-i18n="sticky.meta">نسخهٔ ۱.۶.۰ · ۴۹ مگابایت</small>
+    </span>
+    <a class="cta cta-app" href="RakaatCounter-release.apk" data-repo="elyasyy23-lgtm/RakaatCounter" download="RakaatCounter-release.apk">
+      <span data-i18n="sticky.cta">دانلود APK</span>
+    </a>
+  </div>
+
 </div>
 
 <script>
@@ -337,21 +421,56 @@
 
     'app.badge': `Android · Free · Offline`,
     'app.name': `RakaatCounter — rak'ah counter`,
-    'app.lede': `Put the phone beside your prayer mat and pray. The app reads the room light, recognises every prostration and counts the rak'ahs, so you never lose track of which one you are in.`,
     'app.f1': `Automatic prostration detection from the ambient light — no need to touch the phone`,
     'app.f2': `The five daily prayers with the correct rak'ah count, following the school of law you pick`,
     'app.f3': `Qibla compass, night mode, vibration and a prostration counter`,
     'app.f4': `Fully offline — nothing ever leaves your phone`,
     'app.cta': `Download APK — 49 MB`,
     'app.version': `Version <b>1.6.0</b>`,
-    'app.android': `Android <b>7 and up</b>`,
     'app.size': `Size <b>49 MB</b>`,
     'app.note': `The file comes straight from this site, with nothing in between. If Google warns you during install, tap “Install anyway” — every app installed from outside the store shows that message.`,
     'app.alt': `RakaatCounter app icon`,
-    'app.dev': `Tavakkol · Free, no ads`,
     'app.pill1': `Fully offline`,
     'app.pill2': `No ads`,
     'app.pill3': `Android 7+`,
+
+    'app.metaversion': `Version 1.6.0`,
+    'app.by': `by Tavakkol`,
+    'app.updated': `16 November 2026`,
+    'app.verify': `Verified file · SHA-256 in the tech table`,
+
+    'crumbs.aria': `Breadcrumb`,
+    'crumbs.home': `Home`,
+    'crumbs.apps': `Apps`,
+    'crumbs.current': `RakaatCounter`,
+
+    'news.title': `What's new in 1.6.0`,
+    'news.sub': `The changes that landed in this build.`,
+    'news.tag': `1.6.0 · 16 November 2026`,
+    'news.i1': `Calibration got simpler: instead of two separate steps, one ten-second reading of the room light sets both thresholds automatically.`,
+    'news.i2': `The Qibla direction was fixed, and the compass only switches on when you want it — one location permission is enough.`,
+    'news.i3': `The counter resets when the prayer ends or when you tap “Stop prayer”, so every prayer starts from zero.`,
+    'news.i4': `The prayer now completes on screen (no system dialog), and prostrations shorter than half a second are ignored.`,
+    'news.i5': `A new event log screen, with a “Copy logs” button that copies every line at once.`,
+
+    'tech.category': `Category`,
+    'tech.categoryval': `Lifestyle · Prayer`,
+    'tech.developer': `Developer`,
+    'tech.developerval': `Tavakkol (elyasyy23-lgtm)`,
+
+    'similar.title': `More apps from us`,
+    'similar.sub': `Same developer, same site.`,
+    'similar.tav.alt': `Tavakkol app icon`,
+    'similar.tav.name': `Tavakkol`,
+    'similar.tav.desc': `A phone guardian against adult content and expensive habits.`,
+    'similar.tav.cta': `View`,
+    'similar.all.name': `All apps`,
+    'similar.all.desc': `Every app on this site in one place.`,
+    'similar.all.cta': `Open`,
+
+    'sticky.name': `RakaatCounter`,
+    'sticky.meta': `Version 1.6.0 · 49 MB`,
+    'sticky.cta': `Download APK`,
 
     'shots.title': `Screenshots`,
     'shots.sub': `The main screens — real screenshots are coming soon.`,
@@ -469,6 +588,38 @@
         legacyCopy();
       }
     });
+  })();
+</script>
+<script>
+  /* Sticky download bar: appears only after the hero download button has
+     scrolled out of view, so it never covers the copy that matters most.
+     Falls back to "always hidden" if the browser lacks the basics. */
+  (function () {
+    var bar = document.getElementById('sticky-dl');
+    var anchor = document.getElementById('rakaat-cta');
+    if (!bar || !anchor || typeof anchor.getBoundingClientRect !== 'function') return;
+
+    var shown = false;
+    var timer = null;
+
+    function measure() {
+      timer = null;
+      var box = anchor.getBoundingClientRect();
+      var want = box.bottom < 0;
+      if (want === shown) return;
+      shown = want;
+      bar.hidden = !want;
+      document.body.classList.toggle('has-stickybar', want);
+    }
+
+    function schedule() {
+      if (timer) return;
+      timer = setTimeout(measure, 120);
+    }
+
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule, { passive: true });
+    measure();
   })();
 </script>
 <script src="assets/i18n.js" defer></script>
