@@ -737,9 +737,10 @@ and hand over the exact SHA-256 so the owner can verify the download.
 - [x] Verified: `npx expo prebuild --platform android --clean --no-install` shows the three flags in
       `signingConfigs.debug` + versionCode 31 / versionName 1.4.21; check-i18n OK (244/304);
       `npm run verify` green (1.2 MB bundle); `android/` + `dist/` wiped. Kotlin/AGP compile in CI.
-- [ ] Push main + tag v1.4.21, watch BOTH CI runs to green.
-- [ ] Download the release APK → `apksigner verify` must report v1 + v2 + v3 true → report the
-      SHA-256 to the owner so they can verify their download is intact.
+- [x] Push main + tag v1.4.21, watch BOTH CI runs to green.
+- [x] Download the release APK → `apksigner verify --min-sdk-version 23 --verbose` reports
+      v1 + v2 + v3 true (plain `verify` says v1 false because minSdk 24 skips the v1 check — see
+      AGENTS.md) → SHA-256 reported to the owner.
 
 ```bash
 cd ~/storage/shared/ZYVO/session-20261110-133137/FocusBlocker
@@ -749,4 +750,38 @@ git push origin main
 git tag v1.4.21 && git push origin v1.4.21
 ```
 
-NOW: code complete + verified; pushing + tagging, then CI watch and the SHA-256 hand-off.
+NOW: SHIPPED — commit `6ff7549`, CI 43704628263 (main) + 43704639127 (tag) SUCCESS, Release
+`Tavakkol v1.4.21` live, `Tavakkol-release.apk` 37,089,200 bytes, sha256
+`532ecc59d306cb1eb70d2d24aa1b6980203f52cacd4ed2667e757d93bbcc8e6e`, v1+v2+v3 confirmed, cert
+unchanged. Waiting on the owner: download, check the sha256, install. If it still says «invalid»,
+next move = `adb` wireless debugging install to read the exact `INSTALL_FAILED_*` code.
+
+---
+
+# SITE TASK — "app store" upgrade (2026-11-16)
+
+GOAL: make the GitHub Pages site behave like an app store (APKPure-like): header search, richer
+app cards with a prominent Download button, a detail page with a screenshot rail and a technical
+info table carrying the real SHA-256. No APK build involved.
+
+## Steps
+- [x] Read the release facts (tag v1.6.0, published 2026-11-16, 51,374,968 B, sha256 ccee6836…).
+- [x] Engine: `assets/i18n.js` supports `data-i18n-placeholder`.
+- [x] Header: search pill (icon + input + clear), split header into `.head-left` / `.search` / `.head-right`.
+- [x] Home cards: icon, name, developer, free badge, description, version/size/OS chips,
+      full-width primary Download + ghost Details.
+- [x] Search filter: every card carries `data-search` (fa + en keywords); token AND match;
+      Persian/Arabic folding; empty state + clear; grid collapses when nothing matches.
+- [x] Detail hero: 126px icon, h1, developer line, pills, big download CTA, version/size meta.
+- [x] Screenshot rail: 5 phone-aspect placeholders, horizontal scroll + snap, swipe hint.
+- [x] "About the app": 3 real paragraphs + checklist panel.
+- [x] Technical table: version / size / last updated / package / Android / SHA-256 + copy button.
+- [x] Back-to-home link kept at the top of the detail page.
+- [x] Verify: key coverage `missing: []` both pages, 9 inline scripts `node --check`, JSON-LD parse,
+      every used class has a rule, 38-check linkedom behavioural test (search, i18n, hash, copy).
+- [ ] Commit → rebase → push → Pages built → live byte check.
+
+## Decisions
+- No fake ratings/download counts: only measured facts (size and hash come from the release API).
+- Screenshots are honest placeholders ("به‌زودی") — no mocked-up app UI.
+- The hash is the release asset's own `digest`, so a visitor can verify the downloaded file.

@@ -190,12 +190,26 @@
           <small data-i18n="header.tagline">نگهبانِ گوشی خودت</small>
         </div>
       </div>
+    </div>
+
+    <div class="search" role="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>
+      </svg>
+      <input id="app-search" type="search" inputmode="search" autocomplete="off" spellcheck="false"
+             placeholder="جستجوی برنامه…" data-i18n-placeholder="search.placeholder"
+             aria-label="جستجوی برنامه‌ها" data-i18n-aria="search.aria">
+      <button type="button" class="search-clear" id="search-clear" hidden
+              aria-label="پاک کردن جستجو" data-i18n-aria="search.clear">×</button>
+    </div>
+
+    <div class="head-right">
       <div class="lang" role="group" aria-label="Language / زبان">
         <button type="button" data-lang="fa" lang="fa" aria-pressed="true">فارسی</button>
         <button type="button" data-lang="en" lang="en" aria-pressed="false">EN</button>
       </div>
+      <div class="ver" data-i18n="header.version">نسخهٔ ۱.۴.۲۱ · اندروید</div>
     </div>
-    <div class="ver" data-i18n="header.version">نسخهٔ ۱.۴.۲۱ · اندروید</div>
   </header>
 
   <main>
@@ -547,30 +561,48 @@
         <p data-i18n="apps.sub">رایگان، بدون تبلیغ، بدون اینترنت — ساختهٔ همین سازنده.</p>
       </div>
 
-      <div class="appgrid">
-        <article class="apptile reveal">
+      <div class="appgrid" id="appgrid">
+        <!--
+          ADD A NEW APP = copy this one <article>, swap the icon / texts /
+          hrefs, and write a matching detail page (see rakaatcounter.html).
+          `data-search` holds the Persian AND English keywords the header
+          search matches against, space separated.
+        -->
+        <article class="apptile reveal" data-search="رکعت شمار رکعت‌شمار شمارنده نماز سجده قبله اندروید rakaatcounter rakaat rakat counter prayer salah sujud qibla android offline">
           <div class="apptile-top">
-            <img class="apptile-icon" src="assets/rakaat-icon.png" alt="آیکون برنامه رکعت‌شمار" width="62" height="62" loading="lazy" decoding="async" data-i18n-alt="apps.rakaat.alt">
-            <div>
-              <span class="apptile-name" data-i18n="apps.rakaat.name">رکعت‌شمار</span>
-              <span class="apptile-tag" data-i18n="apps.rakaat.tag">شمارندهٔ خودکار رکعت و سجده</span>
+            <img class="apptile-icon" src="assets/rakaat-icon.png" alt="آیکون برنامه رکعت‌شمار" width="64" height="64" loading="lazy" decoding="async" data-i18n-alt="apps.rakaat.alt">
+            <div class="apptile-id">
+              <h3 class="apptile-name" data-i18n="apps.rakaat.name">رکعت‌شمار</h3>
+              <span class="apptile-dev" data-i18n="apps.rakaat.dev">توکل</span>
             </div>
+            <span class="apptile-free" data-i18n="apps.free">رایگان</span>
           </div>
-          <p data-i18n="apps.rakaat.short">
+          <p class="apptile-desc" data-i18n="apps.rakaat.short">
             گوشی را کنار سجاده بگذار؛ با نور محیط سجده را می‌شناسد و رکعت‌ها را می‌شمارد.
           </p>
+          <div class="apptile-meta">
+            <span data-i18n="apps.rakaat.v">نسخهٔ ۱.۶.۰</span>
+            <span data-i18n="apps.rakaat.size">۴۹ مگابایت</span>
+            <span data-i18n="apps.rakaat.os">اندروید ۷+</span>
+          </div>
           <div class="apptile-actions">
-            <a class="btn btn-primary" href="rakaatcounter.html">
-              <span data-i18n="apps.details">جزئیات</span>
-            </a>
-            <a class="btn btn-ghost" href="RakaatCounter-release.apk" data-repo="elyasyy23-lgtm/RakaatCounter" download="RakaatCounter-release.apk">
+            <a class="btn btn-primary btn-block" href="RakaatCounter-release.apk" data-repo="elyasyy23-lgtm/RakaatCounter" download="RakaatCounter-release.apk">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/>
               </svg>
               <span data-i18n="apps.download">دانلود</span>
             </a>
+            <a class="btn btn-ghost" href="rakaatcounter.html">
+              <span data-i18n="apps.details">جزئیات</span>
+            </a>
           </div>
         </article>
+      </div>
+
+      <div class="appempty" id="apps-empty" hidden role="status">
+        <b data-i18n="apps.empty.title">برنامه‌ای پیدا نشد</b>
+        <p data-i18n="apps.empty.body">نام دیگری را امتحان کن یا جستجو را پاک کن.</p>
+        <button type="button" id="apps-clear" data-i18n="apps.empty.clear">پاک کردن جستجو</button>
       </div>
     </section>
   </main>
@@ -816,6 +848,18 @@
       'apps.rakaat.tag': `Automatic rak'ah and prostration counter`,
       'apps.rakaat.short': `Set the phone beside your prayer mat; it recognises each prostration from the room light and counts the rak'ahs for you.`,
       'apps.rakaat.alt': `RakaatCounter app icon`,
+      'apps.rakaat.dev': `Tavakkol`,
+      'apps.rakaat.v': `v1.6.0`,
+      'apps.rakaat.size': `49 MB`,
+      'apps.rakaat.os': `Android 7+`,
+      'apps.free': `Free`,
+
+      'search.placeholder': `Search apps…`,
+      'search.aria': `Search apps`,
+      'search.clear': `Clear search`,
+      'apps.empty.title': `No app found`,
+      'apps.empty.body': `Try a different name, or clear the search.`,
+      'apps.empty.clear': `Clear search`,
 
       'footer.text': `Tavakkol — a free phone guardian, no ads and no data collection.`,
       'footer.contact': `Contact the developer on Rubika: <a href="https://rubika.ir/yasmajyd" target="_blank" rel="noopener">@yasmajyd</a> · <a href="https://github.com/elyasyy23-lgtm/FocusBlocker/releases" target="_blank" rel="noopener">All releases</a>`,
@@ -824,6 +868,77 @@
       'footer.stats': `Visit stats`
     };
 
+  })();
+</script>
+<script>
+  /* App-store search: filters the #appgrid cards by every space-separated
+     token in the box. `data-search` on each card carries BOTH languages, so
+     the filter keeps working after a language switch. Folding rules keep
+     Persian/Arabic spelling variants (ي/ی, ك/ک, hamza forms, ZWNJ,
+     diacritics) matching each other. */
+  (function () {
+    var input = document.getElementById('app-search');
+    var grid = document.getElementById('appgrid');
+    var empty = document.getElementById('apps-empty');
+    var clear = document.getElementById('search-clear');
+    if (!input || !grid) return;
+
+    var cards = Array.prototype.slice.call(grid.querySelectorAll('.apptile'));
+
+    function fold(value) {
+      return String(value || '').toLowerCase()
+        .replace(/[\u064B-\u0652\u0670\u0640\u200B-\u200D\uFEFF]/g, '')
+        .replace(/[\u064A\u0649]/g, '\u06CC')
+        .replace(/\u0643/g, '\u06A9')
+        .replace(/[\u0623\u0625\u0622]/g, '\u0627')
+        .replace(/\u0624/g, '\u0648')
+        .replace(/\u0626/g, '\u06CC')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    cards.forEach(function (card) {
+      var hay = card.getAttribute('data-search');
+      card.__hay = fold(hay || card.textContent);
+    });
+
+    function run() {
+      var query = fold(input.value);
+      var tokens = query ? query.split(' ') : [];
+      var shown = 0;
+      cards.forEach(function (card) {
+        var hit = !tokens.length || tokens.every(function (token) {
+          return card.__hay.indexOf(token) !== -1;
+        });
+        if (hit) card.removeAttribute('hidden');
+        else card.setAttribute('hidden', '');
+        if (hit) shown += 1;
+      });
+      grid.hidden = shown === 0;
+      empty.hidden = shown > 0;
+      clear.hidden = !input.value;
+    }
+
+    function reset() {
+      input.value = '';
+      run();
+      input.focus();
+    }
+
+    input.addEventListener('input', run);
+    input.addEventListener('search', run);
+    input.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' || event.key === 'Esc') reset();
+    });
+    clear.addEventListener('click', reset);
+    var resetButton = document.getElementById('apps-clear');
+    if (resetButton) resetButton.addEventListener('click', function () {
+      reset();
+      var section = document.getElementById('apps');
+      if (section && section.scrollIntoView) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    run();
   })();
 </script>
 <script src="assets/i18n.js" defer></script>

@@ -15,7 +15,9 @@
 
   var textEls = Array.prototype.slice.call(document.querySelectorAll('[data-i18n]'));
   var attrEls = Array.prototype.slice.call(
-    document.querySelectorAll('[data-i18n-title],[data-i18n-aria],[data-i18n-alt]')
+    document.querySelectorAll(
+      '[data-i18n-title],[data-i18n-aria],[data-i18n-alt],[data-i18n-placeholder]'
+    )
   );
   var metaEls = [
     { id: 'page-title', kind: 'text', key: 'meta.title' },
@@ -38,7 +40,8 @@
     faAttr.set(el, {
       title: el.getAttribute('title'),
       'aria-label': el.getAttribute('aria-label'),
-      alt: el.getAttribute('alt')
+      alt: el.getAttribute('alt'),
+      placeholder: el.getAttribute('placeholder')
     });
   });
 
@@ -72,6 +75,7 @@
       setAttr(el, 'title', 'data-i18n-title');
       setAttr(el, 'aria-label', 'data-i18n-aria');
       setAttr(el, 'alt', 'data-i18n-alt');
+      setAttr(el, 'placeholder', 'data-i18n-placeholder');
     });
 
     metaEls.forEach(function (entry) {

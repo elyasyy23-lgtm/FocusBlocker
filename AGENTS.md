@@ -1203,3 +1203,79 @@ installer status is the documented symptom of OEM installers rejecting a v2-only
   status, not a signature error. Compare the cert digest across releases BEFORE believing a
   key-change theory, then close the remaining signing-scheme gap (v1+v2+v3) rather than rebuilding
   blind. Playbook: skill `apk-install-failure-triage`.
+- **SHIPPED 2026-11-15**: commit `6ff7549` → main + tag `v1.4.21`; CI runs 43704628263 (main) +
+  43704639127 (tag) both SUCCESS → Release `Tavakkol v1.4.21`, `Tavakkol-release.apk`
+  **37,089,200 bytes**, sha256
+  `532ecc59d306cb1eb70d2d24aa1b6980203f52cacd4ed2667e757d93bbcc8e6e` at
+  https://github.com/elyasyy23-lgtm/FocusBlocker/releases/download/v1.4.21/Tavakkol-release.apk
+  (`releases/latest/...` → v1.4.21). Cert unchanged
+  (`fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`), so it installs over an
+  existing Tavakkol install. Verified on the downloaded release APK: versionCode 31 /
+  versionName 1.4.21, package `com.focusblocker.app`, minSdk 24 / targetSdk 36, arm64-v8a +
+  armeabi-v7a, `unzip -t` OK, `zipalign -c -v 4` OK, and **v1 + v2 + v3 all true**
+  (`apksigner verify --min-sdk-version 23 --verbose`).
+- **apksigner v1 gotcha (important, cost a false alarm):** plain `apksigner verify --verbose`
+  reports `Verified using v1 scheme (JAR signing): false` for BOTH APKs — including one that
+  apksigner itself just signed with `--v1-signing-enabled true`. That is NOT a missing signature:
+  with the APK's declared `minSdkVersion` 24, apksigner does not verify the v1 scheme at all (v1 is
+  only needed for API < 24) and reports false. Force the check with
+  `apksigner verify --min-sdk-version 23 --verbose` to see the truth. Cross-check: `unzip -l` shows
+  `META-INF/CERT.SF` + `META-INF/CERT.RSA` and `jarsigner -verify` prints "jar verified". By that
+  same test v1.4.20 FAILS verification at minSdk 23 (it was v2-only) — that is the real diff.
+- **AGP 9 note:** the project's AGP is `9.2.1` (Gradle 9.4.1). It honours `enableV1Signing` /
+  `enableV2Signing` / `enableV3Signing` in `signingConfigs.debug` — v1.4.21 has v1+v2+v3 where
+  v1.4.20 had v2 only, so the plugin's three flags all took effect.
+
+## Site structure — multi-page (2026-11-16, commit `588932e`)
+
+The GitHub Pages site is no longer one long file. Architecture:
+
+| file | role |
+|---|---|
+| `index.html` | home: hero (Tavakkol) + features/steps/guide/faq + **`#apps` app grid** |
+| `rakaatcounter.html` | RakaatCounter detail page: dark hero (`.appcard-wide`), `.featgrid`, install steps, `.ctaband` |
+| `assets/site.css` | ALL design-system CSS for both pages (was inline in index.html) |
+| `assets/i18n.js` | the ONE language engine; each page only supplies `window.I18N_EN` before it loads |
+| `assets/apk-links.js` | rewrites `a[data-repo][href$=".apk"]` with `?v=<latest tag>` from the releases API |
+| `sitemap.xml` | both URLs (home 1.0, detail 0.8) |
+
+**Adding a new app page = 3 edits, no engine work:** (1) copy `rakaatcounter.html`, swap the Persian
+markup + its `window.I18N_EN` dict; (2) drop the icon in `assets/`; (3) copy one
+`<article class="apptile">` block in `index.html`'s `#apps` grid and point it at the new page.
+Every download link must carry `data-repo="owner/repo"` so `apk-links.js` can stamp the version.
+
+Rules that bit us / must hold:
+- Persian is the source of truth in the markup; the English dict is per page (page-specific keys
+  differ), the engine is shared. `meta.*` keys are used by `i18n.js`, NOT by `data-i18n` — a naive
+  "unused EN key" scan shows them as extras.
+- Download links: stable filename (`RakaatCounter-release.apk`) + `?v=<tag>` (never a version in
+  the filename — Chrome then asks "Download file again?" and renames to `name (1).apk`).
+- `.reveal` is a plain CSS animation (`rise`), not IntersectionObserver — new sections animate on
+  load with no JS.
+- Verify before pushing: i18n key coverage (data-i18n ⊆ dict), tag balance, `node --check` on every
+  inline `<script>`, JSON-LD `json.loads`, and the linkedom click test (EN → asserts dir/ltr, h1,
+  meta, aria-pressed, localStorage; FA → byte-for-byte Persian restore) at `$TMPDIR/domtest/test-pages.mjs`.
+- `pkill -f "http.server 8487"` inside a bash tool call kills the tool's own shell (self-match) —
+  use `pkill -f "[h]ttp.server"`.
+
+## App-store layer (2026-11-16, site v2)
+
+Home is now a small app store, not a single-app page:
+
+- **Header search** (`#app-search`): filters `#appgrid .apptile` by every space-separated token of
+  the query. Each card carries `data-search` with BOTH languages, so the filter survives a language
+  switch. Folding normalises ي/ی, ك/ک, hamza forms, ZWNJ and diacritics. No match → `#appgrid`
+  collapses and `#apps-empty` (role="status") shows; both the field's × and the empty-state button
+  reset. Escape also clears.
+- **Cards**: icon 64px, name, developer, free pill, description, version/size/OS chips, full-width
+  primary Download (data-repo) + ghost Details. No invented ratings or download counts.
+- **Detail page** (`rakaatcounter.html`): `.apphero` (126px icon, h1, dev, pills, big CTA,
+  version/size, install note) → `.shotrail` (5 × `.shot` phone-aspect placeholders, horizontal
+  scroll + `scroll-snap`, swipe hint) → `.aboutapp` (3 paragraphs + `.desclist`) → `.featgrid`
+  (how it works) → `.tech` `.infotable` → install steps → CTA band.
+- **Technical table** (trust): version / file size in bytes / last updated / package / Android
+  requirement / **SHA-256** with a copy button (`#copy-hash`, flash "کپی شد", execCommand
+  fallback). The hash MUST be the release asset's own `digest` — never a made-up value.
+- Engine note: `assets/i18n.js` also translates `placeholder` via `data-i18n-placeholder`.
+- Verification lives at `$TMPDIR/domtest/test-appstore.mjs` (38 checks: search fa/en/no-match/reset,
+  EN+FA round trip, hero, 5 shots, 6 table rows, exact hash, clipboard payload).
