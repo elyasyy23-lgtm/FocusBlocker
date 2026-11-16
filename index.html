@@ -262,6 +262,51 @@
   }
   .note svg{width:20px;height:20px;flex:none;margin-top:2px}
 
+  /* ---------- other apps (RakaatCounter) ---------- */
+  .apps{padding-bottom:var(--space-6)}
+  .appcard{
+    display:grid;grid-template-columns:1fr 210px;gap:30px;align-items:center;
+    background:linear-gradient(150deg,#0C221A,#07130F 64%);
+    border:1px solid rgba(74,222,128,.18);border-radius:var(--radius);
+    padding:30px;color:#E9F6EE;position:relative;overflow:hidden;
+  }
+  .appcard::before{
+    content:"";position:absolute;inset-inline-end:-90px;top:-90px;width:290px;height:290px;border-radius:50%;
+    background:radial-gradient(circle,rgba(74,222,128,.22),transparent 68%);pointer-events:none;
+  }
+  .appcard-body{position:relative;z-index:1;min-width:0}
+  .appcard h3{margin:12px 0 10px;font-size:clamp(1.22rem,3vw,1.65rem);font-weight:900;letter-spacing:-.02em;color:#F2FBF5}
+  .appcard p{margin:0;color:#A9C6B4;font-size:.93rem;line-height:1.8;max-width:52ch}
+  .appbadge{
+    display:inline-flex;align-items:center;gap:8px;font-size:.72rem;font-weight:800;letter-spacing:.05em;
+    color:#4ADE80;background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.28);
+    border-radius:999px;padding:4px 12px;
+  }
+  .appfeat{list-style:none;margin:18px 0 0;padding:0;display:grid;gap:9px;max-width:56ch}
+  .appfeat li{position:relative;padding-inline-start:24px;font-size:.88rem;color:#C7DCD0;line-height:1.7}
+  .appfeat li::before{content:"✓";position:absolute;inset-inline-start:0;top:0;color:#4ADE80;font-weight:900}
+  .appactions{display:flex;flex-wrap:wrap;align-items:center;gap:14px 20px;margin-top:24px}
+  .cta-app{
+    background:#4ADE80;color:#05170E;
+    box-shadow:0 10px 26px rgba(74,222,128,.22), inset 3px 3px 8px rgba(255,255,255,.45), inset -3px -3px 9px rgba(6,52,28,.22);
+  }
+  .cta-app:hover{box-shadow:0 18px 34px rgba(74,222,128,.28), inset 3px 3px 8px rgba(255,255,255,.5), inset -3px -3px 9px rgba(6,52,28,.2)}
+  .appmeta{color:#8FB0A0;margin:0}
+  .appmeta b{color:#EAF7EE}
+  .appnote{
+    margin-top:18px;max-width:58ch;
+    background:rgba(74,222,128,.09);border-color:rgba(74,222,128,.22);color:#A9C6B4;
+  }
+  .appcard-art{position:relative;z-index:1;display:flex;justify-content:center}
+  .appcard-art img{
+    width:100%;max-width:176px;height:auto;border-radius:26%;display:block;
+    box-shadow:0 20px 44px rgba(0,0,0,.45);
+    transform:rotate(2deg);transition:transform .5s cubic-bezier(.22,1,.36,1);
+  }
+  .appcard:hover .appcard-art img{transform:rotate(0deg) translateY(-5px)}
+  .apps-linkline{margin:16px 0 0;font-size:.84rem;color:var(--muted)}
+  .apps-linkline a{color:var(--accent-deep);font-weight:700;text-decoration:none;border-bottom:1px solid rgba(11,61,36,.25)}
+
   /* ---------- footer ---------- */
   footer{border-top:1px solid var(--line);padding:30px 0 46px;margin-top:8px}
   .foot{
@@ -381,6 +426,9 @@
     .plan li{padding-inline-start:0}
     .plan li::before{position:static;margin-bottom:8px}
     .qa{padding:0 14px}
+    .appcard{grid-template-columns:1fr;gap:22px;padding:24px}
+    .appcard-art{order:-1}
+    .appcard-art img{max-width:132px}
   }
   @media (max-width:420px){
     body{font-size:16px}
@@ -572,6 +620,7 @@
       <a href="#install" data-i18n="nav.install">نصب</a>
       <a href="#guide" data-i18n="nav.guide">راهنمای ترک</a>
       <a href="#faq" data-i18n="nav.faq">سؤال‌های پرتکرار</a>
+      <a href="#apps" data-i18n="nav.apps">اپلیکیشن‌های ما</a>
     </nav>
 
     <section id="features">
@@ -855,6 +904,49 @@
         </p>
       </details>
     </section>
+
+    <section class="apps" id="apps">
+      <div class="section-head reveal">
+        <h2 data-i18n="apps.title">اپلیکیشن‌های ما</h2>
+        <p data-i18n="apps.sub">از همان سازنده — رایگان، بدون تبلیغ، بدون اینترنت.</p>
+      </div>
+
+      <article class="appcard reveal">
+        <div class="appcard-body">
+          <span class="appbadge" data-i18n="apps.badge">رایگان · بدون تبلیغ</span>
+          <h3 data-i18n="apps.rakaat.name">رکعت‌شمار — RakaatCounter</h3>
+          <p data-i18n="apps.rakaat.lede">
+            گوشی را کنار سجاده بگذار؛ برنامه با حسگر نور، سجده را می‌شناسد و رکعت‌ها را
+            خودش می‌شمارد. دیگر نگران فراموش‌شدن شمارهٔ رکعت نباش.
+          </p>
+          <ul class="appfeat">
+            <li data-i18n="apps.rakaat.f1">تشخیص خودکار سجده با نور محیط — بدون دست‌زدن به گوشی</li>
+            <li data-i18n="apps.rakaat.f2">پنج نماز روزانه با تعداد رکعت درست، بر پایهٔ مذهب انتخابی</li>
+            <li data-i18n="apps.rakaat.f3">قبله‌نما، حالت شب و شمارندهٔ سجده</li>
+            <li data-i18n="apps.rakaat.f4">کاملاً آفلاین — هیچ اطلاعاتی از گوشی بیرون نمی‌رود</li>
+          </ul>
+          <div class="appactions">
+            <a class="cta cta-app" id="rakaat-cta" href="RakaatCounter-release.apk" download="RakaatCounter-release.apk">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/>
+              </svg>
+              <span data-i18n="apps.rakaat.cta">دانلود APK — ۴۹ مگابایت</span>
+            </a>
+            <p class="meta appmeta">
+              <span data-i18n="apps.rakaat.version">نسخه <b>۱.۶.۰</b></span>
+              <span data-i18n="apps.rakaat.android">اندروید <b>۷ به بالا</b></span>
+            </p>
+          </div>
+          <p class="cta-note appnote" data-i18n="apps.rakaat.note">
+            فایل مستقیم از همین سایت دانلود می‌شود، بدون واسطه. اگر گوگل هنگام نصب هشدار داد،
+            روی «Install anyway» بزن؛ دانلودِ خارج از فروشگاه همیشه این پیام را نشان می‌دهد.
+          </p>
+        </div>
+        <div class="appcard-art">
+          <img src="assets/rakaat-icon.png" alt="آیکون برنامه رکعت‌شمار" width="176" height="176" loading="lazy" decoding="async" data-i18n-alt="apps.rakaat.alt">
+        </div>
+      </article>
+    </section>
   </main>
 
   <footer>
@@ -1088,6 +1180,22 @@
       'faq.a7': `First turn protection off, then deactivate device admin in your phone settings; after that it uninstalls like any other app. This lock stops accidental or third-party removal, not your own deliberate uninstall.`,
       'faq.q8': `How much battery does it use?`,
       'faq.a8': `Very little. Checks only run while you are typing or a page address is read; there is no heavy background processing and no network connection.`,
+
+      'nav.apps': `Our apps`,
+      'apps.title': `Our apps`,
+      'apps.sub': `From the same developer — free, no ads, no internet needed.`,
+      'apps.badge': `Free · No ads`,
+      'apps.rakaat.name': `RakaatCounter — prayer rak'ah counter`,
+      'apps.rakaat.lede': `Put the phone beside your prayer mat; the app reads the room light, recognises each prostration and counts the rak'ahs for you. No more losing track of which rak'ah you are in.`,
+      'apps.rakaat.f1': `Automatic prostration detection from the ambient light — no need to touch the phone`,
+      'apps.rakaat.f2': `The five daily prayers with the correct rak'ah count, following the school of law you pick`,
+      'apps.rakaat.f3': `Qibla compass, night mode and a prostration counter`,
+      'apps.rakaat.f4': `Fully offline — nothing ever leaves your phone`,
+      'apps.rakaat.cta': `Download APK — 49 MB`,
+      'apps.rakaat.version': `Version <b>1.6.0</b>`,
+      'apps.rakaat.android': `Android <b>7 and up</b>`,
+      'apps.rakaat.note': `The file comes straight from this site, with nothing in between. If Google warns you during install, tap “Install anyway” — every app installed from outside the store shows that message.`,
+      'apps.rakaat.alt': `RakaatCounter app icon`,
 
       'footer.text': `Tavakkol — a free phone guardian, no ads and no data collection.`,
       'footer.contact': `Contact the developer on Rubika: <a href="https://rubika.ir/yasmajyd" target="_blank" rel="noopener">@yasmajyd</a> · <a href="https://github.com/elyasyy23-lgtm/FocusBlocker/releases" target="_blank" rel="noopener">All releases</a>`,
