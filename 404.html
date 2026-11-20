@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>در حال انتقال…</title>
+  <link rel="canonical" href="https://elyasyy23-lgtm.github.io/elyasyy-apps/">
+  <script>
+    /*
+     * Old FocusBlocker Pages deep-link redirect.
+     * ------------------------------------------
+     * GitHub Pages serves 404.html with HTTP status 404 but still runs this
+     * script. Keep this file at the ROOT of the old FocusBlocker repo.
+     *
+     * IMPORTANT:
+     * - If an old file still exists, 404.html does NOT run for that path.
+     *   Either delete it, or replace it with a tiny redirect stub.
+     * - Do NOT delete the old version.json files: app fetchers expect JSON,
+     *   and an HTML 404 body would break them. Keep valid JSON there, and
+     *   update the apps' manifest URLs to the new base when ready.
+     * - APK files should also stay in the old repo (or be redirected with a
+     *   real HTTP redirect) so plain download managers keep working.
+     */
+    (function () {
+      var NEW = 'https://elyasyy23-lgtm.github.io/elyasyy-apps/';
+      var OLD_PREFIX = '/FocusBlocker/';
+      var path = decodeURIComponent(location.pathname || '/');
+
+      if (path.indexOf(OLD_PREFIX) === 0) {
+        path = path.slice(OLD_PREFIX.length);
+      } else if (path.charAt(0) === '/') {
+        path = path.slice(1);
+      }
+      if (!path || path === 'index.html') path = '';
+
+      var map = {
+        'rakaatcounter.html': NEW + 'rakaatcounter.html',
+        'contactsapp.html': NEW + 'contactsapp.html',
+        'hayatsahabah.html': NEW + 'hayatsahabah.html',
+        'khushu-privacy.html': NEW + 'khushu-privacy.html',
+        'RakaatCounter-release.apk': NEW + 'RakaatCounter-release.apk',
+        'HesabYar-release.apk': NEW + 'HesabYar-release.apk',
+        'Hayat-release.apk': NEW + 'Hayat-release.apk',
+        'Tavakkol-release.apk': 'https://github.com/elyasyy23-lgtm/FocusBlocker/releases/latest/download/Tavakkol-release.apk',
+        'version.json': NEW + 'version.json',
+        'ContactsApp/version.json': NEW + 'ContactsApp/version.json',
+        'HayatAlSahabah/version.json': NEW + 'HayatAlSahabah/version.json',
+        'sitemap.xml': NEW + 'sitemap.xml',
+        'robots.txt': NEW + 'robots.txt'
+      };
+
+      var target;
+      if (Object.prototype.hasOwnProperty.call(map, path)) {
+        target = map[path];
+      } else if (path.indexOf('assets/') === 0) {
+        target = NEW + path;
+      } else {
+        target = NEW;
+      }
+
+      // Preserve ?v=<tag> and any fragment.
+      location.replace(target + location.search + location.hash);
+    })();
+  </script>
+</head>
+<body>
+  <p>
+    This page moved.
+    <a href="https://elyasyy23-lgtm.github.io/elyasyy-apps/">Open the new app hub</a>.
+  </p>
+</body>
+</html>
