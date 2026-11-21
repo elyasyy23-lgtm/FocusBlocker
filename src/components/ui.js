@@ -93,14 +93,42 @@ export function ActionButton({
   );
 }
 
-/** Small rounded tag used for the keyword/domain previews. */
-export function Chip({ label, danger = false, lang = 'en' }) {
+/**
+ * Small rounded tag used for the keyword/domain previews.
+ * Pass onRemove + removeLabel for removable tags; the component has no i18n logic.
+ */
+export function Chip({ label, danger = false, lang = 'en', onRemove, removeLabel }) {
   return (
-    <View style={[styles.chip, danger && styles.chipDanger]}>
+    <View
+      style={[
+        styles.chip,
+        danger && styles.chipDanger,
+        lang === 'fa' && styles.chipRtl,
+        onRemove && styles.chipRemovable,
+      ]}>
       <Text
-        style={[styles.chipText, danger && styles.chipTextDanger, { textAlign: textAlign(lang) }]}>
+        style={[
+          styles.chipText,
+          danger && styles.chipTextDanger,
+          onRemove && styles.chipTextRemovable,
+          { textAlign: textAlign(lang) },
+        ]}>
         {label}
       </Text>
+      {onRemove ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={removeLabel || label}
+          hitSlop={10}
+          onPress={onRemove}
+          style={({ pressed }) => [styles.chipRemove, pressed && styles.chipRemovePressed]}>
+          <Text
+            importantForAccessibility="no"
+            style={[styles.chipRemoveText, danger && styles.chipRemoveTextDanger]}>
+            ×
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -241,20 +269,53 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    maxWidth: '100%',
     backgroundColor: COLORS.accentSoft,
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 5,
+  },
+  chipRtl: {
+    flexDirection: 'row-reverse',
+  },
+  chipRemovable: {
+    paddingHorizontal: 8,
   },
   chipText: {
     color: COLORS.accent,
     fontSize: 12,
     fontWeight: '600',
   },
+  chipTextRemovable: {
+    flexShrink: 1,
+  },
   chipDanger: {
     backgroundColor: 'rgba(51,34,42,0.92)',
   },
   chipTextDanger: {
+    color: COLORS.danger,
+  },
+  chipRemove: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipRemovePressed: {
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  chipRemoveText: {
+    color: COLORS.accent,
+    fontSize: 18,
+    fontWeight: '700',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  chipRemoveTextDanger: {
     color: COLORS.danger,
   },
   gift: {

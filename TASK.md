@@ -1,7 +1,8 @@
-# TASK — Tavakkol v1.4.9 (adult content lock + SMS kills the WHOLE guard)
+# TASK — Tavakkol v1.4.23 (adult domains + Blocked Websites parser)
 
-CURRENT RELEASE TARGET = **v1.4.11** (versionCode 21). See the v1.4.11 section at the bottom.
-v1.4.9 SHIPPED (commit 14dcc7e, tag v1.4.9). (The v1.4.0 goal below is the historical first
+CURRENT RELEASE TARGET = **v1.4.23** (versionCode 33). The owner approved the final WIP
+build/publication on 2026-11-21 and asked for exact git commit/push/tag commands.
+v1.4.21 SHIPPED (commit 6ff7549, tag v1.4.21). (The v1.4.0 goal below is the historical first
 task that created this file.)
 
 GOAL (owner's list, 2026-11-13):
@@ -753,8 +754,11 @@ git tag v1.4.21 && git push origin v1.4.21
 NOW: SHIPPED — commit `6ff7549`, CI 43704628263 (main) + 43704639127 (tag) SUCCESS, Release
 `Tavakkol v1.4.21` live, `Tavakkol-release.apk` 37,089,200 bytes, sha256
 `532ecc59d306cb1eb70d2d24aa1b6980203f52cacd4ed2667e757d93bbcc8e6e`, v1+v2+v3 confirmed, cert
-unchanged. Waiting on the owner: download, check the sha256, install. If it still says «invalid»,
-next move = `adb` wireless debugging install to read the exact `INSTALL_FAILED_*` code.
+unchanged. 2026-11-21 APK test: central-site APK (NOT the WIP build) verified at the same sha256,
+package `com.focusblocker.app` v1.4.21/code 31, installed base.apk byte-identical, opener launched
+(`TERMUX_OPEN_RC=0`). Historical note only: the earlier Protection ON/OFF check did not by itself
+authorize WIP ship actions. On 2026-11-21 the owner explicitly approved final build/publication of
+this WIP and requested `v1.4.23` plus exact git commands; one final production build is now the path.
 
 ---
 
@@ -779,9 +783,51 @@ info table carrying the real SHA-256. No APK build involved.
 - [x] Back-to-home link kept at the top of the detail page.
 - [x] Verify: key coverage `missing: []` both pages, 9 inline scripts `node --check`, JSON-LD parse,
       every used class has a rule, 38-check linkedom behavioural test (search, i18n, hash, copy).
-- [ ] Commit → rebase → push → Pages built → live byte check.
+- [x] Commit → rebase → push → Pages built → live byte check (site v2/v3 shipped earlier on `main`).
 
 ## Decisions
 - No fake ratings/download counts: only measured facts (size and hash come from the release API).
 - Screenshots are honest placeholders ("به‌زودی") — no mocked-up app UI.
 - The hash is the release asset's own `digest`, so a visitor can verify the downloaded file.
+
+---
+
+# APP TASK — Adult lock 500+ domains + Blocked Websites parser (2026-11-21, FINAL RELEASE APPROVED)
+
+GOAL (owner): upgrade Tawakkul Adult Content Lock with a maintainable 500+ unique adult-domain database (Iranian/Persian first, then international; mirrors/subdomains; deduplicated; no false positives) and improve Blocked Websites so one field accepts comma/space/newline-separated domains, validates/deduplicates them, saves all valid domains with one tap, and shows removable tags plus a total count.
+
+Decision: owner approved implementation on 2026-11-21, then explicitly approved final build/publication on 2026-11-21 with target `v1.4.23` and requested exact git commands. Source edits, version bump, and post-bump local verification are complete. No intermediate/repeated test APKs; one final production CI build is the release path.
+
+## Steps
+- [x] Read project `AGENTS.md`; found real paths (`src/components/Drawer.js`, not `AppDrawer.js`).
+- [x] Loaded skills: `expo-local-module-kotlin-ci`, `ui-ux-pro-max`.
+- [x] Inspected `AdultFilter.kt` (72 lines): initial `KEYWORDS` + `DOMAINS` lists extracted; initial `DOMAINS` = 54 unique entries (old "46" report was wrong). Final WIP now has 551 unique entries.
+- [x] Inspected `FocusAccessibilityService.kt`: `refreshConfig()` merges user domains with `AdultFilter.DOMAINS` when adultLock is on; `blockedHostIn()` extracts host with `HOST_PATTERN`, normalizes it, then suffix-matches `host == domain || host.endsWith(".$domain")`.
+- [x] Inspected `FocusGuardStore.kt`: `KEY_DOMAINS = "blocked_domains"`, JSON-array persistence, `LinkedHashSet` dedupe, `normalizeDomain()` strips scheme/path/port/www/trailing dot and requires a dot.
+- [x] Inspected `FocusGuardModule.kt` / `modules/focus-guard/index.js`: `setDomains()` bridge path and config fields `domains`, `adultLock`, `adultKeywordCount`, `adultDomainCount`.
+- [x] Inspected `App.js`: `normalizeDomain()`, `domainsText`, `domainsDirtyRef`, `saveDomains()` (currently splits only on comma/newline), `domainsPreview`, `domainsSaved`, HomeScreen props.
+- [x] Inspected `HomeScreen.js`: Blocked Websites TextInput, preview chips, save button; chips currently have no remove handler.
+- [x] Inspected `src/i18n.js` strings for blocked domains/save actions.
+- [x] Report implementation plan and get owner approval.
+- [x] Build/update 500+ unique domain database; integrate into `AdultFilter.kt` (551 unique domains, verified).
+- [x] Implement multi-separator parser, validation, dedupe, removable tags, total count. `App.js` helpers, `parsedDomains`, shared-parser `saveDomains()`, `removeDomain`, preview/saved state, `HomeScreen.js`, `src/components/ui.js`, and i18n are complete.
+- [x] Validate locally:
+  - `node scripts/check-i18n.js` → `i18n OK — 247 UI strings, 308 translations`.
+  - `node "$TMPDIR/zyvo/focus-parser-test.mjs"` → `PARSER_OK domains=551 unique=551 first=persiankitty.com last=zooxhamster.com` plus mixed-separator/dedupe/invalid/`sameDomainList`/adult-domain assertions.
+  - `CI=1 npm run verify` after version bump → `Android Bundled 10833ms index.js (647 modules)`, 2 assets, `index-73d732f02d3d21ae7e012affac0d3cad.js` (1.2 MB), `Exported: dist`.
+  - `npm run prebuild:android` after version bump → cleared/created native dir, `package.json | no changes`, `Finished prebuild`, generated `versionCode 33` / `versionName "1.4.23"` and v1/v2/v3 signing flags; generated `android/` + `dist/` were removed afterward.
+  - `git status --short && git diff --check` → no whitespace errors; current modified set is 12 release files (`AGENTS.md`, `TASK.md`, `App.js`, `app.json`, `package.json`, `package-lock.json`, `src/buildInfo.js`, `version.json`, `AdultFilter.kt`, `src/components/ui.js`, `src/i18n.js`, `src/screens/HomeScreen.js`).
+- [x] Lint/typecheck gap documented honestly: no `.eslintrc*`, no `eslint.config.*`, no `tsconfig*.json`, and no `typescript` / `eslint` / `eslint-config-expo` installed. `npx tsc --noEmit` fails with `This is not the tsc command you are looking for`; `node --check` cannot parse JSX. No tooling added in this WIP.
+- [x] Historical compiled APK test (2026-11-21): owner separately approved a NON-WIP v1.4.21 APK to verify Protection ON/OFF. Central-site APK downloaded, size+sha256 verified, installed package proven byte-identical, installer opener launched (`TERMUX_OPEN_RC=0`). This APK does NOT include the WIP parser changes.
+  - [x] Final approval recorded 2026-11-21: owner explicitly approved final build/publication, target `v1.4.23`, and requested exact git commands. Historical APK-test gate is superseded; still NO intermediate/repeated test APKs — one final production CI build after owner-run commands.
+
+## Key decisions
+- Use existing `AdultFilter.kt` structure and `FocusGuardStore.normalizeDomain()` semantics; do not invent a second storage path.
+- Keep adult lock additive: only merge built-in domains when `adultLock` is on; never rewrite the user's own keyword/domain prefs.
+- Keep bare-host suffix matching; reject invalid/ambiguous domains to avoid blocking legitimate sites.
+- Use `CI=1 npm run verify` (Metro export) as the JSX syntax gate; plain `node --check` is only for plain JS scripts such as `scripts/check-i18n.js`.
+- Do not add ESLint/TypeScript tooling during this WIP; no config/tooling exists, and adding it would exceed the approved scope. Report the gap instead of faking a pass.
+- Kotlin compiles only in CI on this phone; Termux validation is i18n + headless parser tests + Metro bundle + prebuild. One final WIP CI build follows the owner-run git commands. The compiled v1.4.21 APK test is historical, separate, and does NOT include WIP changes.
+- No intermediate/repeated test APKs: the final WIP APK must be a single production-ready build after the owner-run git commands.
+
+NOW: final approval recorded; source edits, version bump to `v1.4.23`/code 33, and local verification are complete. Remaining work: reconcile stale approval wording in docs, then hand the owner exact git commit/push/tag and site-manifest commands. No intermediate/repeated test APKs; one final production CI build follows owner-run commands.

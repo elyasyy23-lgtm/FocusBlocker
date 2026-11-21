@@ -53,6 +53,11 @@ const FA = {
   '{{count}} block(s) so far': '{{count}} بار مسدودسازی تا اینجا',
 
   // --------------------------------------------------------------- sections
+  'The guard reads the address bar of Chrome and other browsers. Separate domains with a comma, semicolon, Persian comma or a new line. http://, https://, www. and paths are removed automatically — just type the domain.':
+    'محافظ نوار آدرس کروم و بقیهٔ مرورگرها را می\\u200cخواند. دامنه\\u200cها را با ویرگول، نقطه\\u200cویرگول، ویرگول فارسی یا خط جدید جدا کنید. http:// و https:// و www. و مسیرها خودکار حذف می\\u200cشوند؛ فقط دامنه را بنویسید.',
+  '{{count}} domains blocked': '{{count}} سایت مسدود',
+  'Remove {{domain}}': 'حذف {{domain}}',
+  'Skipped {{count}} invalid domain entry/entries.': '{{count}} ورودی دامنهٔ نامعتبر نادیده گرفته شد.',
   'Blocked keywords': 'کلمه‌های مسدود',
   'Any text that changes on screen is checked — search bars, the browser address bar and chat messages (Telegram, Rubika). Separate keywords with a comma. Matching is whole-word only, so a short word never fires inside a longer one.':
     'هر متنی که روی صفحه تغییر کند بررسی می‌شود: کادر جستجو، نوار آدرس مرورگر و پیام‌های چت (تلگرام، روبیکا). کلمه‌ها را با ویرگول جدا کنید. تطبیق فقط روی کلمهٔ کامل انجام می‌شود، پس یک کلمهٔ کوتاه داخل یک کلمهٔ بلندتر فعال نمی‌شود.',

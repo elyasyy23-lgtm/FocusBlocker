@@ -1310,3 +1310,71 @@ To keep it honest, never let it show before the hero CTA has actually left the s
 
 Verification: `$TMPDIR/domtest/test-appstore.mjs` now runs 61 checks (structure, hash exactness,
 i18n both ways, plus the sticky-bar show/hide logic driven by a stubbed `getBoundingClientRect`).
+
+## Adult-domain list + Blocked Websites parser (2026-11-21, FINAL RELEASE APPROVED — owner-run git commands pending)
+
+- Owner first approved implementation ("go ahead"), then explicitly approved final build/publication on 2026-11-21 with target `v1.4.23` and requested exact git commands to commit, push, and tag. This supersedes the earlier verification/docs-only gate.
+- Source edits, version bump (`1.4.23` / versionCode `33`), and local verification are complete. No intermediate/repeated test APKs; one final production CI build follows the owner-run git commands.
+- The historical compiled v1.4.21 APK test (NOT this WIP) was delivered under a separate approval and is recorded as historical/non-WIP; the final approval above supersedes that gate.
+- Source edits are in `App.js`, `modules/focus-guard/android/.../AdultFilter.kt`,
+  `src/components/ui.js`, `src/i18n.js`, `src/screens/HomeScreen.js`, and `TASK.md`.
+- `AdultFilter.DOMAINS` now has 551 lowercase unique adult domains (MIT StevenBlack subset plus
+  `persiankitty.com`), with false positives such as `avaparse.ir` / `jannatkhah.ir` excluded.
+- Blocked Websites now uses one parser (`parseDomainInput`) for preview, saved state, chips,
+  removal, and save; accepts comma/Persian comma/semicolon/whitespace/newlines, validates bare
+  hosts, deduplicates, rejects IPv4/dotless/hyphen-edge hosts, keeps invalid text editable, and
+  reports skipped invalids. `Chip` has an opt-in accessible remove button driven by caller-
+  supplied `removeLabel`.
+- VERIFIED locally 2026-11-21 after final approval + version bump:
+  `node scripts/check-i18n.js` → `i18n OK — 247 UI strings, 308 translations`;
+  `node "$TMPDIR/zyvo/focus-parser-test.mjs"` → `PARSER_OK domains=551 unique=551 first=persiankitty.com last=zooxhamster.com` plus mixed-separator/dedupe/invalid/sameDomainList/adult-domain assertions;
+  `CI=1 npm run verify` → `Android Bundled 10833ms index.js (647 modules)`, 2 assets,
+  `index-73d732f02d3d21ae7e012affac0d3cad.js` (1.2 MB), `Exported: dist`;
+  `npm run prebuild:android` → `package.json | no changes`, `Finished prebuild`, generated
+  `versionCode 33` / `versionName "1.4.23"` and v1/v2/v3 signing flags;
+  `git status --short && git diff --check` → no whitespace errors, 12 changed release files
+  (`AGENTS.md`, `TASK.md`, `App.js`, `app.json`, `package.json`, `package-lock.json`,
+  `src/buildInfo.js`, `version.json`, `AdultFilter.kt`, `src/components/ui.js`, `src/i18n.js`,
+  `src/screens/HomeScreen.js`). Generated `android/` + `dist/` were removed after verification;
+  both are absent and none of them are git-tracked.
+- `node --check` DOES NOT work on JSX files (`App.js`, `HomeScreen.js`, `ui.js`) — it reports
+  `Unexpected token '<'`; Metro/`npm run verify` is the JSX syntax gate. Plain node scripts such
+  as `scripts/check-i18n.js` can be checked with `node --check`.
+- This repo has NO `.eslintrc*`, NO `eslint.config.*`, NO `tsconfig*.json`, and `npm ls --depth=0
+  typescript eslint eslint-config-expo` is empty. Do NOT claim lint/typecheck passed; set up
+  Expo-compatible tooling first or report the gap honestly.
+- Kotlin still compiles only in CI. Native behavior is unchanged except the embedded AdultFilter
+  list; Java/Kotlin API signatures were not touched.
+- 2026-11-21 Protection-switch report: owner saw the Protection switch locked ON in Expo Go.
+  Diagnosed with NO code change as the deliberate app-level fallback, not a parser regression:
+  `modules/focus-guard/index.js:12` calls `requireNativeModule('FocusGuard')` in a try/catch; in
+  Expo Go it throws → `:17 isAvailable=false` → `getConfig()` at `:73` returns `EMPTY_CONFIG`
+  (`:22 enabled:true`), while `src/screens/HomeScreen.js:174-176` renders `value={config.enabled}`
+  and `disabled={toggling || !isAvailable}`. `App.js:489-513 applyEnabled()` needs native
+  `setEnabled` / `disableProtectionAfterChallenge`, so no OFF write can happen in Expo Go.
+  A compiled APK/dev client is the correct test; the historical live v1.4.21 did NOT include this
+  WIP parser work. This diagnosis was explanatory only; the final WIP release is now approved.
+- Historical 2026-11-21 owner approval: a NON-WIP compiled v1.4.21 APK test for Protection ON/OFF.
+  It followed the permanent APK download + central-website rules (central site first, GitHub direct
+  then ghproxy.net/gh-proxy.com fallback, size+sha256 gate, save verified APK to
+  `/storage/emulated/0/Download/`). This historical APK test is NOT the WIP final APK and did NOT
+  authorize ship actions on its own; the later explicit final approval supersedes that gate. WIP
+  source edits and the `v1.4.23` version bump are complete and uncommitted; CI can only build
+  committed `main` after the owner runs the handed-over git commands.
+- 2026-11-21 APK test delivery (compiled v1.4.21, NOT WIP): central site first -> version.json
+  `1.4.21` / `https://elyasyy23-lgtm.github.io/elyasyy-apps/Tavakkol-release.apk` (HEAD 200,
+  `accept-ranges: bytes`, `content-length 37089200`, `etag "6b0010ed-235efb0"`). First full curl
+  stopped at `21114880` B under the tool 120 s limit; same-host `curl -C -` resumed to
+  `37089200` B. Verified sha256
+  `532ecc59d306cb1eb70d2d24aa1b6980203f52cacd4ed2667e757d93bbcc8e6e`, `APK_VERIFY_OK`.
+  `aapt dump badging`: package `com.focusblocker.app`, versionCode 31 / versionName 1.4.21,
+  sdk 24 / target 36, label `Tavakkol`. `apksigner verify --verbose`: Verifies, v2+v3 true, one
+  signer (`CN=Android Debug`, digest `fac61745…1033b9c`). Installed base.apk
+  `/data/app/~~wVEnfvV5WRHCIKpO2KrDpg==/com.focusblocker.app-LZkUAar880A8FWUljco8WA==/base.apk`
+  is byte-identical (`INSTALLED_APK_IDENTICAL`). `adb devices` listed no devices. Opened the APK
+  with `timeout 25 termux-open --content-type application/vnd.android.package-archive
+  /storage/emulated/0/Download/Tavakkol-release.apk; rc=$?; echo "TERMUX_OPEN_RC=$rc"` →
+  `TERMUX_OPEN_RC=0`; installer/app UI result and Protection switch ON/OFF still need owner
+  observation. No source, commit, tag, release, version bump, or CI action for this APK test.
+
+- 2026-11-21 (owner approval, final release): owner explicitly approved final build/publication of the adult-domain WIP, requested version bump to `v1.4.23`, and asked for exact git commands to commit, push, and tag. This supersedes the earlier "verification/docs only / NEW approval required" gate. Local version bump + verification are COMPLETE; commit/push/tag are to be run by the owner from the handed-over commands. No intermediate/repeated test APKs.

@@ -52,7 +52,7 @@ function normalizeChallenge(value) {
 }
 
 // v1.4.2: the update check reads this tiny JSON from the GitHub Pages site.
-const UPDATE_MANIFEST_URL = 'https://elyasyy23-lgtm.github.io/FocusBlocker/version.json';
+const UPDATE_MANIFEST_URL = 'https://elyasyy23-lgtm.github.io/elyasyy-apps/version.json';
 
 /** "1.4.10" → [1, 4, 10]; anything unparsable → null (never a false update). */
 function parseVersion(value) {
@@ -88,6 +88,42 @@ function normalizeDomain(raw) {
     .replace(/:\d+$/, '')
     .replace(/^www\./, '')
     .replace(/\.+$/, '');
+}
+
+const DOMAIN_INPUT_SEPARATORS = /[,\u060C؛;\s]+/;
+const VALID_DOMAIN = /^(?=.{1,253}$)[a-z0-9-]+(?:\.[a-z0-9-]+)+$/;
+
+function parseDomainInput(raw) {
+  const domains = [];
+  const invalid = [];
+  String(raw || '')
+    .split(DOMAIN_INPUT_SEPARATORS)
+    .forEach((part) => {
+      const rawPart = String(part || '').trim();
+      const domain = normalizeDomain(rawPart);
+      if (!domain) {
+        if (rawPart) invalid.push(rawPart);
+        return;
+      }
+      const labels = domain.split('.');
+      const isIpv4 = /^\d+(?:\.\d+){3}$/.test(domain);
+      if (
+        isIpv4 ||
+        !VALID_DOMAIN.test(domain) ||
+        labels.some((label) => label.startsWith('-') || label.endsWith('-'))
+      ) {
+        invalid.push(domain);
+        return;
+      }
+      if (!domains.includes(domain)) domains.push(domain);
+    });
+  return { domains, invalid };
+}
+
+function sameDomainList(a, b) {
+  const left = [...a].sort();
+  const right = [...b].sort();
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 export default function App() {
@@ -146,6 +182,11 @@ export default function App() {
   const isRtl = lang === 'fa';
   // Localised challenge the user must retype (same sentence in both languages).
   const challengeText = t(DELAY_CHALLENGE);
+
+  // 2026-11-21: one parsed view of the domain editor drives the preview, the
+  // saved-state badge, the chip count and the save path. Invalid tokens stay in
+  // the text so the user can fix them, but they are never written to prefs.
+  const parsedDomains = useMemo(() => parseDomainInput(domainsText), [domainsText]);
 
   // v1.4.5: while Protection is ON the Settings screen is closed and the Home
   // editors are read-only. `config.enabled` is the single source of truth.
@@ -389,21 +430,24 @@ export default function App() {
   };
 
   const saveDomains = async () => {
-    const domains = domainsText
-      .split(/[,\n]/)
-      .map((domain) => normalizeDomain(domain))
-      .filter((domain) => domain.length > 0);
+    const domains = parsedDomains.domains;
+    const invalidCount = parsedDomains.invalid.length;
 
     setSavingDomains(true);
     setMessage(null);
     try {
       await FocusGuard.saveDomains(domains);
       domainsDirtyRef.current = false;
+      setDomainsText(domains.join(', '));
       await refresh();
-      setMessage(
+      const savedText =
         domains.length === 0
           ? t('Domain list cleared — no website is blocked.')
-          : t('Saved {{count}} domain(s).', { count: domains.length })
+          : t('Saved {{count}} domain(s).', { count: domains.length });
+      setMessage(
+        invalidCount > 0
+          ? `${savedText} ${t('Skipped {{count}} invalid domain entry/entries.', { count: invalidCount })}`
+          : savedText
       );
     } catch (error) {
       setMessage(error.message || t('Saving the domain list failed.'));
@@ -411,6 +455,20 @@ export default function App() {
       setSavingDomains(false);
     }
   };
+
+  const removeDomain = useCallback(
+    (domain) => {
+      const target = normalizeDomain(domain);
+      const nextText = String(domainsText || '')
+        .split(DOMAIN_INPUT_SEPARATORS)
+        .filter((token) => normalizeDomain(token) !== target)
+        .join(', ');
+      domainsDirtyRef.current = true;
+      setDomainsText(nextText);
+      setMessage(null);
+    },
+    [domainsText]
+  );
 
   const openDelay = (intent) => {
     setDelayIntent(intent);
@@ -700,21 +758,15 @@ export default function App() {
     )
   );
 
-  const domainsPreview = Array.from(
-    new Set(
-      domainsText
-        .split(/[,\n]/)
-        .map((domain) => normalizeDomain(domain))
-        .filter(Boolean)
-    )
-  );
+  const domainsPreview = parsedDomains.domains;
 
-  // v1.3.2: a save button is GREEN while the editor text is exactly what is
-  // stored (the save went through) and turns WHITE the moment the text changes,
-  // so "white" always means "there are unsaved edits". Derived from the stored
-  // list, so the state survives restarts without extra flags.
+  // Save buttons are GREEN while the parsed editor value is exactly what is
+  // stored (the save went through) and WHITE while there are unsaved edits.
+  // Keywords stay raw-text based; domains are compared as normalized lists so
+  // harmless separator changes do not show a false "unsaved" state.
   const keywordsSaved = !loading && keywordsText === config.keywords.join(', ');
-  const domainsSaved = !loading && domainsText === config.domains.join(', ');
+  const domainsSaved =
+    !loading && sameDomainList(parsedDomains.domains, config.domains);
 
   // v1.4.16: prefer the live health read (polled), fall back to the config
   // snapshot before the first health arrives.
@@ -814,6 +866,7 @@ export default function App() {
           readOnly={readOnly}
           onSaveKeywords={saveKeywords}
           onSaveDomains={saveDomains}
+          onRemoveDomain={removeDomain}
           onToggleBlocking={toggleBlocking}
           onToggleDelayMode={toggleDelayMode}
           onToggleAdultLock={toggleAdultLock}

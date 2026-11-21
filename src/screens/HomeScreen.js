@@ -44,6 +44,7 @@ export default function HomeScreen({
   onChangeKeywords,
   domainsText,
   onChangeDomains,
+  onRemoveDomain,
   keywordsPreview,
   domainsPreview,
   keywordsSaved,
@@ -292,13 +293,13 @@ export default function HomeScreen({
           lang={lang}
           title={t('{{n}}. {{title}}', { n: 2, title: t('Blocked domains') })}
           subtitle={t(
-            'The guard reads the address bar of Chrome and other browsers. http://, https://, www. and paths are removed automatically — just type the domain.'
+            'The guard reads the address bar of Chrome and other browsers. Separate domains with a comma, semicolon, Persian comma or a new line. http://, https://, www. and paths are removed automatically — just type the domain.'
           )}>
           <TextInput
             value={domainsText}
             onChangeText={onChangeDomains}
             editable={!readOnly}
-            placeholder="facebook.com, instagram.com"
+            placeholder="example.com, example.org"
             placeholderTextColor="#5A6779"
             autoCapitalize="none"
             autoCorrect={false}
@@ -306,6 +307,11 @@ export default function HomeScreen({
             multiline
             style={[styles.input, readOnly && styles.inputLocked, { textAlign: align }]}
           />
+          {domainsPreview.length > 0 ? (
+            <Text style={[styles.countLine, { textAlign: align }]}>
+              {t('{{count}} domains blocked', { count: domainsPreview.length })}
+            </Text>
+          ) : null}
           <View style={styles.chipRow}>
             {domainsPreview.length === 0 ? (
               <Text style={styles.emptyHint}>
@@ -313,7 +319,14 @@ export default function HomeScreen({
               </Text>
             ) : (
               domainsPreview.map((domain) => (
-                <Chip key={domain} label={domain} danger lang={lang} />
+                <Chip
+                  key={domain}
+                  label={domain}
+                  danger
+                  lang={lang}
+                  onRemove={readOnly || !onRemoveDomain ? undefined : () => onRemoveDomain(domain)}
+                  removeLabel={t('Remove {{domain}}', { domain })}
+                />
               ))
             )}
           </View>
@@ -590,6 +603,11 @@ const styles = StyleSheet.create({
   },
   inputLocked: {
     opacity: 0.6,
+  },
+  countLine: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 10,
   },
   chipRow: {
     flexDirection: 'row',
