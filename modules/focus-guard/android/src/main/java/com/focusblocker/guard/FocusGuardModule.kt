@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import kotlinx.coroutines.Dispatchers
@@ -408,7 +409,7 @@ class FocusGuardModule : Module() {
      * the foreground notification is actually up, and whether Android is still
      * allowed to battery-optimize (i.e. potentially kill) the process.
      */
-    AsyncFunction("getServiceHealth") {
+    AsyncFunction("getServiceHealth") Coroutine {
       val ctx = requireContext()
       withContext(Dispatchers.Default) {
         val health = JSONObject()
