@@ -15,8 +15,8 @@ export const DEFAULT_KEYWORDS = [
   'casino',
 ];
 
-/** Public download page — what the "Share App" button sends (GitHub Pages). */
-export const APP_SHARE_URL = 'https://elyasyy23-lgtm.github.io/FocusBlocker/';
+/** Central hub page — what the "Share App" button sends. */
+export const APP_SHARE_URL = 'https://elyasyy23-lgtm.github.io/elyasyy-apps/tavakkol.html';
 
 /**
  * Rubika ID of the developer (v1.3.3: @yasmajyd). The http link and the custom

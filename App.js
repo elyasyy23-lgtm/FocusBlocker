@@ -342,19 +342,13 @@ export default function App() {
         if (!response.ok) return;
         const data = await response.json();
         const latest = String((data && data.latestVersion) || '');
-        const url = String((data && data.downloadUrl) || '');
+        const pageUrl = String((data && data.pageUrl) || '');
         // Only an https link ever leaves the app — the manifest cannot point
-        // the browser at an http/intent URL.
-        if (!/^https:\/\//i.test(url)) return;
+        // the browser at an http/intent URL. The update modal opens the app's
+        // page on the central elyasyy-apps hub, not the APK file itself.
+        if (!/^https:\/\//i.test(pageUrl)) return;
         if (!isNewerVersion(latest, VERSION)) return;
-        // v1.4.17 / v1.4.20: tag the APK URL with the version. The manifest always
-        // points at `releases/latest/download/Tavakkol-release.apk`, so the
-        // filename never changes — without this Chrome shows a "Download file
-        // again?" prompt on every update. A distinct query string makes each
-        // release a fresh file. The website's download button does the same.
-        const separator = url.includes('?') ? '&' : '?';
-        const versionedUrl = `${url}${separator}v=${encodeURIComponent(latest)}`;
-        if (!cancelled) setUpdateInfo({ latest, url: versionedUrl });
+        if (!cancelled) setUpdateInfo({ latest, url: pageUrl });
       } catch (error) {
         // Silent by design.
       } finally {
@@ -644,8 +638,8 @@ export default function App() {
     await applyEnabled(false, { afterChallenge: true });
   };
 
-  /** Update modal → browser. The native bridge is tried first, then Linking. */
-  const openUpdateDownload = async () => {
+  /** Update modal → central hub page. Native bridge first, then Linking. */
+  const openUpdatePage = async () => {
     const url = updateInfo ? updateInfo.url : null;
     setUpdateInfo(null);
     if (!url) return;
@@ -956,8 +950,8 @@ export default function App() {
         </View>
       </Modal>
 
-      {/* v1.4.2 update prompt: only shown when version.json on the Pages site
-          reports a strictly newer version than this build. */}
+      {/* Update prompt: only shown when the central hub version.json reports a
+          strictly newer version than this build. */}
       <Modal
         visible={Boolean(updateInfo)}
         transparent
@@ -969,7 +963,7 @@ export default function App() {
               {t('New version ready')}
             </Text>
             <Text style={[styles.updateBody, { textAlign: align }]}>
-              {t('A new version of the app is ready! Please update to get the latest features.')}
+              {t('A new version of the app has been released. Please update to get the latest features.')}
             </Text>
             <Text style={[styles.updateMeta, { textAlign: align }]}>
               {t('Installed {{current}} · available {{latest}}', {
@@ -977,7 +971,7 @@ export default function App() {
                 latest: updateInfo ? updateInfo.latest : '',
               })}
             </Text>
-            <ActionButton label={t('Download Update')} onPress={openUpdateDownload} />
+            <ActionButton label={t('Download Update')} onPress={openUpdatePage} />
             <View style={styles.delayGap} />
             <ActionButton
               label={t('Later')}

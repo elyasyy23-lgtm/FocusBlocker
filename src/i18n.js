@@ -380,8 +380,8 @@ const FA = {
   'Playing at 30% volume': 'پخش با صدای ۳۰٪',
   // ------------------------------- v1.4.2: in-app update checker
   'New version ready': 'نسخهٔ جدید آماده است',
-  'A new version of the app is ready! Please update to get the latest features.':
-    'نسخه جدید برنامه آماده است! لطفاً برای دریافت آخرین امکانات، برنامه را به‌روزرسانی کنید.',
+  'A new version of the app has been released. Please update to get the latest features.':
+    'نسخه جدید برنامه منتشر شده است. لطفاً برای دریافت آخرین امکانات، برنامه را بروزرسانی کنید.',
   'Download Update': 'دانلود به‌روزرسانی',
   Later: 'بعداً',
   'Installed {{current}} · available {{latest}}': 'نصب‌شده {{current}} · موجود {{latest}}',
