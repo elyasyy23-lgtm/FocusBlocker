@@ -409,7 +409,7 @@ class FocusGuardModule : Module() {
      * the foreground notification is actually up, and whether Android is still
      * allowed to battery-optimize (i.e. potentially kill) the process.
      */
-    AsyncFunction("getServiceHealth") Coroutine {
+    AsyncFunction("getServiceHealth") Coroutine { ->
       val ctx = requireContext()
       withContext(Dispatchers.Default) {
         val health = JSONObject()
