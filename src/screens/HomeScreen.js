@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { ActionButton, Chip, GiftNote, Section } from '../components/ui';
 import DebugLogSection from '../components/DebugLogSection';
-import { COLORS, textAlign } from '../theme';
+import { COLORS, RADIUS, SHADOW_CARD, SHADOW_SOFT, SPACE, textAlign } from '../theme';
 import { VERSION_LABEL } from '../buildInfo';
 
 const BACKGROUND = require('../../assets/background.jpg');
@@ -372,8 +372,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.overlay,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: (StatusBar.currentHeight || 24) + 20,
+    paddingHorizontal: SPACE.lg,
+    paddingTop: (StatusBar.currentHeight || 24) + SPACE.lg,
     paddingBottom: 48,
   },
   brandRow: {
@@ -386,12 +386,13 @@ const styles = StyleSheet.create({
   hamburger: {
     width: 44,
     height: 44,
-    borderRadius: 14,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.surfaceAlt,
     borderWidth: 1,
     borderColor: COLORS.border,
+    ...SHADOW_SOFT,
   },
   hamburgerIcon: {
     color: COLORS.text,
@@ -422,16 +423,16 @@ const styles = StyleSheet.create({
     color: COLORS.pageMuted,
     fontSize: 14,
     lineHeight: 21,
-    marginTop: 12,
-    marginBottom: 18,
+    marginTop: SPACE.sm,
+    marginBottom: SPACE.lg,
   },
   warningBox: {
     backgroundColor: 'rgba(58,44,8,0.92)',
     borderColor: '#6B5110',
     borderWidth: 1,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 20,
+    borderRadius: RADIUS.md,
+    padding: SPACE.md,
+    marginBottom: SPACE.lg,
   },
   warningTitle: {
     color: COLORS.warning,
@@ -446,10 +447,11 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 18,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 18,
+    padding: SPACE.lg,
+    ...SHADOW_CARD,
   },
   heroLabel: {
     color: COLORS.muted,
@@ -460,7 +462,7 @@ const styles = StyleSheet.create({
   heroState: {
     fontSize: 26,
     fontWeight: '700',
-    marginTop: 6,
+    marginTop: SPACE.xs,
   },
   heroOn: {
     color: COLORS.accent,
@@ -469,17 +471,18 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   adultCard: {
-    marginTop: 12,
+    marginTop: SPACE.sm,
     backgroundColor: COLORS.surface,
-    borderRadius: 18,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 16,
+    padding: SPACE.md,
+    ...SHADOW_CARD,
   },
   adultRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: SPACE.sm,
   },
   adultRowRtl: {
     flexDirection: 'row-reverse',
@@ -496,7 +499,7 @@ const styles = StyleSheet.create({
   adultHint: {
     color: COLORS.muted,
     fontSize: 12,
-    marginTop: 3,
+    marginTop: SPACE.xs,
   },
   adultSwitch: {
     flexDirection: 'row',
@@ -506,21 +509,21 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 18,
     fontWeight: '600',
-    marginTop: 10,
+    marginTop: SPACE.sm,
   },
 
   heroHint: {
     color: COLORS.muted,
     fontSize: 13,
-    marginTop: 6,
+    marginTop: SPACE.xs,
   },
   switchGrid: {
     flexDirection: 'row',
-    marginTop: 18,
-    paddingTop: 16,
+    marginTop: SPACE.lg,
+    paddingTop: SPACE.md,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-    gap: 10,
+    gap: SPACE.sm,
   },
   switchGridRtl: {
     flexDirection: 'row-reverse',
@@ -531,7 +534,7 @@ const styles = StyleSheet.create({
   },
   switchControl: {
     flexDirection: 'row',
-    marginTop: 10,
+    marginTop: SPACE.sm,
   },
   switchTitle: {
     color: COLORS.text,
@@ -541,15 +544,15 @@ const styles = StyleSheet.create({
   switchHint: {
     color: COLORS.muted,
     fontSize: 12,
-    marginTop: 3,
+    marginTop: SPACE.xs,
   },
   // v1.4.17: the service status sits on its OWN row with a coloured dot, so it
   // can never be read as part of the stats line above it.
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 10,
+    gap: SPACE.xs,
+    marginTop: SPACE.sm,
   },
   statusRowRtl: {
     flexDirection: 'row-reverse',
@@ -557,7 +560,7 @@ const styles = StyleSheet.create({
   statusDot: {
     width: 9,
     height: 9,
-    borderRadius: 5,
+    borderRadius: RADIUS.pill,
   },
   statusDotOk: {
     backgroundColor: COLORS.accent,
@@ -578,12 +581,12 @@ const styles = StyleSheet.create({
     color: COLORS.danger,
   },
   lockedBox: {
-    marginTop: 16,
+    marginTop: SPACE.md,
     backgroundColor: 'rgba(58,44,8,0.9)',
     borderColor: '#6B5110',
     borderWidth: 1,
-    borderRadius: 14,
-    padding: 12,
+    borderRadius: RADIUS.md,
+    padding: SPACE.sm,
   },
   lockedText: {
     color: '#EAD9A6',
@@ -593,11 +596,11 @@ const styles = StyleSheet.create({
   input: {
     color: COLORS.text,
     backgroundColor: COLORS.surfaceAlt,
-    borderRadius: 12,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: SPACE.md,
+    paddingVertical: SPACE.sm,
     minHeight: 56,
     fontSize: 15,
   },
@@ -607,13 +610,13 @@ const styles = StyleSheet.create({
   countLine: {
     color: COLORS.muted,
     fontSize: 12,
-    marginTop: 10,
+    marginTop: SPACE.sm,
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12,
+    gap: SPACE.xs,
+    marginTop: SPACE.sm,
   },
   emptyHint: {
     color: COLORS.muted,
@@ -623,19 +626,19 @@ const styles = StyleSheet.create({
     color: COLORS.pageWarning,
     fontSize: 13,
     lineHeight: 19,
-    marginTop: 20,
+    marginTop: SPACE.xl,
     textAlign: 'center',
   },
   footer: {
     color: COLORS.pageMuted,
     fontSize: 12,
     lineHeight: 18,
-    marginTop: 28,
+    marginTop: SPACE.xl,
   },
   versionText: {
     color: '#475569',
     fontSize: 11,
     textAlign: 'center',
-    marginTop: 14,
+    marginTop: SPACE.md,
   },
 });

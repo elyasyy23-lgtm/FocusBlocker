@@ -1,6 +1,14 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { COLORS, textAlign } from '../theme';
+import {
+  COLORS,
+  RADIUS,
+  SHADOW_BUTTON,
+  SHADOW_CARD,
+  SHADOW_SOFT,
+  SPACE,
+  textAlign,
+} from '../theme';
 
 /**
  * Shared presentation pieces for the main and the settings screen (v1.2.0).
@@ -9,9 +17,13 @@ import { COLORS, textAlign } from '../theme';
 
 export function Section({ title, subtitle, children, lang = 'en' }) {
   const align = textAlign(lang);
+  const rtl = lang === 'fa';
   return (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { textAlign: align }]}>{title}</Text>
+      <View style={[styles.sectionHead, rtl && styles.sectionHeadRtl]}>
+        <View style={styles.sectionRule} />
+        <Text style={[styles.sectionTitle, { textAlign: align }]}>{title}</Text>
+      </View>
       {subtitle ? (
         <Text style={[styles.sectionSubtitle, { textAlign: align }]}>{subtitle}</Text>
       ) : null}
@@ -163,45 +175,67 @@ export const uiStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   section: {
-    marginTop: 24,
+    marginTop: SPACE.xl,
+  },
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  sectionHeadRtl: {
+    flexDirection: 'row-reverse',
+  },
+  /** Short accent bar that anchors every section title. */
+  sectionRule: {
+    width: 4,
+    height: 18,
+    borderRadius: 2,
+    backgroundColor: COLORS.pageAccent,
   },
   sectionTitle: {
+    flexShrink: 1,
     color: COLORS.pageText,
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
+    letterSpacing: -0.2,
   },
   sectionSubtitle: {
     color: COLORS.pageMuted,
     fontSize: 13,
-    lineHeight: 19,
-    marginTop: 6,
+    lineHeight: 20,
+    marginTop: SPACE.xs,
   },
   sectionBody: {
-    marginTop: 12,
+    marginTop: SPACE.sm,
     backgroundColor: COLORS.surface,
-    borderRadius: 18,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 16,
+    padding: SPACE.lg,
+    ...SHADOW_CARD,
   },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 999,
-    paddingHorizontal: 10,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    borderColor: COLORS.borderSoft,
+    paddingHorizontal: SPACE.sm,
     paddingVertical: 5,
   },
   pillOn: {
-    backgroundColor: COLORS.accentSoft,
+    backgroundColor: COLORS.accentGlow,
+    borderColor: 'rgba(74,222,128,0.34)',
   },
   pillOff: {
-    backgroundColor: 'rgba(51,34,42,0.92)',
+    backgroundColor: COLORS.dangerGlow,
+    borderColor: 'rgba(248,113,113,0.32)',
   },
   dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    marginRight: 6,
+    width: 8,
+    height: 8,
+    borderRadius: RADIUS.pill,
+    marginRight: SPACE.xs,
   },
   dotOn: {
     backgroundColor: COLORS.accent,
@@ -220,25 +254,28 @@ const styles = StyleSheet.create({
     color: COLORS.danger,
   },
   button: {
-    marginTop: 4,
-    minHeight: 48,
-    borderRadius: 12,
+    marginTop: SPACE.xs,
+    minHeight: 50,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: SPACE.lg,
   },
   buttonPrimary: {
     backgroundColor: COLORS.accent,
+    ...SHADOW_BUTTON,
   },
   /** Stored — green until the editor text changes again. */
   buttonSaved: {
     backgroundColor: COLORS.success,
+    ...SHADOW_SOFT,
   },
   /** Edited but not saved yet — white, the owner's requested "needs saving" look. */
   buttonPending: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: COLORS.border,
+    ...SHADOW_SOFT,
   },
   buttonSecondary: {
     backgroundColor: COLORS.surfaceAlt,
@@ -254,6 +291,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 15,
     fontWeight: '700',
+    letterSpacing: 0.2,
     textAlign: 'center',
   },
   buttonTextPrimary: {
@@ -263,7 +301,7 @@ const styles = StyleSheet.create({
     color: COLORS.successText,
   },
   buttonTextPending: {
-    color: '#0F172A',
+    color: '#0B1420',
   },
   buttonTextSecondary: {
     color: COLORS.text,
@@ -271,11 +309,13 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: SPACE.xs,
     maxWidth: '100%',
     backgroundColor: COLORS.accentSoft,
-    borderRadius: 999,
-    paddingHorizontal: 12,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(74,222,128,0.22)',
+    paddingHorizontal: SPACE.sm,
     paddingVertical: 5,
   },
   chipRtl: {
@@ -293,7 +333,8 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   chipDanger: {
-    backgroundColor: 'rgba(51,34,42,0.92)',
+    backgroundColor: COLORS.dangerGlow,
+    borderColor: 'rgba(248,113,113,0.26)',
   },
   chipTextDanger: {
     color: COLORS.danger,
@@ -301,7 +342,7 @@ const styles = StyleSheet.create({
   chipRemove: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: RADIUS.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -321,18 +362,19 @@ const styles = StyleSheet.create({
   gift: {
     backgroundColor: 'rgba(18,53,35,0.72)',
     borderWidth: 1,
-    borderColor: 'rgba(74,222,128,0.35)',
-    borderRadius: 16,
-    padding: 14,
+    borderColor: 'rgba(74,222,128,0.30)',
+    borderRadius: RADIUS.lg,
+    padding: SPACE.md,
     flexDirection: 'row',
     alignItems: 'stretch',
-    marginBottom: 18,
+    marginBottom: SPACE.lg,
+    ...SHADOW_SOFT,
   },
   giftRule: {
     width: 3,
-    borderRadius: 3,
+    borderRadius: RADIUS.pill,
     backgroundColor: COLORS.accent,
-    marginRight: 12,
+    marginRight: SPACE.sm,
   },
   giftText: {
     flex: 1,

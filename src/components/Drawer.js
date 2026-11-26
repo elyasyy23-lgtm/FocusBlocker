@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { COLORS, textAlign } from '../theme';
+import { COLORS, RADIUS, SPACE, textAlign } from '../theme';
 import { VERSION_LABEL } from '../buildInfo';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: PANEL_WIDTH,
-    backgroundColor: '#0C1218',
+    backgroundColor: COLORS.background,
     borderColor: COLORS.border,
   },
   panelLeft: {
@@ -274,13 +274,13 @@ const styles = StyleSheet.create({
   content: {
     paddingTop: 56,
     paddingBottom: 32,
-    paddingHorizontal: 16,
+    paddingHorizontal: SPACE.md,
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    marginBottom: 22,
+    paddingHorizontal: SPACE.xs,
+    marginBottom: SPACE.xl,
   },
   rowRtl: {
     flexDirection: 'row-reverse',
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
   brandMark: {
     width: 46,
     height: 46,
-    borderRadius: 14,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.accentSoft,
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   },
   brandText: {
     flex: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: SPACE.sm,
   },
   brand: {
     color: COLORS.text,
@@ -316,21 +316,21 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   group: {
-    gap: 6,
+    gap: SPACE.xs,
   },
   divider: {
     height: 1,
     backgroundColor: COLORS.border,
-    marginVertical: 14,
-    marginHorizontal: 6,
+    marginVertical: SPACE.md,
+    marginHorizontal: SPACE.xs,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderRadius: 14,
-    gap: 12,
+    paddingVertical: SPACE.sm,
+    paddingHorizontal: SPACE.sm,
+    borderRadius: RADIUS.md,
+    gap: SPACE.sm,
   },
   rowActive: {
     backgroundColor: COLORS.accentSoft,
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   glyph: {
     width: 34,
     height: 34,
-    borderRadius: 11,
+    borderRadius: RADIUS.sm,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.surfaceAlt,
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
   version: {
     color: COLORS.muted,
     fontSize: 11,
-    marginTop: 26,
-    paddingHorizontal: 6,
+    marginTop: SPACE.xl,
+    paddingHorizontal: SPACE.xs,
   },
 });

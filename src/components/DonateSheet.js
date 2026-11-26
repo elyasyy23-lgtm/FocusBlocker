@@ -3,7 +3,7 @@ import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'r
 import * as Clipboard from 'expo-clipboard';
 import * as FocusGuard from '../../modules/focus-guard';
 import { ActionButton } from './ui';
-import { COLORS, textAlign } from '../theme';
+import { COLORS, RADIUS, SHADOW_CARD, SPACE, textAlign } from '../theme';
 import { DONATION_NETWORK, DONATION_WALLET, DONATION_ZARINPAL_URL } from '../defaults';
 
 /**
@@ -151,16 +151,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(3,6,10,0.86)',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 22,
+    padding: SPACE.xl,
   },
   card: {
     width: '100%',
     maxHeight: '88%',
-    backgroundColor: '#101820',
-    borderRadius: 20,
+    backgroundColor: COLORS.surfaceElevated,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 18,
+    padding: SPACE.lg,
+    ...SHADOW_CARD,
   },
   scrollContent: {
     paddingBottom: 4,
@@ -169,26 +170,26 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 19,
     fontWeight: '700',
-    marginBottom: 10,
+    marginBottom: SPACE.sm,
   },
   body: {
     color: COLORS.muted,
     fontSize: 14,
     lineHeight: 21,
-    marginBottom: 10,
+    marginBottom: SPACE.sm,
   },
   option: {
-    borderRadius: 16,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.surfaceAlt,
-    padding: 14,
-    marginTop: 12,
+    padding: SPACE.md,
+    marginTop: SPACE.sm,
   },
   optionHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACE.xs,
     marginBottom: 4,
   },
   optionHeadRtl: {
@@ -207,7 +208,7 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     fontSize: 13,
     lineHeight: 20,
-    marginBottom: 10,
+    marginBottom: SPACE.sm,
   },
   network: {
     color: COLORS.accent,
@@ -221,16 +222,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     backgroundColor: 'rgba(12,18,24,0.9)',
-    borderRadius: 12,
+    borderRadius: RADIUS.sm,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 12,
-    marginBottom: 10,
+    padding: SPACE.sm,
+    marginBottom: SPACE.sm,
   },
   closeRow: {
     alignSelf: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: SPACE.sm,
+    paddingHorizontal: SPACE.md,
     marginTop: 4,
   },
   closeText: {

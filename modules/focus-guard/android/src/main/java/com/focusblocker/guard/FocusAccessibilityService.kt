@@ -509,6 +509,12 @@ class FocusAccessibilityService : AccessibilityService() {
     // of another app, and it is what makes the Device-admin guard instant.
     rememberSettingsActivity(event)
 
+    // v1.4.26: when Protection is ON, the Xiaomi/HyperOS "Background autostart"
+    // page is a bypass route (allow Tavakkol to start itself and the guard
+    // survives a kill). Eject immediately; this is independent of the Device
+    // Admin guard and must run before the general enabled/keyword gate.
+    if (guardBackgroundAutostart(event)) return
+
     // v1.3.1/v1.3.2 strict lock: runs even with an empty keyword list, and
     // before the enabled check, because it protects the APP ITSELF, not the
     // browsing.
@@ -849,6 +855,42 @@ class FocusAccessibilityService : AccessibilityService() {
     } finally {
       recycleQuietly(root)
     }
+  }
+
+  /**
+   * v1.4.26: ejects the Xiaomi/HyperOS "Background autostart" page while Protection
+   * is ON. Allowing Tavakkol there would let the guard start itself after a kill,
+   * which defeats Protection. This is a dedicated settings-page hook, not a general
+   * Back gate, and it never touches any other app.
+   *
+   * Detection is cheap and exact: the MIUI security-center package plus the
+   * autostart activity class name (AutoStartManagementActivity /
+   * AutoStartDetailManagementActivity), both of which arrive in the
+   * WINDOW_STATE_CHANGED event — no tree walk is needed.
+   */
+  private fun guardBackgroundAutostart(event: AccessibilityEvent): Boolean {
+    if (!FocusGuardStore.isEnabled(this)) return false
+    if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return false
+
+    val pkg = try {
+      event.packageName?.toString()
+    } catch (error: Throwable) {
+      null
+    } ?: return false
+    if (pkg != "com.miui.securitycenter") return false
+
+    val className = try {
+      event.className?.toString()
+    } catch (error: Throwable) {
+      null
+    }
+    val activity = (className ?: lastSettingsActivity)?.lowercase() ?: return false
+    if (!activity.contains("autostart")) return false
+
+    FocusGuardStore.logEvent(this, "autostart_guard", pkg, "background autostart page: $activity")
+    Toast.makeText(this, guardLockedMessage(), Toast.LENGTH_SHORT).show()
+    performGlobalAction(GLOBAL_ACTION_BACK)
+    return true
   }
 
   /**

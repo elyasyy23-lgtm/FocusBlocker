@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { GiftNote } from '../components/ui';
-import { COLORS, textAlign } from '../theme';
+import { COLORS, RADIUS, SHADOW_CARD, SPACE, textAlign } from '../theme';
 
 const BACKGROUND = require('../../assets/background.jpg');
 
@@ -137,14 +137,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.overlay,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: (StatusBar.currentHeight || 24) + 14,
+    paddingHorizontal: SPACE.lg,
+    paddingTop: (StatusBar.currentHeight || 24) + SPACE.md,
     paddingBottom: 40,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: SPACE.sm,
   },
   headerRtl: {
     flexDirection: 'row-reverse',
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
   backButton: {
     width: 42,
     height: 42,
-    borderRadius: 21,
+    borderRadius: RADIUS.pill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.surfaceAlt,
@@ -187,30 +187,31 @@ const styles = StyleSheet.create({
     color: COLORS.pageMuted,
     fontSize: 14,
     lineHeight: 21,
-    marginTop: 6,
+    marginTop: SPACE.xs,
     marginBottom: 4,
   },
   step: {
-    marginTop: 14,
+    marginTop: SPACE.md,
     backgroundColor: COLORS.surface,
-    borderRadius: 18,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 16,
+    padding: SPACE.md,
+    ...SHADOW_CARD,
   },
   stepHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: SPACE.xs,
   },
   stepNumber: {
     width: 26,
     height: 26,
-    borderRadius: 13,
+    borderRadius: RADIUS.pill,
     backgroundColor: COLORS.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: SPACE.sm,
   },
   stepNumberText: {
     color: COLORS.accent,
@@ -235,21 +236,21 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     fontSize: 14,
     lineHeight: 21,
-    marginBottom: 10,
+    marginBottom: SPACE.sm,
   },
   vpnNote: {
-    marginTop: 20,
+    marginTop: SPACE.lg,
     backgroundColor: 'rgba(58,44,8,0.92)',
     borderColor: '#6B5110',
     borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: RADIUS.md,
+    padding: SPACE.md,
   },
   vpnTitle: {
     color: COLORS.warning,
     fontSize: 14,
     fontWeight: '700',
-    marginBottom: 6,
+    marginBottom: SPACE.xs,
   },
   vpnText: {
     color: '#EAD9A6',
@@ -257,7 +258,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   noteWrap: {
-    marginTop: 24,
+    marginTop: SPACE.xl,
   },
   version: {
     color: COLORS.pageMuted,

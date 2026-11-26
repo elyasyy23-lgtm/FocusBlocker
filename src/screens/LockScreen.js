@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import PinPad from '../components/PinPad';
-import { COLORS, textAlign } from '../theme';
+import { COLORS, RADIUS, SPACE, textAlign } from '../theme';
 import { formatNumber } from '../i18n';
 
 /**
@@ -193,20 +193,20 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: SPACE.xl,
     paddingVertical: 32,
     backgroundColor: 'transparent',
   },
   badge: {
     width: 64,
     height: 64,
-    borderRadius: 32,
+    borderRadius: RADIUS.pill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.surfaceAlt,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 16,
+    marginBottom: SPACE.md,
   },
   badgeIcon: {
     fontSize: 26,
@@ -220,8 +220,8 @@ const styles = StyleSheet.create({
   subtitle: {
     color: COLORS.pageMuted,
     fontSize: 14,
-    marginTop: 6,
-    marginBottom: 20,
+    marginTop: SPACE.xs,
+    marginBottom: SPACE.xl,
     alignSelf: 'stretch',
     lineHeight: 20,
   },
@@ -229,24 +229,24 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   busyRow: {
-    marginTop: 8,
+    marginTop: SPACE.xs,
     height: 24,
     justifyContent: 'center',
   },
   error: {
     color: COLORS.pageError,
     fontSize: 14,
-    marginTop: 8,
+    marginTop: SPACE.xs,
     fontWeight: '600',
   },
   hint: {
     color: COLORS.pageMuted,
     fontSize: 12,
-    marginTop: 8,
+    marginTop: SPACE.xs,
   },
   lockout: {
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: SPACE.xs,
   },
   lockoutText: {
     color: COLORS.pageError,

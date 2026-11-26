@@ -19,7 +19,7 @@ import {
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import * as FocusGuard from './modules/focus-guard';
 import { createTranslator } from './src/i18n';
-import { COLORS, textAlign } from './src/theme';
+import { COLORS, RADIUS, SHADOW_CARD, SPACE, textAlign } from './src/theme';
 import { ActionButton } from './src/components/ui';
 import Drawer from './src/components/Drawer';
 import DonateSheet from './src/components/DonateSheet';
@@ -1006,8 +1006,8 @@ const styles = StyleSheet.create({
   delayRoot: {
     flex: 1,
     backgroundColor: COLORS.background,
-    paddingHorizontal: 20,
-    paddingTop: (StatusBar.currentHeight || 24) + 16,
+    paddingHorizontal: SPACE.lg,
+    paddingTop: (StatusBar.currentHeight || 24) + SPACE.md,
   },
   delayTitle: {
     color: COLORS.text,
@@ -1018,22 +1018,23 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     fontSize: 14,
     lineHeight: 21,
-    marginTop: 10,
+    marginTop: SPACE.sm,
   },
   delayScroll: {
     flex: 1,
-    marginTop: 16,
+    marginTop: SPACE.md,
   },
   delayScrollContent: {
     paddingBottom: 40,
   },
   challengeBox: {
     backgroundColor: COLORS.surface,
-    borderRadius: 14,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 14,
-    marginBottom: 14,
+    padding: SPACE.md,
+    marginBottom: SPACE.md,
+    ...SHADOW_CARD,
   },
   challengeText: {
     color: COLORS.text,
@@ -1043,11 +1044,11 @@ const styles = StyleSheet.create({
   input: {
     color: COLORS.text,
     backgroundColor: COLORS.surfaceAlt,
-    borderRadius: 12,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: SPACE.md,
+    paddingVertical: SPACE.sm,
     fontSize: 15,
   },
   delayInput: {
@@ -1057,47 +1058,48 @@ const styles = StyleSheet.create({
   delayProgress: {
     color: COLORS.muted,
     fontSize: 12,
-    marginTop: 8,
+    marginTop: SPACE.xs,
   },
   delayError: {
     color: COLORS.danger,
     fontSize: 13,
     fontWeight: '600',
-    marginTop: 8,
+    marginTop: SPACE.xs,
   },
   delayGap: {
-    height: 8,
+    height: SPACE.xs,
   },
   updateBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(3,6,10,0.86)',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 22,
+    padding: SPACE.xl,
   },
   updateCard: {
     width: '100%',
-    backgroundColor: '#101820',
-    borderRadius: 20,
+    backgroundColor: COLORS.surfaceElevated,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 18,
+    padding: SPACE.lg,
+    ...SHADOW_CARD,
   },
   updateTitle: {
     color: COLORS.text,
     fontSize: 19,
     fontWeight: '700',
-    marginBottom: 10,
+    marginBottom: SPACE.sm,
   },
   updateBody: {
     color: COLORS.muted,
     fontSize: 14,
     lineHeight: 21,
-    marginBottom: 8,
+    marginBottom: SPACE.xs,
   },
   updateMeta: {
     color: COLORS.muted,
     fontSize: 12,
-    marginBottom: 14,
+    marginBottom: SPACE.md,
   },
 });

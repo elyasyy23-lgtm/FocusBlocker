@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { COLORS } from '../theme';
+import { COLORS, RADIUS, SPACE } from '../theme';
 
 /**
  * Numeric keypad + PIN dots (v1.3.1).
@@ -101,13 +101,13 @@ const styles = StyleSheet.create({
   dots: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 10,
-    marginBottom: 18,
+    gap: SPACE.sm,
+    marginBottom: SPACE.lg,
   },
   dot: {
     width: 12,
     height: 12,
-    borderRadius: 6,
+    borderRadius: RADIUS.pill,
   },
   dotOn: {
     backgroundColor: COLORS.accent,
@@ -118,8 +118,8 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 12,
-    marginBottom: 10,
+    gap: SPACE.sm,
+    marginBottom: SPACE.sm,
   },
   key: {
     width: 72,
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   keyBtn: {
     width: 72,
     height: 56,
-    borderRadius: 16,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.surfaceAlt,

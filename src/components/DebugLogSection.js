@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import * as FocusGuard from '../../modules/focus-guard';
 import { ActionButton, Section } from './ui';
-import { COLORS, textAlign } from '../theme';
+import { COLORS, RADIUS, SPACE, textAlign } from '../theme';
 import { formatHeartbeat, formatLogTime, logTypeColor, shortPackage } from '../utils/debugLog';
 
 /**
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   healthLine: {
     fontSize: 12,
     lineHeight: 18,
-    marginBottom: 12,
+    marginBottom: SPACE.sm,
   },
   healthOk: {
     color: COLORS.accent,
@@ -257,9 +257,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingTop: (StatusBar.currentHeight || 24) + 14,
-    paddingBottom: 12,
+    paddingHorizontal: SPACE.lg,
+    paddingTop: (StatusBar.currentHeight || 24) + SPACE.md,
+    paddingBottom: SPACE.sm,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
@@ -277,8 +277,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   logClose: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: SPACE.sm,
+    paddingVertical: SPACE.xs,
   },
   logCloseText: {
     color: COLORS.accent,
@@ -286,8 +286,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   logHealth: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingHorizontal: SPACE.lg,
+    paddingVertical: SPACE.sm,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
@@ -295,27 +295,27 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     fontSize: 11,
     lineHeight: 17,
-    marginBottom: 8,
+    marginBottom: SPACE.xs,
   },
   logLoader: {
-    marginTop: 30,
+    marginTop: SPACE.xl,
   },
   logList: {
-    padding: 12,
+    padding: SPACE.sm,
   },
   logEmpty: {
     color: COLORS.muted,
     fontSize: 13,
     lineHeight: 20,
-    padding: 16,
+    padding: SPACE.md,
     textAlign: 'center',
   },
   logRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: SPACE.xs,
     paddingVertical: 7,
-    paddingHorizontal: 6,
+    paddingHorizontal: SPACE.xs,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(58,72,90,0.35)',
   },
@@ -342,8 +342,8 @@ const styles = StyleSheet.create({
   },
   logFooter: {
     flexDirection: 'row',
-    gap: 12,
-    padding: 14,
+    gap: SPACE.sm,
+    padding: SPACE.md,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
   },

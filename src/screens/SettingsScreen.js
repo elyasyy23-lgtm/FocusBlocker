@@ -17,7 +17,7 @@ import {
 import * as FocusGuard from '../../modules/focus-guard';
 import { ActionButton, Section, StatusPill } from '../components/ui';
 import PinPad from '../components/PinPad';
-import { COLORS, textAlign } from '../theme';
+import { COLORS, RADIUS, SHADOW_CARD, SHADOW_SOFT, SPACE, textAlign } from '../theme';
 import { LANGUAGES, formatNumber } from '../i18n';
 import { VERSION_LABEL } from '../buildInfo';
 import { formatClock, formatHeartbeat } from '../utils/debugLog';
@@ -1052,8 +1052,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     lineHeight: 24,
-    marginTop: 4,
-    marginBottom: 6,
+    marginTop: SPACE.xs,
+    marginBottom: SPACE.xs,
   },
   root: {
     flex: 1,
@@ -1064,14 +1064,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.overlay,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: (StatusBar.currentHeight || 24) + 14,
+    paddingHorizontal: SPACE.lg,
+    paddingTop: (StatusBar.currentHeight || 24) + SPACE.md,
     paddingBottom: 40,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: SPACE.xs,
   },
   headerRtl: {
     flexDirection: 'row-reverse',
@@ -1079,12 +1079,13 @@ const styles = StyleSheet.create({
   menuButton: {
     width: 44,
     height: 44,
-    borderRadius: 14,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.surfaceAlt,
     borderWidth: 1,
     borderColor: COLORS.border,
+    ...SHADOW_SOFT,
   },
   menuIcon: {
     color: COLORS.text,
@@ -1112,12 +1113,12 @@ const styles = StyleSheet.create({
   },
   langRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: SPACE.sm,
   },
   langOption: {
     flex: 1,
     minHeight: 46,
-    borderRadius: 12,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.surfaceAlt,
@@ -1140,19 +1141,19 @@ const styles = StyleSheet.create({
   input: {
     color: COLORS.text,
     backgroundColor: COLORS.surfaceAlt,
-    borderRadius: 12,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: SPACE.md,
+    paddingVertical: SPACE.sm,
     fontSize: 15,
     minHeight: 48,
   },
   remoteRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 6,
+    gap: SPACE.sm,
+    marginBottom: SPACE.xs,
   },
   remoteLabel: {
     flex: 1,
@@ -1165,33 +1166,34 @@ const styles = StyleSheet.create({
   remoteHint: {
     color: COLORS.muted,
     fontSize: 12,
-    marginTop: 3,
+    marginTop: SPACE.xs,
   },
   fieldLabel: {
     color: COLORS.muted,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.3,
-    marginTop: 12,
-    marginBottom: 6,
+    marginTop: SPACE.sm,
+    marginBottom: SPACE.xs,
   },
   // v1.4.17: a bordered card identical to the Service Status card (which is the
   // Section body) — same background, border, radius and padding. Used by the
   // Autostart block so the two look like a matched pair.
   cardBox: {
-    marginTop: 12,
+    marginTop: SPACE.sm,
     backgroundColor: COLORS.surface,
-    borderRadius: 18,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 16,
+    padding: SPACE.md,
+    ...SHADOW_CARD,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 12,
+    gap: SPACE.sm,
+    marginBottom: SPACE.sm,
   },
   statusTextWrap: {
     flex: 1,
@@ -1204,7 +1206,7 @@ const styles = StyleSheet.create({
   statusHint: {
     color: COLORS.muted,
     fontSize: 12,
-    marginTop: 3,
+    marginTop: SPACE.xs,
   },
   // v1.4.19: the boot-test result line inside the Autostart card. Green when the
   // system really started Tavakkol after the last restart, red when it did not,
@@ -1214,7 +1216,7 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 19,
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: SPACE.sm,
   },
   bootLineOk: {
     color: COLORS.accent,
@@ -1224,16 +1226,16 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
+    gap: SPACE.sm,
+    marginBottom: SPACE.sm,
   },
   statBox: {
     flex: 1,
     backgroundColor: COLORS.surfaceAlt,
-    borderRadius: 14,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.border,
-    paddingVertical: 14,
+    paddingVertical: SPACE.md,
     alignItems: 'center',
   },
   statValue: {
@@ -1249,14 +1251,14 @@ const styles = StyleSheet.create({
   lastBlockLine: {
     color: COLORS.muted,
     fontSize: 12,
-    marginBottom: 12,
+    marginBottom: SPACE.sm,
   },
   excludedMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: SPACE.sm,
+    marginBottom: SPACE.xs,
   },
   excludedCount: {
     color: COLORS.muted,
@@ -1270,8 +1272,8 @@ const styles = StyleSheet.create({
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 14,
+    gap: SPACE.sm,
+    paddingVertical: SPACE.md,
   },
   loadingText: {
     color: COLORS.muted,
@@ -1280,7 +1282,7 @@ const styles = StyleSheet.create({
   emptyText: {
     color: COLORS.muted,
     fontSize: 13,
-    paddingVertical: 14,
+    paddingVertical: SPACE.md,
   },
   appRow: {
     flexDirection: 'row',
@@ -1289,7 +1291,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(58,72,90,0.45)',
-    gap: 12,
+    gap: SPACE.sm,
   },
   appRowChecked: {
     backgroundColor: 'rgba(18,53,35,0.45)',
@@ -1330,12 +1332,12 @@ const styles = StyleSheet.create({
   hint: {
     color: COLORS.muted,
     fontSize: 12,
-    marginTop: 12,
+    marginTop: SPACE.sm,
   },
   showMore: {
     alignSelf: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: SPACE.sm,
+    paddingHorizontal: SPACE.sm,
   },
   showMoreText: {
     color: COLORS.accent,
@@ -1346,57 +1348,58 @@ const styles = StyleSheet.create({
     color: COLORS.pageMuted,
     fontSize: 12,
     textAlign: 'center',
-    marginTop: 26,
+    marginTop: SPACE.xl,
   },
   body: {
     color: COLORS.muted,
     fontSize: 14,
     lineHeight: 21,
-    marginBottom: 10,
+    marginBottom: SPACE.sm,
   },
   pinError: {
     color: COLORS.danger,
     fontSize: 13,
     fontWeight: '600',
-    marginTop: 8,
+    marginTop: SPACE.xs,
   },
   pinPad: {
     alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 4,
+    marginTop: SPACE.sm,
+    marginBottom: SPACE.xs,
   },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(3,6,10,0.86)',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 22,
+    padding: SPACE.xl,
   },
   modalCard: {
     width: '100%',
-    backgroundColor: '#101820',
-    borderRadius: 20,
+    backgroundColor: COLORS.surfaceElevated,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 18,
+    padding: SPACE.lg,
+    ...SHADOW_CARD,
   },
   modalTitle: {
     color: COLORS.text,
     fontSize: 19,
     fontWeight: '700',
-    marginBottom: 10,
+    marginBottom: SPACE.sm,
   },
   footer: {
     color: '#475569',
     fontSize: 12,
     textAlign: 'center',
-    marginTop: 6,
+    marginTop: SPACE.xs,
   },
   message: {
     color: COLORS.pageWarning,
     fontSize: 13,
     lineHeight: 19,
-    marginTop: 18,
+    marginTop: SPACE.lg,
     textAlign: 'center',
   },
 });
