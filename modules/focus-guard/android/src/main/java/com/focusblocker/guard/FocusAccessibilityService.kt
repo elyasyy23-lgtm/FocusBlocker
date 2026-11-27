@@ -96,7 +96,6 @@ class FocusAccessibilityService : AccessibilityService() {
      */
     private const val ADMIN_BACK_WINDOW_MS = 6000L
     private const val MAX_ADMIN_BACKS = 3
-    private const val ACCESSIBILITY_GUARD_WINDOW_MS = 1200L
 
     /** Text that identifies OUR app on a Settings page. */
     private val OUR_PAGE_TOKENS = arrayOf("tavakkol", "توکل", "com.focusblocker.app")
@@ -260,7 +259,7 @@ class FocusAccessibilityService : AccessibilityService() {
   private var lastSettingsActivity: String? = null
   private var lastAdminBackAt = 0L
   private var adminBackCount = 0
-  private var lastAccessibilityGuardBackAt = 0L
+  // No throttle: while Protection is ON, always kick out of Tavakkol accessibility settings.
 
   override fun onServiceConnected() {
     super.onServiceConnected()
@@ -943,10 +942,6 @@ class FocusAccessibilityService : AccessibilityService() {
     }
 
     if (!isAccessibilityServiceClass && !hasTavakkolGuardText) return false
-
-    val now = System.currentTimeMillis()
-    if (now - lastAccessibilityGuardBackAt < ACCESSIBILITY_GUARD_WINDOW_MS) return true
-    lastAccessibilityGuardBackAt = now
 
     FocusGuardStore.logEvent(this, "accessibility_guard", pkg, "blocked accessibility settings: $activity")
     Toast.makeText(this, guardLockedMessage(), Toast.LENGTH_SHORT).show()
