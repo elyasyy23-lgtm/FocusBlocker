@@ -96,6 +96,7 @@ class FocusAccessibilityService : AccessibilityService() {
      */
     private const val ADMIN_BACK_WINDOW_MS = 6000L
     private const val MAX_ADMIN_BACKS = 3
+    private const val ACCESSIBILITY_GUARD_WINDOW_MS = 1200L
 
     /** Text that identifies OUR app on a Settings page. */
     private val OUR_PAGE_TOKENS = arrayOf("tavakkol", "توکل", "com.focusblocker.app")
@@ -259,6 +260,7 @@ class FocusAccessibilityService : AccessibilityService() {
   private var lastSettingsActivity: String? = null
   private var lastAdminBackAt = 0L
   private var adminBackCount = 0
+  private var lastAccessibilityGuardBackAt = 0L
 
   override fun onServiceConnected() {
     super.onServiceConnected()
@@ -514,6 +516,10 @@ class FocusAccessibilityService : AccessibilityService() {
     // survives a kill). Eject immediately; this is independent of the Device
     // Admin guard and must run before the general enabled/keyword gate.
     if (guardBackgroundAutostart(event)) return
+
+    // v1.4.26: when Protection is ON, block the Android Accessibility Service
+    // settings page for Tavakkol guard so the service cannot be toggled off.
+    if (guardAccessibilityServiceSettings(event)) return
 
     // v1.3.1/v1.3.2 strict lock: runs even with an empty keyword list, and
     // before the enabled check, because it protects the APP ITSELF, not the
@@ -888,6 +894,61 @@ class FocusAccessibilityService : AccessibilityService() {
     if (!activity.contains("autostart")) return false
 
     FocusGuardStore.logEvent(this, "autostart_guard", pkg, "background autostart page: $activity")
+    Toast.makeText(this, guardLockedMessage(), Toast.LENGTH_SHORT).show()
+    performGlobalAction(GLOBAL_ACTION_BACK)
+    return true
+  }
+
+  /**
+   * v1.4.26: while Protection is ON, block the Android Accessibility Service
+   * settings page for "Tavakkol guard" so the service cannot be toggled off.
+   * Detects com.android.settings plus either the "Tavakkol guard" text on
+   * screen or an accessibility service settings class name.
+   */
+  private fun guardAccessibilityServiceSettings(event: AccessibilityEvent): Boolean {
+    if (!FocusGuardStore.isEnabled(this)) return false
+
+    val pkg = try {
+      event.packageName?.toString()
+    } catch (error: Throwable) {
+      null
+    } ?: return false
+    if (pkg != "com.android.settings") return false
+
+    val className = try {
+      event.className?.toString()?.lowercase()
+    } catch (error: Throwable) {
+      null
+    } ?: ""
+    val activity = (className.ifEmpty { lastSettingsActivity?.lowercase() ?: "" })
+
+    val isAccessibilityServiceClass =
+      activity.contains("accessibility") && (activity.contains("service") || activity.contains("detail") || activity.contains("toggle"))
+
+    var hasTavakkolGuardText = false
+    if (!isAccessibilityServiceClass) {
+      val root = try {
+        rootInActiveWindow
+      } catch (error: Throwable) {
+        null
+      }
+      if (root != null) {
+        try {
+          val screen = collectScreenText(root).lowercase()
+          hasTavakkolGuardText = screen.contains("tavakkol guard") || screen.contains("use tavakkol guard")
+        } finally {
+          recycleQuietly(root)
+        }
+      }
+    }
+
+    if (!isAccessibilityServiceClass && !hasTavakkolGuardText) return false
+
+    val now = System.currentTimeMillis()
+    if (now - lastAccessibilityGuardBackAt < ACCESSIBILITY_GUARD_WINDOW_MS) return true
+    lastAccessibilityGuardBackAt = now
+
+    FocusGuardStore.logEvent(this, "accessibility_guard", pkg, "blocked accessibility settings: $activity")
     Toast.makeText(this, guardLockedMessage(), Toast.LENGTH_SHORT).show()
     performGlobalAction(GLOBAL_ACTION_BACK)
     return true
